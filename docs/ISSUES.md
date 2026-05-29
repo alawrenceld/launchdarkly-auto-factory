@@ -46,6 +46,21 @@ work lives in the milestones in `docs/build-checklist.md`; this file is the "don
 
 ---
 
+## PACKAGING / CONVENTIONS
+
+### I9. Agent output tag conventions
+- **What:** The exact tag keys/values agents emit for the review verdict (approve/reject) and the risk
+  level, which the approval step reads.
+- **Status:** `interpretWalk` checks common keys (`review_decision`/`decision`/`approved`, `risk`/
+  `risk_level`) as a best-effort. Confirm against the real agent configs and pin them.
+
+### I10. Package/publish the Phase 1 action
+- **What:** For `uses: <owner>/launchdarkly-auto-factory/packages/phase1-resource-factory@ref` to
+  resolve, the esbuild bundle (`dist/action.bundle.js`) must be committed or the action published.
+- **Status:** the bundle builds (`npm run bundle`) but isn't committed (it's gitignored build output,
+  and the action can't function until Vega is wired anyway — I1). Decide commit-the-bundle vs. a release
+  workflow when I1 lands.
+
 ## OPEN QUESTIONS — partial info
 
 ### I5. Reading a flag's release policy

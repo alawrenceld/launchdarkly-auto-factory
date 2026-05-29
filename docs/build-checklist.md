@@ -128,28 +128,24 @@ research → flagging → **metrics** → testing → review. The reference buil
 (metrics is not yet a separate config), so the **metrics agent is authored new** — it is a core node,
 not an optional enhancement.
 
-- [ ] `packages/phase1-resource-factory/github-action/`: assemble PR context (diff, files, metadata)
-- [ ] Dispatch to Vega: **async dispatch + poll to terminal status**; pass PR context; reference the
-      agent graph
-- [ ] **Trigger on PR opened/synchronized** — runs automatically on every PR, **no label gate**
-      (deliberate divergence from the reference, for minimal dev friction / max splash). A path or size
-      filter may be added later to skip trivial PRs, but the default is: open a PR, the magic happens.
-- [ ] Walk the agent graph: follow edges, honor handoff conditions (skip-if / require tags), thread each
-      node's output to the next
-- [ ] `adapters/ci-github/`: read PR, post a status/summary comment with run results
-- [ ] `adapters/ld/`: idempotent flag + metric creation (stable keys derived from PR/feature → re-runs
-      are no-ops)
-- [ ] `agents/`: sanitized local copies of each agent's instructions ⚠️ (research, flagging, metrics,
-      testing, review)
-- [ ] **Author the metrics agent** (no reference config exists): write its instructions (what to
-      measure, event instrumentation, tie metrics to the flag's release), create the AI config, and
-      **extend the agent graph** to insert it after flagging (handoff carries the created flag key)
-- [ ] **Approval mode from a LaunchDarkly flag**, scoped per-repo, default **Yolo**; hardcoded fallback
-  - [ ] Yolo: auto-apply on APPROVE
-  - [ ] Manual: require human approval in GitHub
-  - [ ] Middle: gate on the research agent's risk score (thresholds deferred)
-- [ ] Code-delivery mechanism implemented per §S decision, with the CI-loop guard
-- [ ] End-to-end test on a real demo PR (label → flag+metric created + code wired → approved)
+- [x] Assemble PR context (`prContext.ts`) from the GitHub event payload + env
+- [x] Dispatch to Vega via `VegaClient` (async dispatch + poll); transport is the stub until I1
+- [x] **Trigger on PR opened/synchronized/reopened** — no label gate (workflow template in
+      `bootstrap/github-action-template/auto-factory.yml`)
+- [x] Walk the agent graph (`graphWalker.ts`): follows edges, honors handoff `skip_if_tags` /
+      `require_tags`, threads each node's output. **Unit-tested** (3 cases incl. triage short-circuit)
+- [x] **Approval logic** (`approval.ts`): yolo (auto-apply) / manual (human) / middle (gate on risk);
+      default yolo; mode via env fallback (LD-flag read = ISSUES I6); verdict/risk read from tags (I9)
+- [x] `action.yml` + `esbuild` bundle (`npm run bundle`) → node20 GitHub action
+- [~] `adapters/ci-github/`: action prints a run summary; **posting the PR comment not yet wired**
+- [—] `adapters/ld/` idempotent flag+metric: in this design the **agents create flags/metrics via Vega
+      tools**, not the action; `LdClient` wrappers exist if a non-agent path is needed
+- [ ] `agents/`: sanitized local copies of each agent's instructions → **ISSUES I3**
+- [ ] **Author the metrics agent** (core 5th node) — needs the agent-authoring + sanitization pass
+      (ISSUES I3); not built blind
+- [ ] Code-delivery mechanism + CI-loop guard — **open** (depends on the source material; ISSUES carries it)
+- [ ] **Package/publish the action** so `uses:` resolves: commit/publish the esbuild bundle → **ISSUES I10**
+- [ ] End-to-end test on a real demo PR — **blocked on the real Vega transport (ISSUES I1)**
 
 ---
 

@@ -1,0 +1,36 @@
+name: "LaunchDarkly Auto-Factory — Phase 1"
+description: >
+  On a pull request, a chain of LaunchDarkly-hosted agents (Vega) decides whether
+  the PR needs a feature flag, creates the flag + metrics, wires them into the
+  code, tests, and reviews — gated by an approval mode.
+author: "LaunchDarkly"
+
+inputs:
+  ld_api_key:
+    description: "LaunchDarkly API key (write access to flags/metrics/AI configs)."
+    required: true
+  ld_project_key:
+    description: "Target LaunchDarkly project key."
+    required: true
+  ld_base_url:
+    description: "LaunchDarkly API base URL."
+    required: false
+    default: "https://app.launchdarkly.com"
+  graph_file:
+    description: "Path to the agent graph JSON to walk."
+    required: true
+  approval_mode:
+    description: "yolo | middle | manual (default yolo)."
+    required: false
+    default: "yolo"
+  vega_endpoint:
+    description: "Vega dispatch endpoint (placeholder until the public API is documented)."
+    required: false
+  github_token:
+    description: "Token for posting the PR summary comment."
+    required: false
+
+runs:
+  using: "node20"
+  # Built by `npm run bundle -w @auto-factory/phase1-resource-factory` (esbuild).
+  main: "dist/action.bundle.js"

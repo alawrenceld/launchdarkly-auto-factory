@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/shared" },
     { "path": "packages/config-bridge" },
-    { "path": "packages/beacon" }
+    { "path": "packages/beacon" },
+    { "path": "packages/phase1-resource-factory" }
   ]
 }

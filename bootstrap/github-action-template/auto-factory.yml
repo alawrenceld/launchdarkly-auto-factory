@@ -1,0 +1,32 @@
+# Drop this into a partner repo at .github/workflows/auto-factory.yml
+#
+# Phase 1 runs automatically on every PR (opened/updated) — NO label gate.
+# Open a PR and the agents do the rest.
+
+name: LaunchDarkly Auto-Factory
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write        # agents may wire flags into the PR branch
+  pull-requests: write   # post the summary comment
+
+jobs:
+  auto-factory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: LaunchDarkly Auto-Factory — Phase 1
+        # Replace <owner> with the repo hosting this action (subdir action ref).
+        uses: <owner>/launchdarkly-auto-factory/packages/phase1-resource-factory@main
+        with:
+          ld_api_key: ${{ secrets.LD_API_KEY }}
+          ld_project_key: ${{ vars.LD_PROJECT_KEY }}
+          graph_file: config/agentcontrol/graphs/auto-factory.json
+          approval_mode: yolo
+          github_token: ${{ secrets.GITHUB_TOKEN }}
