@@ -77,8 +77,8 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
       `ReleaseFlagFile`/`DiscoveredFlag`, `ApprovalMode`, `RiskLevel`, `DeployNotification`
 - [x] **Vega client interface** (`vegaClient.ts`): stable `VegaTransport` seam + `VegaClient` poll loop;
       `StubVegaTransport` throws until real API docs land (PLACEHOLDER, isolated)
-- [~] Unit tests: release-instruction builder + scope matrix done (`tests/logic.test.ts`). Mocked-HTTP
-      client tests + config-loader tests still pending.
+- [~] Unit tests (`tests/`, 13 passing): release-instruction builder, scope matrix, graph walker,
+      discovery diff, config loaders. Mocked-HTTP `LdClient` tests still pending.
 
 ---
 
@@ -93,8 +93,8 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
       deferred (we hold references, not definitions) → **ISSUES I4**
 - [ ] Canonical starting configs + graphs committed under `config/agentcontrol/` (sanitized) →
       **ISSUES I3** (needs human sanitization review before public commit)
-- [ ] Dry-run mode (print planned changes without writing) — not yet
-- [ ] Tests against a mocked API — not yet (tracked with M2 tests)
+- [x] Dry-run mode (`provision --dry-run`): reads only, reports planned writes without mutating
+- [~] Tests: discovery + config-loader covered (`tests/`); mocked-HTTP client tests still pending
 
 ---
 
@@ -140,7 +140,7 @@ not an optional enhancement.
 - [x] **Approval logic** (`approval.ts`): yolo (auto-apply) / manual (human) / middle (gate on risk);
       default yolo; mode via env fallback (LD-flag read = ISSUES I6); verdict/risk read from tags (I9)
 - [x] `action.yml` + `esbuild` bundle (`npm run bundle`) → node20 GitHub action
-- [~] `adapters/ci-github/`: action prints a run summary; **posting the PR comment not yet wired**
+- [x] `adapters/ci-github/`: posts a PR summary comment (`comment.ts`, best-effort) + run-summary log
 - [—] `adapters/ld/` idempotent flag+metric: in this design the **agents create flags/metrics via Vega
       tools**, not the action; `LdClient` wrappers exist if a non-agent path is needed
 - [ ] `agents/`: sanitized local copies of each agent's instructions → **ISSUES I3**

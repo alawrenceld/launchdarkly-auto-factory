@@ -11,6 +11,7 @@
 import { readFileSync } from "node:fs";
 import { StubVegaTransport, VegaClient, type VegaTransport } from "@auto-factory/shared";
 import { decideApproval, getApprovalMode, interpretWalk } from "./approval.js";
+import { postPrComment } from "./comment.js";
 import { type AgentGraph, walkGraph } from "./graphWalker.js";
 import { assemblePrContext } from "./prContext.js";
 
@@ -66,6 +67,18 @@ async function main(): Promise<void> {
   } else {
     console.log("✗ Not applied.");
   }
+
+  const summary = [
+    "### LaunchDarkly Auto-Factory — Phase 1",
+    "",
+    `**Agents:** ${walk.runs.map((r) => r.configKey).join(" → ") || "(none ran)"}`,
+    walk.skipped.length ? `**Skipped:** ${walk.skipped.join(", ")}` : "",
+    "",
+    `**Approval (${mode}):** ${decision.reason}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  await postPrComment(summary, { prNumber: context.PR_NUMBER, repo: context.REPO });
 
   // Non-zero exit signals the PR check should fail (rejected).
   if (!decision.apply && !decision.requiresHuman) process.exitCode = 1;

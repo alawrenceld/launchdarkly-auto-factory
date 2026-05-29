@@ -77,6 +77,7 @@ async function provisionAiConfig(
   ld: LdClient,
   cfg: AiConfigFile,
   result: ProvisionResult,
+  dryRun: boolean,
 ): Promise<void> {
   const variations = cfg.variations ?? [];
   const existing = await ld.getAiConfig<{ variations?: { key: string }[] }>(cfg.key);
@@ -95,7 +96,7 @@ async function provisionAiConfig(
     };
     if (variations[0]) body.defaultVariation = mapVariation(variations[0], cfg.key, result);
     try {
-      await ld.createAiConfig(body);
+      if (!dryRun) await ld.createAiConfig(body);
       result.configsCreated.push(cfg.key);
       result.variationsCreated += variations[0] ? 1 : 0;
       if (variations[0]) existingVarKeys.add(variations[0].key);
@@ -112,7 +113,8 @@ async function provisionAiConfig(
       continue;
     }
     try {
-      await ld.createAiConfigVariation(cfg.key, mapVariation(v, cfg.key, result));
+      const mapped = mapVariation(v, cfg.key, result);
+      if (!dryRun) await ld.createAiConfigVariation(cfg.key, mapped);
       result.variationsCreated += 1;
     } catch (e) {
       const err = e as LdApiError;
@@ -121,7 +123,12 @@ async function provisionAiConfig(
   }
 }
 
-async function provisionGraph(ld: LdClient, g: AgentGraphFile, result: ProvisionResult): Promise<void> {
+async function provisionGraph(
+  ld: LdClient,
+  g: AgentGraphFile,
+  result: ProvisionResult,
+  dryRun: boolean,
+): Promise<void> {
   const existing = await ld.getAgentGraph(g.key);
   if (existing.status === 200) {
     result.graphsExisting.push(g.key);
@@ -140,7 +147,7 @@ async function provisionGraph(ld: LdClient, g: AgentGraphFile, result: Provision
     })),
   };
   try {
-    await ld.createAgentGraph(body);
+    if (!dryRun) await ld.createAgentGraph(body);
     result.graphsCreated.push(g.key);
   } catch (e) {
     const err = e as LdApiError;
@@ -153,6 +160,8 @@ export interface ProvisionOptions {
   aiConfigsDir: string;
   /** Directory of agent-graph JSON files. */
   graphsDir: string;
+  /** When true, perform reads only — report what would be created without writing. */
+  dryRun?: boolean;
 }
 
 export async function provision(ld: LdClient, opts: ProvisionOptions): Promise<ProvisionResult> {
@@ -160,15 +169,16 @@ export async function provision(ld: LdClient, opts: ProvisionOptions): Promise<P
     configsCreated: [], configsExisting: [], variationsCreated: 0, variationsExisting: 0,
     toolsStripped: [], failures: [], graphsCreated: [], graphsExisting: [],
   };
+  const dryRun = opts.dryRun ?? false;
 
   for (const file of listJson(opts.aiConfigsDir)) {
     const cfg = JSON.parse(readFileSync(file, "utf8")) as AiConfigFile;
-    await provisionAiConfig(ld, cfg, result);
+    await provisionAiConfig(ld, cfg, result, dryRun);
   }
   // Graphs after configs — they reference config keys.
   for (const file of listJson(opts.graphsDir)) {
     const g = JSON.parse(readFileSync(file, "utf8")) as AgentGraphFile;
-    await provisionGraph(ld, g, result);
+    await provisionGraph(ld, g, result, dryRun);
   }
   return result;
 }

@@ -28,9 +28,10 @@ async function main(): Promise<void> {
     const ld = new LdClient(targetConnection());
     const aiConfigsDir = flag(args, "ai-configs") ?? "config/agentcontrol/ai-configs";
     const graphsDir = flag(args, "graphs") ?? "config/agentcontrol/graphs";
-    console.log(`Provisioning into project '${ld.projectKey}'`);
+    const dryRun = args.includes("--dry-run");
+    console.log(`Provisioning into project '${ld.projectKey}'${dryRun ? " (DRY RUN — no writes)" : ""}`);
     console.log(`  ai-configs: ${aiConfigsDir}\n  graphs:     ${graphsDir}\n`);
-    const r = await provision(ld, { aiConfigsDir, graphsDir });
+    const r = await provision(ld, { aiConfigsDir, graphsDir, dryRun });
     console.log(`Configs:    ${r.configsCreated.length} created, ${r.configsExisting.length} existing`);
     console.log(`Variations: ${r.variationsCreated} created, ${r.variationsExisting} existing`);
     console.log(`Graphs:     ${r.graphsCreated.length} created, ${r.graphsExisting.length} existing`);
