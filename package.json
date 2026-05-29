@@ -13,7 +13,8 @@
   "scripts": {
     "build": "tsc --build",
     "typecheck": "tsc --build --pretty",
-    "clean": "tsc --build --clean"
+    "clean": "tsc --build --clean",
+    "check:public": "node scripts/check-public.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

@@ -1,0 +1,25 @@
+name: CI
+
+# Repo CI: guards the public boundary and typechecks the workspace.
+# (This is the prototype's own CI — distinct from the Phase 1 action that
+#  partners install into their repos.)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Public-leak guard
+        run: npm run check:public
+      - name: Typecheck
+        run: npm run typecheck

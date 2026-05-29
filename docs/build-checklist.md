@@ -24,7 +24,7 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
 - [x] `.gitignore` (covers `reference-private/`, `sources/repos/`, `.env`) — verified ignoring
 - [x] `.env.example`, `config/ld-targets.yaml`, `config/scopes.yaml`, `config/release-source.yaml`
 - [x] Reference materials organized under `reference-private/phase-1` and `phase-2`
-- [x] One-off: fairytale AI configs + `gha-fairy-tale` graph cloned into target LD project
+- [x] One-off: the reference AI configs + agent graph cloned into the target LD project
       (`auto-factory-prototype`); 15/20 variations (tools + one snippet still pending re-attach in LD)
 
 ---
@@ -35,7 +35,7 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
   - [ ] Confirm the public/partner-facing endpoint to dispatch an agent graph against an LD project
   - [ ] Confirm auth model for that endpoint (token type, headers) for an external partner
   - [ ] Confirm dispatch is async (dispatch → poll status) and capture request/response shapes
-  - [ ] Confirm how PR context is passed and how the graph (`gha-fairy-tale`) is referenced
+  - [ ] Confirm how PR context is passed and how the agent graph is referenced
 - [x] 🔬 **LD release API** *(RESOLVED — spec in `reference-private/internal-apis/`)*
   - Trigger = a **semantic-patch** instruction (`startAutomatedRelease`, kind `guarded`/`progressive`)
     on the standard flag PATCH endpoint; stop via `stopAutomatedRelease`.
@@ -53,12 +53,13 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
 
 ## M1 — Public/private guardrails ⚠️
 
-- [ ] Add `scripts/check-public`: fail if internal identifiers / internal tool names / `reference-private`
-      content appear in tracked files (run in pre-commit and CI)
-- [ ] Wire `check-public` into a CI workflow on PRs to this repo
-- [ ] `README.md` reviewed for any internal references; confirm `reference-private/` never tracked
-- [ ] Establish the sanitization rule: agent instructions/prompts ported into the public repo are
-      reviewed for proprietary release logic before commit
+- [x] `scripts/check-public.mjs`: fails if internal infra instance/service identifiers appear in
+      tracked files, or if anything under `reference-private/` is tracked. `npm run check:public`.
+      (The exact blocklist lives in the script, not in docs — naming them here would trip the guard.)
+- [x] Wired into `.github/workflows/ci.yml` (check:public + typecheck on PR/push)
+- [x] Confirmed `reference-private/` never tracked (guard enforces); scrubbed accidental internal
+      codename leaks from tracked files (caught two during calibration)
+- [ ] Sanitization rule for ported agent instructions before public commit → tied to **ISSUES I3**
 
 ---
 

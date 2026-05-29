@@ -18,7 +18,7 @@ export type VegaStatus = "pending" | "running" | "completed" | "failed" | "stopp
 const TERMINAL: ReadonlySet<VegaStatus> = new Set(["completed", "failed", "stopped", "cancelled"]);
 
 export interface VegaDispatchRequest {
-  /** AI Config key for the agent/node to run (e.g. "fairytale-research-planner"). */
+  /** AI Config key for the agent/node to run (e.g. "research-planner"). */
   configKey: string;
   /** Rendered prompt (PR context already substituted). */
   prompt: string;
