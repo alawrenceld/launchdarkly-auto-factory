@@ -64,16 +64,19 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
 
 ## M2 — Shared package (`packages/shared/`)
 
-- [ ] LD API client with **configurable base URL** (target vs. any instance), token from env
-- [ ] Typed wrappers: flags (create/get/patch), metrics (create/get), AI configs + agent graphs
-- [ ] **Release adapter**: wraps `startAutomatedRelease`/`stopAutomatedRelease` semantic patch + the
-      automated-releases status read. Quarantines the beta/internal endpoints (sets `LD-API-Version: beta`)
-      so the in-flux paths/shapes change in one place; expose a stable internal interface to Beacon
-- [ ] Config schemas/loaders for `config/*.yaml` (`ld-targets`, `scopes`, `release-source`)
-- [ ] Shared types: `Scope`, `ReleaseMethod` (immediate/progressive/guarded), `ReleaseOverrides`
-      (metricKeys, metricGroupKeys, stages `{allocation, durationMillis}`, randomizationUnit),
-      `DiscoveredFlag`, approval mode
-- [ ] Unit tests for the client (mocked HTTP) and schema validation
+- [x] Monorepo workspace (npm workspaces + TypeScript, Node 20, `tsc --build`); `shared` compiles
+- [x] LD API client with **configurable base URL** (target vs. any instance), token from env (`LdClient`)
+- [~] Typed wrappers: flags get + semantic patch done; **metrics + AI-config/agent-graph wrappers pending**
+      (added alongside the bridge in M3)
+- [x] **Release adapter** (`releaseAdapter.ts`): `startAutomatedRelease`/`stopAutomatedRelease` builder +
+      semantic patch + automated-releases status read/monitor. Beta/internal endpoints quarantined
+      (`LD-API-Version: beta`, single `automatedReleasesPath()` to change when public)
+- [x] Config schemas/loaders: `scopes.yaml`, `release-source.yaml` (`config.ts`); LD conns from env (`env.ts`)
+- [x] Shared types (`types.ts`): `Scope`, `ReleaseKind`, `Stage`, `MetricRef`, `ReleaseOverrides`,
+      `ReleaseFlagFile`/`DiscoveredFlag`, `ApprovalMode`, `RiskLevel`, `DeployNotification`
+- [x] **Vega client interface** (`vegaClient.ts`): stable `VegaTransport` seam + `VegaClient` poll loop;
+      `StubVegaTransport` throws until real API docs land (PLACEHOLDER, isolated)
+- [ ] Unit tests for the client (mocked HTTP), the release-instruction builder, and config loaders
 
 ---
 
@@ -125,7 +128,9 @@ not an optional enhancement.
 - [ ] `packages/phase1-resource-factory/github-action/`: assemble PR context (diff, files, metadata)
 - [ ] Dispatch to Vega: **async dispatch + poll to terminal status**; pass PR context; reference the
       agent graph
-- [ ] **Label-gated entry** (a designated PR label starts the run) rather than every PR
+- [ ] **Trigger on PR opened/synchronized** — runs automatically on every PR, **no label gate**
+      (deliberate divergence from the reference, for minimal dev friction / max splash). A path or size
+      filter may be added later to skip trivial PRs, but the default is: open a PR, the magic happens.
 - [ ] Walk the agent graph: follow edges, honor handoff conditions (skip-if / require tags), thread each
       node's output to the next
 - [ ] `adapters/ci-github/`: read PR, post a status/summary comment with run results
@@ -202,10 +207,11 @@ pipeline system.
 
 ## Notable refinements from the source (folded into the tasks above)
 
-1. **Phase 1 is a sequential agent chain on Vega**, dispatched async and label-gated; the GitHub
-   Action walks the graph. The reference build has 4 agents; the prototype adds a **5th core agent,
-   metrics** (research → flagging → metrics → testing → review), which we author since no reference
-   config exists.
+1. **Phase 1 is a sequential agent chain on Vega**, dispatched async; the GitHub Action walks the
+   graph. The reference build has 4 agents and is label-gated; the prototype **(a)** adds a **5th core
+   agent, metrics** (research → flagging → metrics → testing → review), authored since no reference
+   config exists, and **(b)** **triggers on every PR open (no label gate)** for minimal dev friction.
+   The live Vega dispatch endpoint/auth are **placeholders** until the team provides real API docs.
 2. **Phase 2's "trigger" is a guarded/progressive measured rollout** via LD's release API, driven by a
    release policy + per-release overrides — not a simple flag flip. The prototype calls LD directly,
    collapsing the internal CD-pipeline hop.
