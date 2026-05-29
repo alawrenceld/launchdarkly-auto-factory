@@ -1,19 +1,17 @@
 # LaunchDarkly source/target instances for the config bridge.
 # Tokens are NOT here — they come from env (see .env.example).
 # The bridge can pull from a `source` and provision into a `target`; both are
-# configurable to any LD instance/environment.
+# configurable to any LD instance/project.
 
-# TARGET: the env the running prototype draws from at run-time.
+# TARGET: the project the running prototype reads from and writes to.
 target:
-  api_base_url: ${LD_API_BASE_URL}      # default: https://app.launchdarkly.com
+  base_url: ${LD_BASE_URL}            # default: https://app.launchdarkly.com
   project_key: ${LD_PROJECT_KEY}
-  environment_key: ${LD_ENVIRONMENT_KEY}
 
-# SOURCE: where the bridge's `sync` refreshes local canonical copies from.
-# - LaunchDarkly team: the INTERNAL instance (different, non-production base URL).
-# - Customers: normally omit — they start from the canonical copies in
-#   packages/config-bridge/configs/ (seeded from the demo account).
+# SOURCE (optional): where the bridge pulls the initial configs + graphs from.
+# - Design partners may seed from the shared "auto-factory-prototype" project.
+# - Otherwise omit — provision straight from the canonical local copies in
+#   packages/config-bridge/configs/.
 source:
-  api_base_url: ${LD_SOURCE_API_BASE_URL}
-  project_key: ""
-  environment_key: ""
+  base_url: ${LD_SOURCE_BASE_URL}
+  project_key: ${LD_SOURCE_PROJECT_KEY}

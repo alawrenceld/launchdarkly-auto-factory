@@ -30,20 +30,20 @@ This prototype will be shared with early design partners. We want the implementa
 
 In this flow, developers will write code, and submit PRs. It is not expected that those developers need to consider where to implement LaunchDarkly's runtime control flags and configurations as they're writing and committing code. The flags, configurations, and metrics to measure them will be automatically created where appropriate in CI.
 
-The automatic creation will be handled by a series of agents, executed by LaunchDarkly's AI. LaunchDarkly's AI uses a Claude model in our bedrock instance to facilitate this. The specific configuration of the agents will be defined by LaunchDarkly's AgentControl configs: https://launchdarkly.com/docs/home/agentcontrol/create
+The automatic creation will be handled by a series of agents, executed by LaunchDarkly's AI. LaunchDarkly's AI uses a Claude model in our bedrock instance to facilitate this. The specific configuration of the agents will be defined by LaunchDarkly's AgentControl configs: [https://launchdarkly.com/docs/home/agentcontrol/create](https://launchdarkly.com/docs/home/agentcontrol/create)
 
-And the handoff among agents will be defined and coordinated by an Agent Graph: https://launchdarkly.com/docs/home/agentcontrol/agent-graphs
+And the handoff among agents will be defined and coordinated by an Agent Graph: [https://launchdarkly.com/docs/home/agentcontrol/agent-graphs](https://launchdarkly.com/docs/home/agentcontrol/agent-graphs)
 
 The agent flow has these steps:
 
 1. Research and Planning Agent
-    - This agent is responsible for exploring the codebase, building a structured understanding of a PR, then producing a detailed implementation brief for downstream agents.
+  - This agent is responsible for exploring the codebase, building a structured understanding of a PR, then producing a detailed implementation brief for downstream agents.
 2. Implementation Agent
-    - Receives the Research and Planner brief, creates resources in LaunchDarkly, and wires PR code to include flags and metrics.
+  - Receives the Research and Planner brief, creates resources in LaunchDarkly, and wires PR code to include flags and metrics.
 3. Testing Agent
-    - Receives Research and Planner brief + implementation agent output. Generates general test coverage and per-variation flag path tests.
+  - Receives Research and Planner brief + implementation agent output. Generates general test coverage and per-variation flag path tests.
 4. Code Review Agent
-    - Receives all prior agent outputs, performs independent code quality analysis, and produces an APPROVE or REJECT decision.
+  - Receives all prior agent outputs, performs independent code quality analysis, and produces an APPROVE or REJECT decision.
 
 Those steps are subject to change. For example, we may find that it produces higher quality output to separate flagging and metric implementation. We may also expand the definitions to go beyond flagging, and include automatic instrumentation of agent configs. This is why modularity is critical.
 
@@ -76,7 +76,7 @@ There are many more details in source documentation, which is out of scope for t
 
 # Initial instructions
 
-Help me formulate a plan for tackling this project. Because the prototype will be drawing from many external sources, I want to be able to continually pull repos, reference pages which may be updated, and read existing configs stored in LaunchDarkly. We're not ready to write anything yet - just suggest the directory structure, ask clarifying questions, and push back on anything I've written in these initial instructions.
+Help me formulate a plan for tackling this project. Because the prototype will be drawing from many external sources, I want to be able to pull repos, reference pages, and read existing configs stored in LaunchDarkly. We're not ready to write anything yet - just suggest the directory structure, ask clarifying questions, and push back on anything I've written in these initial instructions.
 
 One critical note to inform your suggestions: some of the upstream resources are proprietary, and should not be shared in a public repository. However, this prototype repository will be publicly shared.
 

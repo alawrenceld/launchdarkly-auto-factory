@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LaunchDarkly Auto-Factory — Prototype Plan</title>
+<style>
+  :root {
+    --ink: #1a1a2e;
+    --muted: #5c6370;
+    --accent: #405bff;      /* LD-ish blue */
+    --accent-soft: #eef1ff;
+    --warn: #b4690e;
+    --warn-soft: #fdf3e6;
+    --good: #1f7a4d;
+    --line: #e2e4ea;
+    --code-bg: #f6f7f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+    background: #fff;
+  }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 4px; }
+  h2 {
+    font-size: 1.45rem; margin: 56px 0 16px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--line);
+  }
+  h3 { font-size: 1.12rem; margin: 32px 0 8px; }
+  .sub { color: var(--muted); font-size: 1.05rem; margin: 0 0 8px; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 32px; }
+  p, li { color: #2b2f38; }
+  a { color: var(--accent); }
+  code {
+    background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
+    font: 0.85em "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 18px; overflow-x: auto;
+    font: 0.82rem/1.5 "SF Mono", Menlo, Consolas, monospace;
+    color: #2b2f38;
+  }
+  .callout {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 20px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout .label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 4px;
+  }
+  .callout.warn .label { color: var(--warn); }
+  table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--code-bg); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .tag {
+    display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 99px; background: var(--accent-soft); color: var(--accent);
+  }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.good { background: #e7f4ee; color: var(--good); }
+  ol.q { counter-reset: q; list-style: none; padding-left: 0; }
+  ol.q > li {
+    counter-increment: q; position: relative; padding: 14px 14px 14px 52px;
+    border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px;
+  }
+  ol.q > li::before {
+    content: "Q" counter(q); position: absolute; left: 14px; top: 14px;
+    font-weight: 700; color: var(--accent); font-size: 0.85rem;
+  }
+  .q .ctx { color: var(--muted); font-size: 0.9rem; display: block; margin-top: 4px; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 48px 0; }
+  .toc { background: var(--code-bg); border-radius: 8px; padding: 16px 24px; }
+  .toc ol { margin: 0; }
+  .pill-row { margin: 8px 0 0; }
+  footer { margin-top: 64px; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+
+<h1>LaunchDarkly Auto-Factory</h1>
+<p class="sub">Prototype design: autonomous, safe software releases — Phases 1 &amp; 2</p>
+<p class="meta">Prototype design · last updated 2026-05-29</p>
+
+<div class="callout">
+  <div class="label">What this document is</div>
+  The current design for the prototype: guiding principles, architecture, directory structure, key
+  decisions, and the considerations we're carrying into the build. It's a plan — nothing here is built yet.
+</div>
+
+<div class="callout good" style="border-left-color:var(--good);background:#e7f4ee;">
+  <div class="label" style="color:var(--good);">Built on prior art</div>
+  A LaunchDarkly developer has already built the internal version of this. The work here is to
+  <strong>port, sanitize, and package</strong> that into a public prototype design partners can install with
+  minimal friction, filling gaps as we find them — not to invent the architecture from scratch. The
+  proprietary source material lives in <code>reference-private/</code> (see §4).
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#principles">Guiding principles</a></li>
+    <li><a href="#arch">Architecture at a glance</a></li>
+    <li><a href="#dirs">Directory structure</a></li>
+    <li><a href="#sources">External sources &amp; the public/private boundary</a></li>
+    <li><a href="#phase1">Phase 1 — resource creation</a></li>
+    <li><a href="#phase2">Phase 2 — automatic releases</a></li>
+    <li><a href="#partners">Designing for design partners</a></li>
+    <li><a href="#considerations">Risks &amp; design considerations</a></li>
+    <li><a href="#decisions">Key decisions &amp; open questions</a></li>
+    <li><a href="#roadmap">Build order</a></li>
+  </ol>
+</div>
+
+<h2 id="principles">1. Guiding principles</h2>
+<p>Three goals drive the design: <strong>easy setup</strong>, <strong>clear customization points</strong>, and
+<strong>modularity</strong>. The agent steps, scope definitions, and the <code>.release-flags/</code> pattern are all
+expected to change, so they're treated as <strong>swappable parts behind stable seams</strong>, optimized for a design
+partner installing the prototype with as little friction as possible:</p>
+<ul>
+  <li><strong>Easy setup is a feature, not docs.</strong> Pipeline setup is baked in: a bootstrap step (CLI or template
+      repo + GitHub Action) wires up CI, secrets shape, the LD project, and a working demo with one command — sane
+      defaults, escape hatches, &ldquo;simple but not simpler.&rdquo;</li>
+  <li><strong>Customization points are explicit and few.</strong> Every knob a partner is expected to turn lives in a
+      small, documented <code>config/</code> surface — not buried in code. Agent instructions, scopes, and the
+      release-config source are all config; the approval mode is a LaunchDarkly flag.</li>
+  <li><strong>Modular: adapters at every external boundary.</strong> CI (GitHub Actions), CD (Railway), the LD API
+      (agent execution + flags/metrics), and the release-config source sit behind interfaces, so a partner can swap one
+      without touching orchestration logic. (The LLM runtime itself is LD-hosted, so it's not our boundary to adapt.)</li>
+  <li><strong>Agent steps are a registry, not a hard-coded pipeline.</strong> Adding, splitting, or reordering agents
+      is a config change, not a refactor.</li>
+  <li><strong>Public-by-default, private-by-exception.</strong> The repo is public and the source material is the
+      internal build, so the boundary between shareable prototype and proprietary source is structural, not a matter
+      of remembering.</li>
+  <li><strong>Idempotent &amp; reversible.</strong> CI re-runs must not leave orphaned flags or duplicated resources
+      behind.</li>
+</ul>
+
+<h2 id="arch">2. Architecture at a glance</h2>
+
+<div class="callout">
+  <div class="label">Agent runtime: Vega (LaunchDarkly-hosted)</div>
+  AgentControl configs and Agent Graphs are configuration, not a runtime (the docs: &ldquo;LaunchDarkly does not execute
+  graphs or manage state&rdquo;). That execution substrate is <strong>Vega</strong> — LaunchDarkly's AI, which runs Claude
+  on LD's Bedrock instance. <strong>Throughout this doc, &ldquo;call Vega&rdquo; means a request to a LaunchDarkly API endpoint
+  that triggers the agent work.</strong> The prototype's job in Phase 1 is therefore <strong>integration glue, not a
+  runner</strong>: a <strong>GitHub Action assembles PR context (diff, files, metadata) and calls Vega</strong>, which runs
+  the agent graph and returns the agents' output (proposed changes + a risk score + an APPROVE/REJECT). No agent loop
+  ships in this repo.
+</div>
+
+<div class="callout">
+  <div class="label">Config provisioning: the bridge service</div>
+  The agent configs must land in the LD environment the running prototype draws from. A small <strong>bridge
+  service</strong> handles this over LaunchDarkly's <strong>MCP / API</strong>, and is <em>non-agentic</em>: it keeps
+  <strong>local canonical copies of the recommended starting configs + graphs</strong> and provisions them. It's
+  parameterized on <strong>source and target</strong>, both configurable to any LD instance/environment:
+  <ul style="margin:8px 0 0;">
+    <li><strong>LD team's source of truth:</strong> LaunchDarkly's <em>internal</em> instance (the dev's existing work) —
+        a different, non-production API base URL.</li>
+    <li><strong>Customers' source of truth:</strong> the LD <em>demo account</em> (production API).</li>
+  </ul>
+  Two distinct touchpoints: provisioning configs <em>into</em> an env (bridge, setup-time) and executing them
+  <em>from</em> that env (LD-hosted, run-time).
+</div>
+
+<p>LaunchDarkly supplies: <span class="tag">AgentControl configs</span> (per-agent model, instructions, tools),
+the <span class="tag">Agent Graph</span> (nodes = agents, edges = handoffs, a root, mutable context keyed by config),
+and <span class="tag good">Vega</span> — the hosted execution of that graph, reached via a LaunchDarkly API endpoint.
+The prototype supplies the <span class="tag">GitHub Action</span> that feeds Vega context, the <span class="tag">bridge</span>
+that provisions configs, and the Phase 2 <span class="tag">release orchestrator (Beacon)</span>.</p>
+
+<pre>
+PHASE 1  (in CI, on a PR)
+─────────────────────────────────────────────────────────────────────
+  developer PR ──▶ GitHub Action: assemble PR context (diff, files, metadata)
+                          │
+                          ▼  call VEGA (LaunchDarkly API endpoint → triggers agents)
+            ┌──  VEGA: LD-HOSTED AGENT GRAPH  (Claude on LD's Bedrock)  ──┐
+            │                                                             │
+            │   Research & Planning ── triage: does this PR need a flag?  │
+            │        │                 + compute RISK SCORE               │
+            │        │ no flag ─▶ STOP (downstream agents never run)      │
+            │        ▼ yes                                                │
+            │   Flagging ─▶ Metrics ─▶ Testing ─▶ Code Review             │
+            │   (flag + metric, split)             │                      │
+            └─────────────────────────────────────┼──────────────────────┘
+                                                  ▼
+                              APPROVE / REJECT  +  proposed changes  +  risk score
+                                                  │
+                                                  ▼
+                        approval MODE read from a LaunchDarkly flag
+                  ┌───────────────────────────────┼───────────────────────────┐
+                  ▼                                ▼                           ▼
+            Yolo (default):           Middle: gate on risk score     Manual: human approves
+            auto-apply approved       (low auto / high → human)      every approved change
+                  └───────────────────────────────┼───────────────────────────┘
+                                                  ▼
+                        flags + metrics created in LD  +  code wired in PR
+                        +  .release-flags/&lt;id&gt;.json written
+
+
+PHASE 2  (after merge, on deploy)
+─────────────────────────────────────────────────────────────────────
+  merge ─▶ Railway deploy ─▶ post-deploy Notifier  ─POST(SHA range)─▶  BEACON
+                                                                  (release orchestrator)
+                                                                            │
+                                 discover new release-flags (diff vs prod)  │
+                                 route by scope (frontend/backend/fullstack)│
+                                            │                               │
+                  ┌─────────────────────────┼───────────────────────────────┘
+                  ▼                          ▼
+        single-service scope         fullstack scope: is the SAME release-flags
+        ─▶ trigger release           file already in the OTHER service's
+                                     deployed SHA?  yes ─▶ release   no ─▶ wait
+                                                                          for re-eval
+</pre>
+
+<h2 id="dirs">3. Directory structure</h2>
+<p>A monorepo with clear seams. Phase 1 and Phase 2 are independent deployables that share types and an LD client.
+Everything proprietary is quarantined (see <a href="#sources">§4</a>).</p>
+
+<pre>
+launchdarkly-auto-factory/
+├── README.md
+├── docs/
+│   ├── plan.html                  ← this file
+│   └── adr/                       architecture decision records (one per real decision)
+│
+├── sources/                       VENDORED external references (synced, pinned)
+│   ├── manifest.yaml              what to pull, from where, at what version/SHA
+│   ├── repos/                     synced public repos (gitignored or submodules)
+│   └── ld-configs/                exported LD configs — SANITIZED snapshots only
+│
+├── reference-private/             ← .gitignored. Proprietary material we draw from: the internal
+│                                    build, confluence exports, internal orchestrator spec,
+│                                    real flag data. Informs public code; NEVER committed.
+│
+├── bootstrap/                     EASY-SETUP surface — pipeline setup baked in
+│   ├── create.(sh|ts)             one command: wires CI, LD project, secrets shape, demo
+│   ├── github-action-template/    drop-in workflow partners copy
+│   └── checks/                    preflight: tokens present, LD reachable, scopes valid
+│
+├── packages/
+│   ├── shared/                    types, LD API client, config schemas
+│   │
+│   ├── config-bridge/             BRIDGE SERVICE (non-agentic, MCP/API): provision configs+graphs
+│   │   ├── configs/               CANONICAL local copies: recommended starting configs + graphs
+│   │   ├── provision/             populate any TARGET LD env from local copies (setup-time)
+│   │   └── sync/                  refresh local copies from any SOURCE instance
+│   │                              (LD-internal non-prod base URL, or demo-account prod)
+│   │
+│   ├── phase1-resource-factory/   integration glue — agent EXECUTION is LD-hosted, not here
+│   │   ├── github-action/         assemble PR context, call LD agent API, handle the result
+│   │   ├── agents/                local copies of each agent's instructions (sanitized)
+│   │   │   ├── research/          incl. triage (flag needed?) + risk-score logic
+│   │   │   ├── flagging/          create the flag + wire evaluation
+│   │   │   ├── metrics/           create metrics + instrumentation
+│   │   │   ├── testing/
+│   │   │   └── review/
+│   │   ├── approval/              read approval MODE from a LD flag; apply or gate accordingly
+│   │   └── adapters/
+│   │       ├── ci-github/         read PR, post checks/comments, deliver code changes
+│   │       └── ld/                create flags & metrics (idempotent upsert)
+│   │
+│   └── beacon/                    PHASE 2 release orchestrator
+│       ├── notifier/              post-deploy hook: POSTs SHA range
+│       ├── discovery/             diff .release-flags/ vs deployed prod
+│       ├── scope/                 frontend / backend / fullstack routing
+│       ├── coordination/          fullstack cross-service SHA check
+│       └── adapters/
+│           └── cd-railway/        trigger releases (Railway; Spinnaker internally)
+│
+├── config/                        the documented CUSTOMIZATION surface partners edit
+│   ├── agentcontrol/              agent instructions + graph shape (provisioned by the bridge)
+│   ├── ld-targets.yaml            source + target LD instances/envs (base URLs; tokens via env)
+│   ├── scopes.yaml                scope definitions (frontend/backend/fullstack)
+│   └── release-source.yaml        which release-config source is active (.release-flags vs LD-native)
+│       (note: approval MODE is NOT here — it lives in a LaunchDarkly flag, scoped per-repo)
+│
+├── examples/
+│   └── demo-app/                  monorepo demo: JS/TS frontend + Python backend
+│       ├── frontend/
+│       └── backend/
+│
+├── .github/workflows/            Phase 1 entrypoints (PR-triggered)
+├── scripts/                      sync-sources, sanitize, local-run harness
+├── .env.example                  documents required secrets — NO real values
+└── .gitignore                    covers reference-private/, sources/repos/, .env
+</pre>
+
+<h2 id="sources">4. External sources &amp; the public/private boundary</h2>
+<p>The prototype draws from repos, updatable reference pages, and LD configs — some of it proprietary, while this repo
+is <strong>public</strong>. The boundary is structural:</p>
+
+<table>
+  <tr><th>Material</th><th>Where it lives</th><th>How it syncs</th></tr>
+  <tr>
+    <td>Public repos we reference</td>
+    <td><code>sources/repos/</code></td>
+    <td>Submodule or vendored via <code>scripts/sync-sources</code>, pinned in <code>manifest.yaml</code></td>
+  </tr>
+  <tr>
+    <td>Reference pages that change (docs, confluence)</td>
+    <td>Public → <code>sources/</code>; proprietary → <code>reference-private/</code></td>
+    <td>Synced snapshots, never live-fetched at build time (reproducibility)</td>
+  </tr>
+  <tr>
+    <td>LD configs (flags, AI configs, graphs)</td>
+    <td><strong>Sanitized</strong> snapshot in <code>sources/ld-configs/</code>; raw in <code>reference-private/</code></td>
+    <td>Pull via LD MCP / API; run through a sanitizer before anything public</td>
+  </tr>
+  <tr>
+    <td>Internal build, orchestrator spec, Spinnaker details</td>
+    <td><code>reference-private/</code> only</td>
+    <td>Manual; <strong>inspiration, not rigid patterns</strong> — informs design, never the source of public code/comments</td>
+  </tr>
+  <tr>
+    <td>Secrets (LD tokens, Bedrock/AWS creds)</td>
+    <td>Env / CI secrets only</td>
+    <td><code>.env.example</code> documents shape; real values never in repo</td>
+  </tr>
+</table>
+
+<p>Sources are <strong>pinned snapshots</strong>, refreshed manually only on word of a critical change — not live-fetched —
+so the prototype stays reproducible.</p>
+
+<div class="callout warn">
+  <div class="label">Public-repo risk that isn't obvious</div>
+  The leak surface isn't just files — it's also <strong>agent prompts and AgentControl instructions</strong>, which can
+  encode proprietary release logic, and <strong>code comments / commit messages</strong> that paraphrase internal docs.
+  A <code>scripts/check-public</code> pre-commit/CI guard fails if anything resembling internal identifiers, the real
+  internal tool names, or <code>reference-private/</code> content appears in tracked files. Worth having early, because
+  retroactively scrubbing git history of a public repo is painful.
+</div>
+
+<h2 id="phase1">5. Phase 1 — automatic resource creation</h2>
+<p>The agent flow maps onto the Agent Graph that Vega executes: each agent is an AgentControl <em>agent-mode</em> config
+(instructions + tools), edges carry handoffs, and Vega threads the mutable context. Flag creation and metric creation are
+separate agents, giving <strong>five sequential nodes</strong>:</p>
+<ol>
+  <li><strong>Research &amp; Planning</strong> — explores the codebase, decides <em>whether the PR needs a flag at all</em>,
+      computes a <strong>risk score</strong>, and produces the implementation brief. This is the <strong>triage</strong>
+      step: if it concludes no flag is needed, the graph stops here and the downstream agents never run. Triage lives here
+      because deciding flag-worthiness requires understanding the code change — the same work Research already does — so a
+      cheaper pre-filter would only risk false negatives.</li>
+  <li><strong>Flagging</strong> — creates the flag in LD and wires the PR code to evaluate it.</li>
+  <li><strong>Metrics</strong> — creates the metrics that measure the flag and wires up instrumentation. Runs after
+      Flagging and consumes the created flag key via the graph handoff.</li>
+  <li><strong>Testing</strong> — general coverage plus per-variation flag-path tests.</li>
+  <li><strong>Code Review</strong> — independent quality analysis → APPROVE / REJECT.</li>
+</ol>
+
+<p><strong>Idempotency:</strong> CI re-runs on new commits must <em>upsert</em>, not duplicate. Flag keys are derived from
+stable inputs so a second run is a no-op rather than a second flag.</p>
+
+<h3>Approval modes — driven by a LaunchDarkly flag</h3>
+<p>The active approval mode lives in a <strong>LaunchDarkly flag</strong> (dogfooding the product), scoped
+<strong>per-repo</strong>, with a hardcoded-config fallback. The Research agent's <strong>risk score</strong> is the input
+the Middle mode gates on. The default is <strong>Yolo</strong>.</p>
+<table>
+  <tr><th>Mode</th><th>Behavior</th><th>Notes</th></tr>
+  <tr><td><span class="tag good">Yolo</span></td><td>Auto-apply everything Review approves</td><td><strong>Default.</strong> Flag variation served to everyone unless overridden</td></tr>
+  <tr><td><span class="tag warn">Middle</span></td><td>Gate on the Research agent's risk score: low auto-applies, high needs a human</td><td>Thresholds TBD (deferred — default is Yolo)</td></tr>
+  <tr><td><span class="tag">Manual</span></td><td>Human approves every approved change</td><td>Approval happens in GitHub</td></tr>
+</table>
+
+<h2 id="phase2">6. Phase 2 — automatic releases</h2>
+<p>The internal system runs on Spinnaker; the prototype maps the same concepts onto <strong>Railway</strong>. The
+orchestrator is named <strong>Beacon</strong>.</p>
+<ul>
+  <li><strong>Notifier</strong> → a post-deploy step in Railway that POSTs the deployed SHA range to Beacon.</li>
+  <li><strong>Beacon</strong> → a small service: receives notifications, discovers new release-flags, routes by scope,
+      triggers releases.</li>
+  <li><strong>Fullstack check</strong> → a stateless cross-service SHA comparison, re-derived on each notification.</li>
+</ul>
+<p>Railway fits a lightweight, low-friction prototype (push-to-deploy, simple post-deploy hooks, minimal partner setup)
+and aligns with the easy-setup goal. Both demo services deploy via Railway: Phase 2's coordination only needs
+<strong>two independently-deployable services that each emit their own post-deploy notification</strong>, which two Railway
+services provide. (Production frontends often ship to a CDN/edge host instead, but that doesn't change the SHA-range
+notification or the fullstack scope logic.) The CD adapter keeps us portable regardless.</p>
+
+<h2 id="partners">7. Designing for design partners</h2>
+<p>The prototype ships to <strong>early design partners</strong>, with the LD team hands-on but wanting minimal friction.
+That makes three things acceptance criteria, not nice-to-haves.</p>
+<table>
+  <tr><th>Goal</th><th>What it means concretely</th><th>How the design delivers it</th></tr>
+  <tr>
+    <td><span class="tag good">Easy setup</span></td>
+    <td>A partner goes from clone to a working flow with as few manual steps as possible</td>
+    <td><code>bootstrap/</code>: one command wires the CI workflow, LD env, secrets shape, and a runnable demo; preflight checks fail loudly with fixes</td>
+  </tr>
+  <tr>
+    <td><span class="tag">Clear customization</span></td>
+    <td>The knobs partners are meant to turn are obvious and isolated</td>
+    <td>A small documented <code>config/</code> surface (agent instructions, scopes, release-config source) plus the approval-mode <strong>LaunchDarkly flag</strong> — code stays untouched for normal customization</td>
+  </tr>
+  <tr>
+    <td><span class="tag">Modular</span></td>
+    <td>Swap CI/CD/release-source without a rewrite</td>
+    <td>Adapters at every external boundary; agent steps as a registry</td>
+  </tr>
+</table>
+<div class="callout">
+  <div class="label">"Simple but not simpler"</div>
+  Baking in setup automation can hide exactly the seams a design partner needs to adapt to their own stack. The
+  resolution is <strong>defaults that are one layer deep</strong> — the bootstrap generates real, legible config files the
+  partner can then edit, rather than magic that only works on the golden path.
+</div>
+
+<h2 id="considerations">8. Risks &amp; design considerations</h2>
+<p>Things the build needs to handle deliberately. None block scaffolding, but each is a real design choice rather than an
+implementation detail.</p>
+
+<h3>Code delivery must not loop CI</h3>
+<p>Wiring flags into the PR means writing code onto a human's branch. A bot commit re-triggers CI (risk of an infinite
+loop), can conflict with in-flight work, and changes the diff under the developer. Whatever the delivery mechanism (bot
+commit, GitHub suggestions, or a stacked PR — still open, see §9), it needs a CI-loop guard. Suggestions or a stacked PR
+keep it non-destructive.</p>
+
+<h3>Release-flag identity should be robust</h3>
+<p>Keying release config by PR number (<code>pr-N.json</code>) is fragile: PR numbers are repo-local and meaningless after
+merge, one deploy can contain many PRs, and squash/rebase/force-push rewrite the SHAs discovery diffs against. Keying by
+flag key (or a content hash) is more robust. The release-config source is an adapter so the file-in-repo pattern can be
+swapped for an LD-native source later without reworking Beacon.</p>
+
+<h3>Fullstack coordination needs a backstop</h3>
+<p>Re-deriving readiness from currently-deployed SHAs on each notification is a clean event-driven design, but the &ldquo;wait
+for the other pipeline's Notifier to re-evaluate&rdquo; path means a lost notification could silently strand a release. The
+coordination logic needs a retry/timeout backstop or an explicit at-least-once delivery guarantee.</p>
+
+<h2 id="decisions">9. Key decisions &amp; open questions</h2>
+
+<h3>Key decisions</h3>
+<table>
+  <tr><th>Topic</th><th>Decision</th></tr>
+  <tr><td>Agent runtime</td><td><strong>Vega</strong> — LaunchDarkly's AI (Claude on LD's Bedrock), reached via a LaunchDarkly API endpoint; a GitHub Action assembles PR context and calls it</td></tr>
+  <tr><td>Config provisioning</td><td>Non-agentic <strong>bridge</strong> over MCP/API; canonical local copies of starting configs + graphs; source and target configurable to any LD instance/env</td></tr>
+  <tr><td>Source of truth</td><td>LD team: the internal instance (non-prod API base URL). Customers: the demo account (prod)</td></tr>
+  <tr><td>Agent steps</td><td>Five <strong>sequential</strong> nodes; <strong>flag creation and metric creation are split</strong> into separate agents</td></tr>
+  <tr><td>Approval mode</td><td>Held in a <strong>LaunchDarkly flag</strong>, scoped per-repo; <strong>default Yolo</strong>; risk score computed by the Research agent</td></tr>
+  <tr><td>Repo layout</td><td><strong>Monorepo</strong></td></tr>
+  <tr><td>Demo app</td><td><strong>JS/TS frontend + Python backend</strong>, both deployed via Railway; supports any major language in principle</td></tr>
+  <tr><td>CD</td><td><strong>Railway</strong> (Spinnaker internally)</td></tr>
+  <tr><td>Orchestrator</td><td>Named <strong>Beacon</strong>; ports the existing internal spec as a clean public re-implementation</td></tr>
+  <tr><td>External sources</td><td>Pinned snapshots, manually refreshed; treated as inspiration, not rigid patterns</td></tr>
+  <tr><td>LD project</td><td>A sandbox project in a production demo account — safe to mutate &amp; pollute</td></tr>
+</table>
+
+<div class="callout">
+  <div class="label">Why flagging &amp; metrics are split</div>
+  They're genuinely different jobs: flag creation is control-flow wiring and variation shape; metric creation is what to
+  measure, event instrumentation, and tying metrics to the flag's release. Bundling them tends to produce a brief strong
+  on one and thin on the other. Separate agents can be tuned, evaluated, and swapped independently — the modularity goal.
+  The cost is one handoff: the Metrics agent needs the flag key the Flagging agent created.
+</div>
+
+<h3>Open questions</h3>
+<ol class="q">
+  <li><strong>How does the Flagging agent deliver code changes to the PR?</strong>
+      <span class="ctx">Bot commit, GitHub suggestions, or a stacked PR — pending the source material (a teammate used GitHub's Agent HQ, a candidate not a commitment). Whatever we pick needs a CI-loop guard (§8).</span></li>
+  <li><strong>Risk-score thresholds &amp; factors for Middle mode.</strong>
+      <span class="ctx">Deferred — default is Yolo. Eventually: what factors feed the score, and what threshold flips auto-apply → human review?</span></li>
+  <li><strong>Agent-graph CRUD over the API.</strong>
+      <span class="ctx">A build-time detail: confirm the bridge can create/update Agent Graphs programmatically. The MCP surfaces AI-config CRUD, but graph CRUD may be raw-API. Graphs are stored locally regardless, so worst case we push them via REST.</span></li>
+</ol>
+
+<h2 id="roadmap">10. Build order</h2>
+<table>
+  <tr><th>Step</th><th>Deliverable</th><th>Why here</th></tr>
+  <tr><td>0</td><td>Acquire the internal build into <code>reference-private/</code>; inventory what's portable vs. proprietary, and how configs are provisioned</td><td>It's the source of truth — everything downstream depends on knowing what already exists</td></tr>
+  <tr><td>1</td><td>Repo skeleton + public/private guardrails + <code>.env.example</code></td><td>Locks the leak boundary before any ported content lands</td></tr>
+  <tr><td>2</td><td>Bridge service (non-agentic, MCP/API): canonical local configs+graphs → provision a configurable target LD env</td><td>Phase 1 can't run until the agent configs exist in a reachable LD env</td></tr>
+  <tr><td>3</td><td><code>bootstrap/</code> + monorepo demo app (JS/TS + Python) on the sandbox</td><td>Easy setup is a goal; building it early keeps every later step partner-installable</td></tr>
+  <tr><td>4</td><td>GitHub Action: assemble PR context → call LD agent API → handle result; Yolo mode via the approval flag</td><td>End-to-end Phase 1 on a real PR, simplest mode first</td></tr>
+  <tr><td>5</td><td>Full split graph (Research+triage+risk → Flagging → Metrics → Testing → Review) + idempotent LD adapter</td><td>The complete resource-creation flow</td></tr>
+  <tr><td>6</td><td>Remaining approval modes (Manual, then Middle + risk thresholds)</td><td>Layered on a working pipeline</td></tr>
+  <tr><td>7</td><td>Phase 2: Notifier + Beacon + scope routing (single-service)</td><td>Releases on deploy</td></tr>
+  <tr><td>8</td><td>Fullstack cross-service coordination</td><td>The trickiest Phase 2 case, built last on a proven base</td></tr>
+</table>
+
+<footer>
+  Prototype design document. Nothing here is built yet; the build order in §10 begins once the internal build lands in
+  <code>reference-private/</code>.
+</footer>
+
+</body>
+</html>
