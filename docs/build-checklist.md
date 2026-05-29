@@ -100,13 +100,14 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
 
 ## M4 — Bootstrap / easy-setup (`bootstrap/`)
 
-- [ ] `create.*` one-command setup: collect/validate config, provision LD env via the bridge, scaffold
-      the GitHub Action into the target repo, print next steps
-- [ ] `bootstrap/checks/` preflight: tokens present, LD reachable, project/env valid, scopes parse —
-      fail loudly with the fix
-- [ ] `bootstrap/github-action-template/`: drop-in PR workflow a partner copies
-- [ ] Generate **real, legible config files** the partner can edit (defaults one layer deep, no magic)
-- [ ] Document the setup in `README.md` (clone → bootstrap → working demo)
+- [x] `bootstrap/create.mjs` (`npm run bootstrap`): build → preflight → provision → print next steps.
+      **Verified live** (reaches/authorizes against the target project)
+- [x] `bootstrap/checks/preflight.mjs`: Node version, LD env present, LD API reachable+authorized,
+      Phase 2 secrets noted — fails loudly
+- [x] `bootstrap/github-action-template/auto-factory.yml`: drop-in PR workflow (PR-open trigger)
+- [x] Uses the **real `config/` files** the partner edits (no hidden magic); provision is a no-op until
+      canonical configs are added (ISSUES I3)
+- [x] README Quickstart (install → bootstrap → drop in workflow → open a PR)
 
 ---
 

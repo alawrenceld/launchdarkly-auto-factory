@@ -15,7 +15,8 @@
     "typecheck": "tsc --build --pretty",
     "clean": "tsc --build --clean",
     "check:public": "node scripts/check-public.mjs",
-    "test": "node --import tsx --test \"tests/*.test.ts\""
+    "test": "node --import tsx --test \"tests/*.test.ts\"",
+    "bootstrap": "node bootstrap/create.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

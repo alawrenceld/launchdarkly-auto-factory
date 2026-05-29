@@ -11,7 +11,22 @@ not the final product.
   discovers newly-added release flags, routes by scope, and triggers releases.
 - **Phase 3 — Cleanup:** out of scope (already exists in LaunchDarkly).
 
-See **[docs/plan.html](docs/plan.html)** for the full plan, decisions, and open questions.
+See **[docs/plan.html](docs/plan.html)** for the design, **[docs/build-checklist.md](docs/build-checklist.md)**
+for build status, and **[docs/ISSUES.md](docs/ISSUES.md)** for known blocked/deferred items.
+
+## Quickstart
+
+```bash
+npm install
+cp .env.example .env        # fill in LD_API_KEY, LD_PROJECT_KEY, …
+npm run build
+npm run bootstrap           # preflight checks + provision agent configs into your LD project
+```
+
+Then drop `bootstrap/github-action-template/auto-factory.yml` into your app repo's
+`.github/workflows/`, set the repo secrets, and open a PR.
+
+Useful scripts: `npm run typecheck`, `npm test`, `npm run check:public` (public-leak guard).
 
 ## Layout
 
