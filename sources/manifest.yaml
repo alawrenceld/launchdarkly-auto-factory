@@ -1,0 +1,24 @@
+# External references this prototype draws from. PUBLIC sources only — anything
+# proprietary belongs in reference-private/ (gitignored), never here.
+#
+# Sources are PINNED SNAPSHOTS, synced on demand (scripts/sync-sources), not
+# live-fetched at build time. Refresh manually only on word of a critical change.
+# Treat all of these as INSPIRATION, not rigid patterns to follow strictly.
+
+repos:
+  # - name: example-public-repo
+  #   url: https://github.com/org/repo
+  #   ref: <pinned-sha-or-tag>
+  #   dest: sources/repos/example-public-repo
+
+docs:
+  # - name: agentcontrol-create
+  #   url: https://launchdarkly.com/docs/home/agentcontrol/create
+  #   snapshot: sources/docs/agentcontrol-create.md
+  # - name: agent-graphs
+  #   url: https://launchdarkly.com/docs/home/agentcontrol/agent-graphs
+  #   snapshot: sources/docs/agent-graphs.md
+
+ld_configs:
+  # Sanitized snapshots of LD configs live in sources/ld-configs/.
+  # Raw/unsanitized exports stay in reference-private/.

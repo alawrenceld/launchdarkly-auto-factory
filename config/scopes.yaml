@@ -1,0 +1,21 @@
+# Scope definitions for Phase 2 release routing.
+# A release flag declares one scope; Beacon uses it to decide which deploy
+# path(s) must complete before the release triggers.
+#
+# These are the currently-used definitions and may not suit every environment —
+# they are a customization point.
+
+scopes:
+  frontend:
+    description: Release triggers once the frontend service has deployed the code.
+    services: [frontend]
+
+  backend:
+    description: Release triggers once the backend service has deployed the code.
+    services: [backend]
+
+  fullstack:
+    description: >
+      Release triggers only once BOTH services have the same release-flags file
+      in their currently-deployed SHA (stateless cross-service check).
+    services: [frontend, backend]

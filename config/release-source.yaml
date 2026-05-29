@@ -1,0 +1,14 @@
+# Which release-config source is active. This is an adapter seam: the
+# `.release-flags/` file pattern is not fixed, and this workflow may later be
+# better served by configuration held in LaunchDarkly. Swapping the source
+# should not require changes to Beacon's orchestration logic.
+
+# Options:
+#   release-flags-dir : JSON files checked into the repo (the current pattern)
+#   ld-native         : (future) release intent read from LaunchDarkly directly
+active: release-flags-dir
+
+release-flags-dir:
+  path: .release-flags/
+  # Optional override fields a release-flags file may carry (metrics, stages,
+  # randomization unit) override the flag's release policy for that rollout.
