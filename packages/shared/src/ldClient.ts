@@ -7,6 +7,9 @@
 
 import type { LdConnection } from "./env.js";
 
+/** AI-config / agent-graph endpoints require the beta API version. */
+const BETA = { "LD-API-Version": "beta" } as const;
+
 export interface LdRequestOptions {
   method?: string;
   /** Path beginning with "/" (e.g. "/api/v2/flags/default/my-flag"). */
@@ -64,6 +67,76 @@ export class LdClient {
   getFlag<T = unknown>(flagKey: string, query = ""): Promise<LdResponse<T>> {
     return this.request<T>({
       path: `/api/v2/flags/${this.conn.projectKey}/${flagKey}${query}`,
+    });
+  }
+
+  // --- AI configs & agent graphs (beta) -----------------------------------
+  // The AI-config / agent-graph endpoints require the beta API version.
+
+  /** Get an AI config; returns status 404 (not throwing) when absent. */
+  getAiConfig<T = unknown>(key: string): Promise<LdResponse<T>> {
+    return this.request<T>({
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-configs/${key}`,
+      headers: BETA,
+      okStatuses: [404],
+    });
+  }
+
+  createAiConfig<T = unknown>(body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "POST",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-configs`,
+      headers: BETA,
+      body,
+    });
+  }
+
+  createAiConfigVariation<T = unknown>(configKey: string, body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "POST",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-configs/${configKey}/variations`,
+      headers: BETA,
+      body,
+    });
+  }
+
+  /** Get an agent graph; returns status 404 (not throwing) when absent. */
+  getAgentGraph<T = unknown>(key: string): Promise<LdResponse<T>> {
+    return this.request<T>({
+      path: `/api/v2/projects/${this.conn.projectKey}/agent-graphs/${key}`,
+      headers: BETA,
+      okStatuses: [404],
+    });
+  }
+
+  createAgentGraph<T = unknown>(body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "POST",
+      path: `/api/v2/projects/${this.conn.projectKey}/agent-graphs`,
+      headers: BETA,
+      body,
+    });
+  }
+
+  // --- Flags & metrics ------------------------------------------------------
+
+  /** Create a feature flag. Returns status 409 (not throwing) when it exists. */
+  createFlag<T = unknown>(body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "POST",
+      path: `/api/v2/flags/${this.conn.projectKey}`,
+      body,
+      okStatuses: [409],
+    });
+  }
+
+  /** Create a metric. Returns status 409 (not throwing) when it exists. */
+  createMetric<T = unknown>(body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "POST",
+      path: `/api/v2/metrics/${this.conn.projectKey}`,
+      body,
+      okStatuses: [409],
     });
   }
 

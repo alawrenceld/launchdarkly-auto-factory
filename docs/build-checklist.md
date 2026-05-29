@@ -66,8 +66,8 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
 
 - [x] Monorepo workspace (npm workspaces + TypeScript, Node 20, `tsc --build`); `shared` compiles
 - [x] LD API client with **configurable base URL** (target vs. any instance), token from env (`LdClient`)
-- [~] Typed wrappers: flags get + semantic patch done; **metrics + AI-config/agent-graph wrappers pending**
-      (added alongside the bridge in M3)
+- [x] Typed wrappers: flags (get/create/semantic-patch), metrics (create), AI-config (get/create +
+      variations), agent-graph (get/create) — all on `LdClient` (beta header where required)
 - [x] **Release adapter** (`releaseAdapter.ts`): `startAutomatedRelease`/`stopAutomatedRelease` builder +
       semantic patch + automated-releases status read/monitor. Beta/internal endpoints quarantined
       (`LD-API-Version: beta`, single `automatedReleasesPath()` to change when public)
@@ -82,16 +82,17 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
 
 ## M3 — Config bridge (`packages/config-bridge/`)
 
-- [ ] Port the working one-off creator into a real `provision` command (configs + variations + graph,
-      idempotent: GET-then-create, backfill missing)
-- [ ] `sync` command: refresh canonical local copies from a configurable **source** instance
-- [ ] Canonical starting configs + graphs committed under `config/agentcontrol/` (sanitized) ⚠️
-- [ ] Handle dependencies surfaced during the one-off: **tools** registration and **prompt snippets**
-      must exist in target before tool/snippet-bearing variations create (provision them, or document
-      the manual step)
-- [ ] Resolve agent-graph CRUD per §S
-- [ ] Dry-run mode (print planned changes without writing)
-- [ ] Tests against a throwaway project or mocked API
+- [x] `provision` command — idempotent (GET-then-create, backfills missing variations); reads
+      `config/agentcontrol/{ai-configs,graphs}` (overridable). CLI verified end-to-end.
+- [x] `sync` command — pull tag-filtered AI-configs + named graphs from the source instance into an
+      output dir (deliberately not the public `config/agentcontrol/` — see ISSUES I3)
+- [x] Agent-graph CRUD (`createAgentGraph`/`getAgentGraph`) — resolves the §S build-time question
+- [~] Tools/snippets: bridge **strips tools** and reports them; full tool/snippet provisioning is
+      deferred (we hold references, not definitions) → **ISSUES I4**
+- [ ] Canonical starting configs + graphs committed under `config/agentcontrol/` (sanitized) →
+      **ISSUES I3** (needs human sanitization review before public commit)
+- [ ] Dry-run mode (print planned changes without writing) — not yet
+- [ ] Tests against a mocked API — not yet (tracked with M2 tests)
 
 ---
 
