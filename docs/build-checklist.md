@@ -8,6 +8,12 @@ service names), the prototype substitutes the lightweight, public-friendly equiv
 **Milestones map to the build order in `plan.html` §10.** Work top to bottom; later milestones depend
 on earlier ones. Spikes (§S) should be resolved before the milestone that depends on them.
 
+> **Build status (committed to `main`):** M1 (guardrails+CI), M2 (shared), M3 (bridge), M4 (bootstrap),
+> M5 (demo app), M6 (Phase 1 walker/action — Vega stubbed), M7 (Beacon+Notifier) are built; 17 tests
+> passing; typecheck + public-leak guard green. Remaining work is **blocked or verification-only**:
+> the real Vega transport (I1), config sanitization (I3), and the M8 end-to-end (needs live deploys +
+> Vega). See `docs/ISSUES.md`.
+
 ---
 
 ## Legend
@@ -77,8 +83,8 @@ on earlier ones. Spikes (§S) should be resolved before the milestone that depen
       `ReleaseFlagFile`/`DiscoveredFlag`, `ApprovalMode`, `RiskLevel`, `DeployNotification`
 - [x] **Vega client interface** (`vegaClient.ts`): stable `VegaTransport` seam + `VegaClient` poll loop;
       `StubVegaTransport` throws until real API docs land (PLACEHOLDER, isolated)
-- [~] Unit tests (`tests/`, 13 passing): release-instruction builder, scope matrix, graph walker,
-      discovery diff, config loaders. Mocked-HTTP `LdClient` tests still pending.
+- [x] Unit tests (`tests/`, 17 passing): release-instruction builder, scope matrix, graph walker,
+      discovery diff, config loaders, mocked-HTTP `LdClient` (auth header, okStatuses, error, semantic patch).
 
 ---
 
@@ -194,12 +200,13 @@ pipeline system.
 
 ## Cross-cutting (throughout)
 
-- [ ] ADRs in `docs/adr/` for real decisions (Vega dispatch shape, release-trigger-via-LD-API,
-      scope generalization, code-delivery mechanism)
-- [ ] Keep `docs/plan.html` in sync if a decision changes the design shape
-- [ ] `sources/manifest.yaml` populated for any public references actually used
-- [ ] Secrets only via env / CI secrets; `.env.example` kept current
-- [ ] README "quickstart" stays true to the bootstrap flow as it evolves
+- [x] ADRs in `docs/adr/`: 0001 TS monorepo, 0002 release-via-LD-API, 0003 PR-open trigger,
+      0004 Vega transport seam
+- [x] Secrets only via env / CI secrets; `.env.example` kept current
+- [x] README "quickstart" reflects the bootstrap flow
+- [ ] Keep `docs/plan.html` in sync if a decision changes the design shape (ongoing)
+- [ ] `sources/manifest.yaml` populated for any public references actually used (none yet)
+- [ ] Observability: structured logs + a minimal release-decision trace (deferred)
 
 ---
 
