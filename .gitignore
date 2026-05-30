@@ -1,0 +1,27 @@
+# --- Proprietary source material — NEVER commit ---
+# This repo is PUBLIC. reference-private/ holds the internal build and other
+# proprietary material we draw inspiration from. It must never be tracked.
+reference-private/
+
+# Vendored external repos (synced on demand; pinned in sources/manifest.yaml)
+sources/repos/
+
+# --- Secrets ---
+.env
+.env.local
+*.local
+
+# --- Dependencies / build output ---
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# --- Editor / OS ---
+.DS_Store
+*.swp
+examples/demo-app/README.md
