@@ -6,35 +6,33 @@
  *   1. any git-tracked file contains an internal infrastructure identifier, or
  *   2. anything under reference-private/ is tracked by git.
  *
- * The blocklist is intentionally HIGH-SIGNAL: the names of internal instances /
- * services that must never appear in a public repo. Public tool names (e.g.
- * Spinnaker) and our own prototype names (Vega, Beacon) are NOT blocked.
+ * The blocklist is stored as **SHA-256 hashes**, not plaintext — so this public
+ * script never spells out the internal instance/service names it guards against.
+ * The scan hashes each word (length >= 5) of each tracked text file and checks
+ * membership. Public tool names and our own prototype names are not blocked.
  *
  * Run: node scripts/check-public.mjs   (wired as `npm run check:public`)
  */
 
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-/** Internal identifiers that must never appear in tracked files. */
-const BLOCKLIST = [
-  /catamorphic/i,
-  /catfood/i,
-  /\bgonfalon\b/i,
-];
-
-/** Files exempt from the content scan (this script defines the patterns; the
- *  seed instructions are the user's own pre-existing document). */
-const EXEMPT = new Set([
-  "scripts/check-public.mjs",
-  "initial_instructions.md",
+/** SHA-256 of the lowercased internal identifiers that must never appear. */
+const BLOCKED_HASHES = new Set([
+  "d47b38032d2b91dc3928589737b39b94d205b565dcffd115be4f4a07ee67f975",
+  "708730ab8dc65c819f68bf5f31798dee15aa3147b2d3048ca96f944e0b78b9a4",
+  "89a2d9290d40484effccb61cb02732f2fb87991aa29361dcdc1f43c3fbcc9067",
 ]);
 
-/** Skip binary-ish / lock files by extension. */
 const SKIP_EXT = /\.(png|jpg|jpeg|gif|webp|ico|pdf|lock)$/i;
 
 function tracked() {
   return execSync("git ls-files", { encoding: "utf8" }).split("\n").filter(Boolean);
+}
+
+function hash(s) {
+  return createHash("sha256").update(s.toLowerCase()).digest("hex");
 }
 
 let failures = 0;
@@ -47,21 +45,20 @@ if (leakedPrivate.length) {
   failures += leakedPrivate.length;
 }
 
-// 2. content scan
+// 2. content scan (hashed)
 for (const file of tracked()) {
-  if (EXEMPT.has(file) || SKIP_EXT.test(file)) continue;
+  if (SKIP_EXT.test(file)) continue;
   let text;
   try {
     text = readFileSync(file, "utf8");
   } catch {
     continue;
   }
-  const lines = text.split("\n");
-  lines.forEach((line, i) => {
-    for (const pattern of BLOCKLIST) {
-      if (pattern.test(line)) {
-        console.error(`✗ ${file}:${i + 1}: internal identifier matches ${pattern}`);
-        console.error(`    ${line.trim().slice(0, 120)}`);
+  text.split("\n").forEach((line, i) => {
+    for (const word of line.split(/[^A-Za-z0-9]+/)) {
+      if (word.length < 5) continue;
+      if (BLOCKED_HASHES.has(hash(word))) {
+        console.error(`✗ ${file}:${i + 1}: blocked internal identifier (${word.slice(0, 2)}***)`);
         failures += 1;
       }
     }

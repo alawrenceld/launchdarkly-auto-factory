@@ -14,6 +14,17 @@ not the final product.
 See **[docs/plan.html](docs/plan.html)** for the design, **[docs/build-checklist.md](docs/build-checklist.md)**
 for build status, and **[docs/ISSUES.md](docs/ISSUES.md)** for known blocked/deferred items.
 
+## Status
+
+Actively-developed prototype — **not finished**. What's implemented and tested today:
+the shared LD client + release adapter, the config bridge, the Phase 1 graph walker + GitHub Action
+(real Vega GraphQL transport, LD-API-key auth), Beacon (discovery / scope routing / fullstack / release
+trigger), the Notifier, and bootstrap (23 unit tests, typecheck, and a public-leak guard all green).
+
+Two things gate a live end-to-end run: a **reachable Vega dispatch endpoint** (`VEGA_ENDPOINT`), and the
+**canonical agent configs** committed under `config/agentcontrol/` (pending a sanitization review). Until
+then, `npm run bootstrap` validates + provisions a no-op. See `docs/ISSUES.md` for the full list.
+
 ## Quickstart
 
 ```bash
