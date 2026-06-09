@@ -13,8 +13,8 @@
  * trigger workflows, so there's no CI loop to guard against.
  */
 
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import type { LdResourceWriter } from "./ldWriter.js";
 
@@ -129,6 +129,16 @@ const EDIT_FILE_TOOL: AnthropicToolDef = {
   },
 };
 
+const RUN_TESTS_TOOL: AnthropicToolDef = {
+  name: "run_tests",
+  description:
+    "Run the repository's test suite (auto-detected: pytest for Python, `npm test` for Node, `go test` for Go; dependencies are installed first) and return the output. Use this AFTER writing tests to confirm they actually pass — fix any failures and re-run before committing. Optionally scope to a subdirectory.",
+  input_schema: {
+    type: "object",
+    properties: { dir: { type: "string", description: "Subdirectory to run tests in (e.g. backend). Defaults to repo root." } },
+  },
+};
+
 const COMMIT_PUSH_TOOL: AnthropicToolDef = {
   name: "commit_and_push",
   description:
@@ -151,7 +161,7 @@ export interface ToolCapabilities {
 export function buildSandboxTools(caps: ToolCapabilities): AnthropicToolDef[] {
   const tools = [...READONLY_TOOLS];
   if (caps.createFlag) tools.push(CREATE_FLAG_TOOL);
-  if (caps.editFiles) tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, COMMIT_PUSH_TOOL);
+  if (caps.editFiles) tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, RUN_TESTS_TOOL, COMMIT_PUSH_TOOL);
   return tools;
 }
 
@@ -207,6 +217,8 @@ export class SandboxToolExecutor {
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
           return this.editFile(String(input.path ?? ""), String(input.old_string ?? ""), String(input.new_string ?? ""));
+        case "run_tests":
+          return this.runTests(input.dir ? String(input.dir) : undefined);
         case "commit_and_push":
           return this.commitAndPush(String(input.message ?? "AutoFactory changes"));
         default:
@@ -344,6 +356,56 @@ export class SandboxToolExecutor {
       const err = e as { stderr?: Buffer | string; message?: string };
       return { content: `git_diff failed: ${(err.stderr?.toString() || err.message || String(e)).slice(0, 400)}`, isError: true };
     }
+  }
+
+  /** Run a command capturing output + exit code without throwing. */
+  private sh(file: string, args: string[], cwd: string, timeoutMs = 240_000): { code: number; out: string } {
+    const r = spawnSync(file, args, { cwd, encoding: "utf8", timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 });
+    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    if (r.error) return { code: -1, out: `${out}\n${r.error.message}` };
+    return { code: r.status ?? 0, out };
+  }
+
+  private trunc(s: string): string {
+    return s.length > 30_000 ? `${s.slice(0, 15_000)}\n…[output truncated]…\n${s.slice(-15_000)}` : s;
+  }
+
+  /** Auto-detect the repo's test runner (pytest / npm / go), install deps, and run it. */
+  private runTests(dir?: string): ToolExecResult {
+    if (!this.allowEdits) return { content: "run_tests is not available", isError: true };
+    const cwd = dir ? this.safeResolve(dir) : this.root;
+    const has = (f: string) => existsSync(resolve(cwd, f));
+    let entries: string[] = [];
+    try {
+      entries = readdirSync(cwd);
+    } catch {
+      /* */
+    }
+    const where = dir || ".";
+
+    const hasPyTests =
+      has("pytest.ini") || has("pyproject.toml") || entries.some((f) => /^test_.+\.py$|_test\.py$/.test(f));
+    if (has("requirements.txt") || hasPyTests) {
+      const log: string[] = [];
+      if (has("requirements.txt")) {
+        const i = this.sh("python3", ["-m", "pip", "install", "-q", "-r", "requirements.txt"], cwd);
+        if (i.code !== 0) log.push(`[deps] pip install -r requirements.txt exited ${i.code}:\n${i.out.slice(-1200)}`);
+      }
+      this.sh("python3", ["-m", "pip", "install", "-q", "pytest"], cwd);
+      const t = this.sh("python3", ["-m", "pytest", "-q"], cwd);
+      const body = `${log.join("\n")}\n$ python3 -m pytest -q (in ${where})\n${t.out}`.trim();
+      return { content: this.trunc(body), isError: t.code !== 0 };
+    }
+    if (has("package.json")) {
+      this.sh("npm", ["install", "--no-audit", "--no-fund"], cwd);
+      const t = this.sh("npm", ["test"], cwd);
+      return { content: this.trunc(`$ npm test (in ${where})\n${t.out}`), isError: t.code !== 0 };
+    }
+    if (has("go.mod")) {
+      const t = this.sh("go", ["test", "./..."], cwd);
+      return { content: this.trunc(`$ go test ./... (in ${where})\n${t.out}`), isError: t.code !== 0 };
+    }
+    return { content: "run_tests: no recognized test setup (pytest/npm/go) found in this directory", isError: true };
   }
 
   private commitAndPush(message: string): ToolExecResult {

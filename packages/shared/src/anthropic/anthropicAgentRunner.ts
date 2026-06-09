@@ -43,7 +43,7 @@ function modeNote(caps: ToolCapabilities): string {
   }
   if (caps.editFiles) {
     lines.push(
-      "You have `write_file`, `edit_file`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file), then call `commit_and_push` ONCE to land them on the PR branch. Match the existing code patterns you find.",
+      "You have `write_file`, `edit_file`, `run_tests`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file). If you wrote or changed tests, call `run_tests` to confirm they pass and FIX any failures before committing. Then call `commit_and_push` ONCE to land your changes on the PR branch. Match the existing code patterns you find.",
     );
   } else {
     lines.push("You CANNOT edit files or push commits — describe what you would change and tag accordingly.");

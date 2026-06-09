@@ -35409,8 +35409,8 @@ async function resolveAiProvider(ldClient, context, flagKey = PROVIDER_FLAG_KEY)
 }
 
 // ../shared/dist/anthropic/sandboxTools.js
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync as readFileSync2, readdirSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve as resolve2 } from "node:path";
 var READONLY_TOOLS = [
   {
@@ -35506,6 +35506,14 @@ var EDIT_FILE_TOOL = {
     required: ["path", "old_string", "new_string"]
   }
 };
+var RUN_TESTS_TOOL = {
+  name: "run_tests",
+  description: "Run the repository's test suite (auto-detected: pytest for Python, `npm test` for Node, `go test` for Go; dependencies are installed first) and return the output. Use this AFTER writing tests to confirm they actually pass \u2014 fix any failures and re-run before committing. Optionally scope to a subdirectory.",
+  input_schema: {
+    type: "object",
+    properties: { dir: { type: "string", description: "Subdirectory to run tests in (e.g. backend). Defaults to repo root." } }
+  }
+};
 var COMMIT_PUSH_TOOL = {
   name: "commit_and_push",
   description: "Stage all changes, commit, and push to the PR branch. Call this once after you've made your file edits so they land on the pull request. Provide a concise commit message.",
@@ -35520,7 +35528,7 @@ function buildSandboxTools(caps) {
   if (caps.createFlag)
     tools.push(CREATE_FLAG_TOOL);
   if (caps.editFiles)
-    tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, COMMIT_PUSH_TOOL);
+    tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, RUN_TESTS_TOOL, COMMIT_PUSH_TOOL);
   return tools;
 }
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "__pycache__", ".venv"]);
@@ -35564,6 +35572,8 @@ var SandboxToolExecutor = class {
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
           return this.editFile(String(input.path ?? ""), String(input.old_string ?? ""), String(input.new_string ?? ""));
+        case "run_tests":
+          return this.runTests(input.dir ? String(input.dir) : void 0);
         case "commit_and_push":
           return this.commitAndPush(String(input.message ?? "AutoFactory changes"));
         default:
@@ -35700,6 +35710,61 @@ var SandboxToolExecutor = class {
       return { content: `git_diff failed: ${(err.stderr?.toString() || err.message || String(e)).slice(0, 400)}`, isError: true };
     }
   }
+  /** Run a command capturing output + exit code without throwing. */
+  sh(file, args, cwd, timeoutMs = 24e4) {
+    const r = spawnSync(file, args, { cwd, encoding: "utf8", timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 });
+    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    if (r.error)
+      return { code: -1, out: `${out}
+${r.error.message}` };
+    return { code: r.status ?? 0, out };
+  }
+  trunc(s) {
+    return s.length > 3e4 ? `${s.slice(0, 15e3)}
+\u2026[output truncated]\u2026
+${s.slice(-15e3)}` : s;
+  }
+  /** Auto-detect the repo's test runner (pytest / npm / go), install deps, and run it. */
+  runTests(dir) {
+    if (!this.allowEdits)
+      return { content: "run_tests is not available", isError: true };
+    const cwd = dir ? this.safeResolve(dir) : this.root;
+    const has2 = (f) => existsSync2(resolve2(cwd, f));
+    let entries = [];
+    try {
+      entries = readdirSync(cwd);
+    } catch {
+    }
+    const where = dir || ".";
+    const hasPyTests = has2("pytest.ini") || has2("pyproject.toml") || entries.some((f) => /^test_.+\.py$|_test\.py$/.test(f));
+    if (has2("requirements.txt") || hasPyTests) {
+      const log = [];
+      if (has2("requirements.txt")) {
+        const i = this.sh("python3", ["-m", "pip", "install", "-q", "-r", "requirements.txt"], cwd);
+        if (i.code !== 0)
+          log.push(`[deps] pip install -r requirements.txt exited ${i.code}:
+${i.out.slice(-1200)}`);
+      }
+      this.sh("python3", ["-m", "pip", "install", "-q", "pytest"], cwd);
+      const t = this.sh("python3", ["-m", "pytest", "-q"], cwd);
+      const body = `${log.join("\n")}
+$ python3 -m pytest -q (in ${where})
+${t.out}`.trim();
+      return { content: this.trunc(body), isError: t.code !== 0 };
+    }
+    if (has2("package.json")) {
+      this.sh("npm", ["install", "--no-audit", "--no-fund"], cwd);
+      const t = this.sh("npm", ["test"], cwd);
+      return { content: this.trunc(`$ npm test (in ${where})
+${t.out}`), isError: t.code !== 0 };
+    }
+    if (has2("go.mod")) {
+      const t = this.sh("go", ["test", "./..."], cwd);
+      return { content: this.trunc(`$ go test ./... (in ${where})
+${t.out}`), isError: t.code !== 0 };
+    }
+    return { content: "run_tests: no recognized test setup (pytest/npm/go) found in this directory", isError: true };
+  }
   commitAndPush(message) {
     if (!this.allowEdits)
       return { content: "commit_and_push is not available", isError: true };
@@ -35782,7 +35847,7 @@ function modeNote(caps) {
     lines.push("You have `create_flag` \u2014 creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.");
   }
   if (caps.editFiles) {
-    lines.push("You have `write_file`, `edit_file`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file), then call `commit_and_push` ONCE to land them on the PR branch. Match the existing code patterns you find.");
+    lines.push("You have `write_file`, `edit_file`, `run_tests`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file). If you wrote or changed tests, call `run_tests` to confirm they pass and FIX any failures before committing. Then call `commit_and_push` ONCE to land your changes on the PR branch. Match the existing code patterns you find.");
   } else {
     lines.push("You CANNOT edit files or push commits \u2014 describe what you would change and tag accordingly.");
   }
@@ -36029,14 +36094,14 @@ async function walkGraph(graphDef, runner, context, graphTracker) {
 }
 
 // src/prContext.ts
-import { existsSync as existsSync2, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
 function assemblePrContext() {
   const ctx = {
     REPO: process.env.GITHUB_REPOSITORY,
     SHA: process.env.GITHUB_SHA
   };
   const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (eventPath && existsSync2(eventPath)) {
+  if (eventPath && existsSync3(eventPath)) {
     try {
       const event = JSON.parse(readFileSync3(eventPath, "utf8"));
       const pr = event.pull_request;
