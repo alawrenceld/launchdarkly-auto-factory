@@ -73,13 +73,12 @@ function createAgentRunner(provider: string): AgentRunner {
   // is the bundled demo app; in CI it defaults to the checked-out workspace.
   const sandboxRoot = resolve(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const writer = flagCreationWriter();
-  if (writer) {
-    console.log(`Flag creation ENABLED → app project '${writer.projectKey}'.`);
-  } else {
-    console.log("Flag creation disabled (read-only). Set ENABLE_FLAG_CREATION=true + LD_API_KEY to enable.");
-  }
+  const codeChangesEnabled = process.env.ENABLE_CODE_CHANGES === "true";
+  console.log(`Flag creation: ${writer ? `ENABLED → app project '${writer.projectKey}'` : "disabled"}.`);
+  console.log(`Code changes (edit + commit/push): ${codeChangesEnabled ? "ENABLED" : "disabled"}.`);
   return new AnthropicAgentRunner({
     sandboxRoot,
+    codeChangesEnabled,
     ...(process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}),
     ...(writer ? { writer } : {}),
   });
@@ -136,6 +135,8 @@ function mapActionInputs(): void {
   set("GRAPH_KEY", "graph_key");
   set("SANDBOX_ROOT", "sandbox_root");
   set("ENABLE_FLAG_CREATION", "enable_flag_creation");
+  set("ENABLE_CODE_CHANGES", "enable_code_changes");
+  set("PR_BRANCH", "pr_branch");
   set("APPROVAL_MODE", "approval_mode");
   set("GITHUB_TOKEN", "github_token");
   set("VEGA_ENDPOINT", "vega_endpoint");

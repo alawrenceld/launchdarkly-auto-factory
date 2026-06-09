@@ -2,9 +2,11 @@
 #   .github/workflows/auto-factory.yml
 #
 # Phase 1 runs automatically on every PR (opened/updated) — NO label gate.
-# Open a PR and the agent chain does the rest. The agents run on the Anthropic
-# API by default (the `auto-factory-ai-provider` flag selects the backend; flip
-# it to "vega" in LaunchDarkly to switch — no workflow change needed).
+# The agent chain runs on the Anthropic API by default (the
+# `auto-factory-ai-provider` flag selects the backend; flip it to "vega" in
+# LaunchDarkly to switch — no workflow change needed). With flag creation and
+# code changes enabled, the flag-implementer creates a real flag, wires it into
+# the code, and pushes to the PR branch; the testing agent adds tests.
 
 name: LaunchDarkly Auto-Factory
 
@@ -13,7 +15,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read         # agents inspect the PR code (read-only this phase)
+  contents: write        # agents wire the flag into the code and push to the PR branch
   pull-requests: write   # post the summary comment
 
 jobs:
@@ -22,23 +24,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Check out the PR's head branch (not the detached merge ref) so the
+          # agents can commit + push wiring/tests back to the PR.
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: LaunchDarkly Auto-Factory — Phase 1
         # Replace <owner> with the org/user hosting the auto-factory repo.
         uses: <owner>/launchdarkly-auto-factory/packages/phase1-resource-factory@main
         with:
-          # Native LaunchDarkly SDK — server SDK key for the FACTORY project
-          # (holds the AI configs, agent graph, and the provider flag).
           ld_sdk_key: ${{ secrets.LD_SDK_KEY }}
-          # Anthropic backend (default provider).
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # APP / data-plane project where flags get created (and Phase 2 releases).
           ld_app_project_key: ${{ vars.LD_APP_PROJECT_KEY }}   # e.g. autofactory-demo
-          # api- key for flag creation in the app project.
           ld_api_key: ${{ secrets.LD_API_KEY }}
-          # Create REAL flags in the app project (set "false" for a read-only dry-run).
-          enable_flag_creation: "true"
+          enable_flag_creation: "true"   # create REAL flags in the app project
+          enable_code_changes: "true"    # wire the flag into the code + push; add tests
+          pr_branch: ${{ github.event.pull_request.head.ref }}
           graph_key: gha-auto-factory
           approval_mode: yolo
           github_token: ${{ secrets.GITHUB_TOKEN }}

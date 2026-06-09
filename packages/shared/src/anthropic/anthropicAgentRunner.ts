@@ -21,58 +21,60 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AgentNodeRequest, AgentNodeResult, AgentRunner, AgentStatus } from "../agentRunner.js";
 import type { LdResourceWriter } from "./ldWriter.js";
-import { SandboxToolExecutor, buildSandboxTools } from "./sandboxTools.js";
+import { SandboxToolExecutor, type ToolCapabilities, buildSandboxTools } from "./sandboxTools.js";
 
-const COMMON_NOTE = `
-
-You CANNOT edit files, run commands, or push git commits — code changes are out of
-scope for this phase. Keep repo exploration focused (a handful of tool calls), then
-finish with a short brief for the next agent.
+const TAGGING_NOTE = `
 
 You MUST call \`tag_conversation\` with the routing tag(s) your instructions specify
 (e.g. flag_created, skip_flagging, flag_worthy, needs_tests, review_approved,
 risk_level). The downstream chain advances on these tags — a step that sets no tags
 stalls the pipeline.`;
 
-const DRY_RUN_NOTE = `
-
----
-## EXECUTION MODE: DRY-RUN (read-only)
-
-You have read-only tools (\`read_file\`, \`list_dir\`, \`grep\`) and \`tag_conversation\`.
-You CANNOT create LaunchDarkly flags or metrics. Wherever your instructions tell you
-to create one, describe what you WOULD do and emit the corresponding routing tag.
-${COMMON_NOTE}`;
-
-const WRITE_NOTE = `
-
----
-## EXECUTION MODE: LIVE (flag creation enabled)
-
-You have read-only repo tools plus \`create_flag\`, which creates a REAL boolean
-feature flag in the LaunchDarkly app project. When your flagging rules say a flag is
-needed, CALL \`create_flag\` (it is idempotent — safe on PR re-runs). For metrics and
-tests you have no write tool: describe what you would do and tag accordingly.
-${COMMON_NOTE}`;
+/** Build the execution-mode note appended to the agent's instructions, per capabilities. */
+function modeNote(caps: ToolCapabilities): string {
+  const lines = [
+    "\n\n---\n## EXECUTION MODE",
+    "You have read-only repo tools (`read_file`, `list_dir`, `grep`).",
+  ];
+  if (caps.createFlag) {
+    lines.push(
+      "You have `create_flag` — creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.",
+    );
+  }
+  if (caps.editFiles) {
+    lines.push(
+      "You have `write_file`, `edit_file`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file), then call `commit_and_push` ONCE to land them on the PR branch. Match the existing code patterns you find.",
+    );
+  } else {
+    lines.push("You CANNOT edit files or push commits — describe what you would change and tag accordingly.");
+  }
+  lines.push("Keep exploration focused, then finish with a short brief for the next agent.");
+  return lines.join("\n") + TAGGING_NOTE;
+}
 
 const DEFAULT_MAX_TURNS = 12;
 const MAX_TOKENS = 4096;
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-/** Only this node may create flags — research/metrics/testing/review must not. */
-const DEFAULT_FLAG_CREATION_CONFIG_KEY = "autofactory-flag-implementer";
+
+/**
+ * Per-node capability grants (intersected with what's globally enabled). Only the
+ * flag-implementer may create flags; the implementer and testing agents may edit
+ * code + push; everything else is read-only.
+ */
+const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
+  "autofactory-flag-implementer": { createFlag: true, editFiles: true },
+  "autofactory-flag-testing": { createFlag: false, editFiles: true },
+};
 
 export interface AnthropicAgentRunnerOptions {
-  /** Absolute path the read-only sandbox tools operate within (the repo under review). */
+  /** Absolute path the sandbox tools operate within (the repo under review / the checkout). */
   sandboxRoot: string;
   /** Anthropic API key; falls back to ANTHROPIC_API_KEY in the env. */
   apiKey?: string;
-  /**
-   * When provided, the `create_flag` tool is enabled (creates real flags in the
-   * app/data-plane project) — but ONLY for the flag-creation node. Omit for dry-run.
-   */
+  /** When provided, `create_flag` is enabled for capable nodes (real flags in the app project). */
   writer?: LdResourceWriter;
-  /** Config key of the node allowed to create flags (default the flag-implementer). */
-  flagCreationConfigKey?: string;
+  /** When true, file-edit + commit/push tools are enabled for capable nodes. */
+  codeChangesEnabled?: boolean;
 }
 
 export class AnthropicAgentRunner implements AgentRunner {
@@ -83,15 +85,18 @@ export class AnthropicAgentRunner implements AgentRunner {
   }
 
   async runNode(req: AgentNodeRequest): Promise<AgentNodeResult> {
-    // Write tools are enabled per-node: only the flag-creation node may create flags.
-    const flagNode = this.opts.flagCreationConfigKey ?? DEFAULT_FLAG_CREATION_CONFIG_KEY;
-    const writeForThisNode = this.opts.writer !== undefined && req.configKey === flagNode;
-    const writer = writeForThisNode ? this.opts.writer : undefined;
+    // Effective capabilities = this node's grant ∩ globally-enabled features.
+    const grant = NODE_CAPABILITIES[req.configKey] ?? { createFlag: false, editFiles: false };
+    const caps: ToolCapabilities = {
+      createFlag: grant.createFlag && this.opts.writer !== undefined,
+      editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
+    };
+    const writer = caps.createFlag ? this.opts.writer : undefined;
 
-    const system = (req.instructions ?? "") + (writeForThisNode ? WRITE_NOTE : DRY_RUN_NOTE);
+    const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
-    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer);
-    const tools = buildSandboxTools({ writeEnabled: writeForThisNode }) as Anthropic.Tool[];
+    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles);
+    const tools = buildSandboxTools(caps) as Anthropic.Tool[];
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
 
     const messages: Anthropic.MessageParam[] = [{ role: "user", content: req.prompt }];

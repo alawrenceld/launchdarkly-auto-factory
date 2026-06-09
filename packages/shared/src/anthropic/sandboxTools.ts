@@ -1,16 +1,21 @@
 /**
- * Tool set for the Anthropic agent path.
+ * Tool set for the Anthropic agent path, capability-gated per node.
  *
- * Read-only repo inspection (`read_file`, `list_dir`, `grep`) + `tag_conversation`
- * (routing tags the graph walker needs) are always available. When a write-capable
- * `LdResourceWriter` is provided, the `create_flag` tool is added so the
- * flag-implementer can create a real feature flag in the app/data-plane project.
- * Nothing here edits files, runs commands, or pushes git — code changes stay out
- * of scope for this phase.
+ *  - Always: read-only repo inspection (`read_file`, `list_dir`, `grep`) +
+ *    `tag_conversation` (routing tags the graph walker needs).
+ *  - When `createFlag` is enabled: `create_flag` (real flag in the app project).
+ *  - When `editFiles` is enabled: `write_file` / `edit_file` (mutate the checkout)
+ *    + `commit_and_push` (commit to the PR branch). This is how the
+ *    flag-implementer wires the flag into the code and the testing agent adds
+ *    tests — completing the "wire the code and push" half of their jobs.
+ *
+ * Pushes use the workflow's GITHUB_TOKEN, whose commits do NOT recursively
+ * trigger workflows, so there's no CI loop to guard against.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import type { LdResourceWriter } from "./ldWriter.js";
 
 export interface AnthropicToolDef {
@@ -73,7 +78,7 @@ const READONLY_TOOLS: AnthropicToolDef[] = [
 const CREATE_FLAG_TOOL: AnthropicToolDef = {
   name: "create_flag",
   description:
-    "Create a boolean feature flag in LaunchDarkly (the app/data-plane project). Treatment=true (new behavior), Control=false (existing behavior, served when off). Use this when your flagging rules say a flag is needed. Idempotent: re-creating an existing key is a no-op. After it succeeds, the flag_created/flag_key tags are set for you.",
+    "Create a boolean feature flag in LaunchDarkly (the app/data-plane project). Treatment=true (new behavior), Control=false (existing behavior, served when off). Idempotent: re-creating an existing key is a no-op. After it succeeds, the flag_created/flag_key tags are set for you.",
   input_schema: {
     type: "object",
     properties: {
@@ -86,9 +91,59 @@ const CREATE_FLAG_TOOL: AnthropicToolDef = {
   },
 };
 
-/** Build the tool set offered to the model. `create_flag` is included only in write mode. */
-export function buildSandboxTools(opts: { writeEnabled: boolean }): AnthropicToolDef[] {
-  return opts.writeEnabled ? [...READONLY_TOOLS, CREATE_FLAG_TOOL] : READONLY_TOOLS;
+const WRITE_FILE_TOOL: AnthropicToolDef = {
+  name: "write_file",
+  description:
+    "Create or overwrite a repo file with the given contents (parent directories are created). Use for new files (e.g. a test file). Path is repo-relative.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "Repo-relative file path" },
+      content: { type: "string", description: "Full file contents" },
+    },
+    required: ["path", "content"],
+  },
+};
+
+const EDIT_FILE_TOOL: AnthropicToolDef = {
+  name: "edit_file",
+  description:
+    "Replace an exact substring in an existing repo file. Use to wire flag evaluation into code. `old_string` must appear exactly once; include enough surrounding context to make it unique.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "Repo-relative file path" },
+      old_string: { type: "string", description: "Exact text to replace (must be unique in the file)" },
+      new_string: { type: "string", description: "Replacement text" },
+    },
+    required: ["path", "old_string", "new_string"],
+  },
+};
+
+const COMMIT_PUSH_TOOL: AnthropicToolDef = {
+  name: "commit_and_push",
+  description:
+    "Stage all changes, commit, and push to the PR branch. Call this once after you've made your file edits so they land on the pull request. Provide a concise commit message.",
+  input_schema: {
+    type: "object",
+    properties: { message: { type: "string", description: "Commit message" } },
+    required: ["message"],
+  },
+};
+
+export interface ToolCapabilities {
+  /** Offer `create_flag` (needs a writer). */
+  createFlag: boolean;
+  /** Offer `write_file` / `edit_file` / `commit_and_push`. */
+  editFiles: boolean;
+}
+
+/** Build the tool set offered to the model for a node, per its capabilities. */
+export function buildSandboxTools(caps: ToolCapabilities): AnthropicToolDef[] {
+  const tools = [...READONLY_TOOLS];
+  if (caps.createFlag) tools.push(CREATE_FLAG_TOOL);
+  if (caps.editFiles) tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, COMMIT_PUSH_TOOL);
+  return tools;
 }
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "__pycache__", ".venv"]);
@@ -101,9 +156,9 @@ export interface ToolExecResult {
 }
 
 /**
- * Executes tool calls against a fixed root directory, accumulating the tags
- * emitted via `tag_conversation` (and auto-tagging on successful flag creation).
- * One instance per node run. Pass an `LdResourceWriter` to enable `create_flag`.
+ * Executes tool calls against a fixed root directory, accumulating routing tags.
+ * One instance per node run. `writer` enables `create_flag`; `allowEdits` enables
+ * the file-mutation + git tools.
  */
 export class SandboxToolExecutor {
   readonly tags: Record<string, string> = {};
@@ -111,6 +166,7 @@ export class SandboxToolExecutor {
   constructor(
     private readonly root: string,
     private readonly writer?: LdResourceWriter,
+    private readonly allowEdits = false,
   ) {}
 
   /** Resolve a repo-relative path and reject anything escaping the sandbox root. */
@@ -136,6 +192,12 @@ export class SandboxToolExecutor {
           return { content: this.tag(input.tags) };
         case "create_flag":
           return await this.createFlag(input);
+        case "write_file":
+          return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
+        case "edit_file":
+          return this.editFile(String(input.path ?? ""), String(input.old_string ?? ""), String(input.new_string ?? ""));
+        case "commit_and_push":
+          return this.commitAndPush(String(input.message ?? "AutoFactory changes"));
         default:
           return { content: `Unknown tool: ${name}`, isError: true };
       }
@@ -206,7 +268,7 @@ export class SandboxToolExecutor {
   }
 
   private async createFlag(input: Record<string, unknown>): Promise<ToolExecResult> {
-    if (!this.writer) return { content: "create_flag is not available (write mode disabled)", isError: true };
+    if (!this.writer) return { content: "create_flag is not available", isError: true };
     const result = await this.writer.createBooleanFlag({
       key: String(input.key ?? ""),
       ...(input.name ? { name: String(input.name) } : {}),
@@ -217,5 +279,49 @@ export class SandboxToolExecutor {
     this.tags.flag_created = "true";
     this.tags.flag_key = result.key;
     return { content: result.detail };
+  }
+
+  private writeFile(rel: string, content: string): ToolExecResult {
+    if (!this.allowEdits) return { content: "write_file is not available", isError: true };
+    const abs = this.safeResolve(rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content, "utf8");
+    return { content: `Wrote ${rel} (${Buffer.byteLength(content)} bytes)` };
+  }
+
+  private editFile(rel: string, oldStr: string, newStr: string): ToolExecResult {
+    if (!this.allowEdits) return { content: "edit_file is not available", isError: true };
+    if (!oldStr) return { content: "edit_file: old_string is required", isError: true };
+    const abs = this.safeResolve(rel);
+    const text = readFileSync(abs, "utf8");
+    const idx = text.indexOf(oldStr);
+    if (idx === -1) return { content: `edit_file: old_string not found in ${rel}`, isError: true };
+    if (text.indexOf(oldStr, idx + oldStr.length) !== -1) {
+      return { content: `edit_file: old_string is not unique in ${rel}; add more context`, isError: true };
+    }
+    writeFileSync(abs, text.slice(0, idx) + newStr + text.slice(idx + oldStr.length), "utf8");
+    return { content: `Edited ${rel}` };
+  }
+
+  private commitAndPush(message: string): ToolExecResult {
+    if (!this.allowEdits) return { content: "commit_and_push is not available", isError: true };
+    const git = (args: string[]): string =>
+      execFileSync("git", args, { cwd: this.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    try {
+      git(["config", "user.email", "autofactory@launchdarkly.com"]);
+      git(["config", "user.name", "LaunchDarkly AutoFactory"]);
+      git(["add", "-A"]);
+      // Nothing staged → report rather than fail the node.
+      const staged = execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: this.root, encoding: "utf8" }).trim();
+      if (!staged) return { content: "commit_and_push: no changes to commit" };
+      git(["commit", "-m", message]);
+      const branch = process.env.PR_BRANCH;
+      git(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
+      return { content: `Committed and pushed (${staged.split("\n").length} file(s)): ${message}` };
+    } catch (e) {
+      const err = e as { stderr?: Buffer | string; message?: string };
+      const detail = (err.stderr ? err.stderr.toString() : "") || err.message || String(e);
+      return { content: `commit_and_push failed: ${detail.slice(0, 500)}`, isError: true };
+    }
   }
 }
