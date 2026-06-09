@@ -33,18 +33,36 @@ if (issues.length) {
   process.exit(1);
 }
 
-// 3. Provision agent configs + graph into the target project.
-console.log("\nProvisioning agent configs + graph into the target project…");
-execSync("node packages/config-bridge/dist/cli.js provision", { stdio: "inherit" });
+// 3. Get agent configs + graph into the target project.
+//    - If LD_SOURCE_* is configured: SEED (pull the live graph + the configs it
+//      references from the source project, provision straight into the target).
+//    - Otherwise: provision from the committed local copies in config/agentcontrol/.
+const hasSource =
+  process.env.LD_SOURCE_API_KEY && process.env.LD_SOURCE_BASE_URL && process.env.LD_SOURCE_PROJECT_KEY;
+if (hasSource) {
+  console.log("\nLD_SOURCE_* configured — seeding agent configs + graph from the source project…");
+  execSync("node packages/config-bridge/dist/cli.js seed", { stdio: "inherit" });
+} else {
+  console.log("\nProvisioning agent configs + graph from local config/agentcontrol/…");
+  console.log("  (Set LD_SOURCE_* in .env to pull the live configs+graph from the prototype project instead.)");
+  execSync("node packages/config-bridge/dist/cli.js provision", { stdio: "inherit" });
+}
 
 // 4. Remaining manual steps.
 console.log(`
 Next steps:
   1. Copy bootstrap/github-action-template/auto-factory.yml → .github/workflows/ in your app repo
      (set <owner> to the repo hosting this action).
-  2. Add repo secrets: LD_API_KEY  (+ GITHUB_TOKEN and BEACON_WEBHOOK_SECRET for Phase 2).
+  2. Add repo secrets:    LD_SDK_KEY, ANTHROPIC_API_KEY, LD_API_KEY
+     Add repo variable:   LD_APP_PROJECT_KEY  (e.g. autofactory-demo)
+     (GITHUB_TOKEN is provided automatically by GitHub Actions. For Phase 2, also
+      add BEACON_WEBHOOK_SECRET.)
   3. Open a PR — Phase 1 runs automatically.
-
-Note: canonical agent configs live in config/agentcontrol/ (populated after the
-sanitization review — see docs/ISSUES.md I3). Until then, provision is a no-op.
-`);
+${
+  hasSource
+    ? ""
+    : `
+Note: the AI configs are NOT committed to this repo — config/agentcontrol/ai-configs/
+is intentionally empty. To get a runnable pipeline, set LD_SOURCE_* in .env and re-run
+bootstrap to SEED the live graph + configs from the prototype project.`
+}`);

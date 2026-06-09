@@ -1,0 +1,159 @@
+import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, it } from "node:test";
+
+import {
+  SandboxToolExecutor,
+  buildSandboxTools,
+  type CreateFlagArgs,
+  type LdResourceWriter,
+  type LdWriteResult,
+} from "@auto-factory/shared";
+
+let root: string;
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), "sandbox-test-"));
+  mkdirSync(join(root, "sub"), { recursive: true });
+  writeFileSync(join(root, "a.txt"), "hello world\nsecond line\n");
+  writeFileSync(join(root, "sub", "b.txt"), "nested needle here\n");
+});
+
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+});
+
+describe("SandboxToolExecutor — read-only happy paths", () => {
+  it("read_file returns file contents", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("read_file", { path: "a.txt" });
+    assert.equal(r.isError, undefined);
+    assert.match(r.content, /hello world/);
+  });
+
+  it("list_dir lists entries with trailing slash on dirs", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("list_dir", { path: "." });
+    assert.match(r.content, /a\.txt/);
+    assert.match(r.content, /sub\//);
+  });
+
+  it("grep finds matches across nested dirs and reports file:line", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("grep", { pattern: "needle" });
+    assert.match(r.content, /sub\/b\.txt:1/);
+  });
+
+  it("unknown tool name is an error result, not a throw", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("nope", {});
+    assert.equal(r.isError, true);
+    assert.match(r.content, /Unknown tool/);
+  });
+});
+
+describe("SandboxToolExecutor — sandbox escape rejection", () => {
+  it("allows the root itself and descendants", async () => {
+    const exec = new SandboxToolExecutor(root);
+    assert.equal((await exec.execute("list_dir", { path: "." })).isError, undefined);
+    assert.equal((await exec.execute("read_file", { path: "sub/b.txt" })).isError, undefined);
+  });
+
+  it("rejects ../escape", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("read_file", { path: "../escape" });
+    assert.equal(r.isError, true);
+    assert.match(r.content, /outside the sandbox/);
+  });
+
+  it("rejects an absolute path outside the root", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("read_file", { path: "/etc/hosts" });
+    assert.equal(r.isError, true);
+    assert.match(r.content, /outside the sandbox/);
+  });
+});
+
+describe("SandboxToolExecutor — tag accumulation", () => {
+  it("tag_conversation records tags onto the executor", async () => {
+    const exec = new SandboxToolExecutor(root);
+    await exec.execute("tag_conversation", { tags: { review_approved: "approve", risk_level: "low" } });
+    assert.deepEqual(exec.tags, { review_approved: "approve", risk_level: "low" });
+  });
+
+  it("accumulates across multiple calls", async () => {
+    const exec = new SandboxToolExecutor(root);
+    await exec.execute("tag_conversation", { tags: { a: "1" } });
+    await exec.execute("tag_conversation", { tags: { b: "2" } });
+    assert.deepEqual(exec.tags, { a: "1", b: "2" });
+  });
+});
+
+describe("SandboxToolExecutor — capability gating", () => {
+  it("write_file / edit_file are unavailable without allowEdits", async () => {
+    const exec = new SandboxToolExecutor(root); // no writer, no edits
+    assert.equal((await exec.execute("write_file", { path: "x.txt", content: "x" })).isError, true);
+    assert.equal((await exec.execute("edit_file", { path: "a.txt", old_string: "hello", new_string: "hi" })).isError, true);
+  });
+
+  it("create_flag is unavailable without a writer", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("create_flag", { key: "x" });
+    assert.equal(r.isError, true);
+    assert.match(r.content, /not available/);
+  });
+
+  it("buildSandboxTools offers only read-only tools by default", () => {
+    const names = buildSandboxTools({ createFlag: false, editFiles: false }).map((t) => t.name);
+    assert.ok(names.includes("read_file"));
+    assert.ok(names.includes("git_diff"));
+    assert.ok(!names.includes("create_flag"));
+    assert.ok(!names.includes("write_file"));
+    assert.ok(!names.includes("commit_and_push"));
+  });
+
+  it("buildSandboxTools adds gated tools when capabilities are granted", () => {
+    const names = buildSandboxTools({ createFlag: true, editFiles: true }).map((t) => t.name);
+    assert.ok(names.includes("create_flag"));
+    assert.ok(names.includes("write_file"));
+    assert.ok(names.includes("edit_file"));
+    assert.ok(names.includes("run_tests"));
+    assert.ok(names.includes("commit_and_push"));
+  });
+});
+
+describe("SandboxToolExecutor — edit_file with edits enabled", () => {
+  it("rejects a non-unique old_string", async () => {
+    writeFileSync(join(root, "dup.txt"), "x\nx\n");
+    const exec = new SandboxToolExecutor(root, undefined, true);
+    const r = await exec.execute("edit_file", { path: "dup.txt", old_string: "x", new_string: "y" });
+    assert.equal(r.isError, true);
+    assert.match(r.content, /not unique/);
+  });
+
+  it("edits a unique substring", async () => {
+    const exec = new SandboxToolExecutor(root, undefined, true);
+    const r = await exec.execute("edit_file", { path: "a.txt", old_string: "hello world", new_string: "hi there" });
+    assert.equal(r.isError, undefined);
+    assert.match((await exec.execute("read_file", { path: "a.txt" })).content, /hi there/);
+  });
+});
+
+describe("SandboxToolExecutor — create_flag fallback tagging", () => {
+  it("sets flag_created/flag_key even when the agent doesn't tag", async () => {
+    const fakeWriter = {
+      projectKey: "demo",
+      async createBooleanFlag(args: CreateFlagArgs): Promise<LdWriteResult> {
+        return { created: true, alreadyExists: false, key: args.key, detail: `created ${args.key}` };
+      },
+    } as unknown as LdResourceWriter;
+
+    const exec = new SandboxToolExecutor(root, fakeWriter);
+    const r = await exec.execute("create_flag", { key: "enable-thing" });
+    assert.equal(r.isError, undefined);
+    assert.equal(exec.tags.flag_created, "true");
+    assert.equal(exec.tags.flag_key, "enable-thing");
+  });
+});

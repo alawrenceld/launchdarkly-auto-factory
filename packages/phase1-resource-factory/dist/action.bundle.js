@@ -4000,10 +4000,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep: sep4, value } = collItem;
+        const { start, key, sep: sep5, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep4?.[0],
+          next: key ?? sep5?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4017,7 +4017,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep4) {
+          if (!keyProps.anchor && !keyProps.tag && !sep5) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -4041,7 +4041,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep4 ?? [], {
+        const valueProps = resolveProps.resolveProps(sep5 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4057,7 +4057,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep4, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep5, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4148,7 +4148,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep4 = "";
+        let sep5 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4162,13 +4162,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep4 + cb;
-              sep4 = "";
+                comment += sep5 + cb;
+              sep5 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep4 += source;
+                sep5 += source;
               hasSpace = true;
               break;
             default:
@@ -4211,18 +4211,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep: sep4, value } = collItem;
+        const { start, key, sep: sep5, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep4?.[0],
+          next: key ?? sep5?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep4 && !value) {
+          if (!props.anchor && !props.tag && !sep5 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4276,8 +4276,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep4 && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep4, null, props, onError);
+        if (!isMap && !sep5 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep5, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4289,7 +4289,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep4 ?? [], {
+          const valueProps = resolveProps.resolveProps(sep5 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4300,8 +4300,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep4)
-                for (const st of sep4) {
+              if (sep5)
+                for (const st of sep5) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4318,7 +4318,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep4, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep5, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4498,7 +4498,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep4 = "";
+      let sep5 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4515,24 +4515,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep4 + indent.slice(trimIndent) + content;
-          sep4 = "\n";
+          value += sep5 + indent.slice(trimIndent) + content;
+          sep5 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep4 === " ")
-            sep4 = "\n";
-          else if (!prevMoreIndented && sep4 === "\n")
-            sep4 = "\n\n";
-          value += sep4 + indent.slice(trimIndent) + content;
-          sep4 = "\n";
+          if (sep5 === " ")
+            sep5 = "\n";
+          else if (!prevMoreIndented && sep5 === "\n")
+            sep5 = "\n\n";
+          value += sep5 + indent.slice(trimIndent) + content;
+          sep5 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep4 === "\n")
+          if (sep5 === "\n")
             value += "\n";
           else
-            sep4 = "\n";
+            sep5 = "\n";
         } else {
-          value += sep4 + content;
-          sep4 = " ";
+          value += sep5 + content;
+          sep5 = " ";
           prevMoreIndented = false;
         }
       }
@@ -4714,25 +4714,25 @@ var require_resolve_flow_scalar = __commonJS({
       if (!match)
         return source;
       let res = match[1];
-      let sep4 = " ";
+      let sep5 = " ";
       let pos = first.lastIndex;
       line.lastIndex = pos;
       while (match = line.exec(source)) {
         if (match[1] === "") {
-          if (sep4 === "\n")
-            res += sep4;
+          if (sep5 === "\n")
+            res += sep5;
           else
-            sep4 = "\n";
+            sep5 = "\n";
         } else {
-          res += sep4 + match[1];
-          sep4 = " ";
+          res += sep5 + match[1];
+          sep5 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep4 + (match?.[1] ?? "");
+      return res + sep5 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -5542,14 +5542,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep: sep4, value }) {
+    function stringifyItem({ start, key, sep: sep5, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep4)
-        for (const st of sep4)
+      if (sep5)
+        for (const st of sep5)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -6716,18 +6716,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep4;
+          let sep5;
           if (scalar.end) {
-            sep4 = scalar.end;
-            sep4.push(this.sourceToken);
+            sep5 = scalar.end;
+            sep5.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep4 = [this.sourceToken];
+            sep5 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep: sep4 }]
+            items: [{ start, key: scalar, sep: sep5 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -6880,15 +6880,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep4 = it.sep;
-                  sep4.push(this.sourceToken);
+                  const sep5 = it.sep;
+                  sep5.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep: sep4 }]
+                    items: [{ start: start2, key, sep: sep5 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7082,13 +7082,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep4 = fc.end.splice(1, fc.end.length);
-            sep4.push(this.sourceToken);
+            const sep5 = fc.end.splice(1, fc.end.length);
+            sep5.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep: sep4 }]
+              items: [{ start, key: fc, sep: sep5 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -33179,13 +33179,11 @@ var LdApiError = class extends Error {
 // ../shared/dist/vegaClient.js
 var TERMINAL = /* @__PURE__ */ new Set(["completed", "failed", "stopped", "cancelled"]);
 var StubVegaTransport = class {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async dispatch(_req) {
-    throw new Error("Vega transport not wired yet \u2014 awaiting real API docs. Implement VegaTransport and inject it into VegaClient.");
+    throw new Error("Vega transport not configured \u2014 set VEGA_ENDPOINT + VEGA_TOKEN, or use the default 'anthropic' provider.");
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getStatus(_conversationId) {
-    throw new Error("Vega transport not wired yet \u2014 awaiting real API docs.");
+    throw new Error("Vega transport not configured \u2014 set VEGA_ENDPOINT + VEGA_TOKEN.");
   }
 };
 var VegaClient = class {
@@ -35411,7 +35409,7 @@ async function resolveAiProvider(ldClient, context, flagKey = PROVIDER_FLAG_KEY)
 // ../shared/dist/anthropic/sandboxTools.js
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, relative, resolve as resolve2 } from "node:path";
+import { dirname, isAbsolute, relative, resolve as resolve2, sep } from "node:path";
 var READONLY_TOOLS = [
   {
     name: "read_file",
@@ -35538,17 +35536,21 @@ var SandboxToolExecutor = class {
   root;
   writer;
   allowEdits;
+  prBranch;
+  prBaseRef;
   tags = {};
-  constructor(root, writer, allowEdits = false) {
+  constructor(root, writer, allowEdits = false, prBranch, prBaseRef) {
     this.root = root;
     this.writer = writer;
     this.allowEdits = allowEdits;
+    this.prBranch = prBranch;
+    this.prBaseRef = prBaseRef;
   }
   /** Resolve a repo-relative path and reject anything escaping the sandbox root. */
   safeResolve(rel) {
     const abs = resolve2(this.root, rel || ".");
     const within = relative(this.root, abs);
-    if (within.startsWith("..") || resolve2(abs) !== abs) {
+    if (within === ".." || within.startsWith(".." + sep) || isAbsolute(within)) {
       throw new Error(`path '${rel}' is outside the sandbox`);
     }
     return abs;
@@ -35684,7 +35686,7 @@ var SandboxToolExecutor = class {
   }
   /** Resolve the first base ref that exists locally, for a base...HEAD diff. */
   resolveBaseRef(base) {
-    const name = base || process.env.PR_BASE_REF || "main";
+    const name = base || this.prBaseRef || process.env.PR_BASE_REF || "main";
     const candidates = [base, `origin/${name}`, name, "origin/main", "main"].filter((v) => !!v);
     for (const ref of candidates) {
       try {
@@ -35776,7 +35778,7 @@ ${t.out}`), isError: t.code !== 0 };
       if (!staged)
         return { content: "commit_and_push: no changes to commit" };
       this.runGit(["commit", "-m", message]);
-      const branch = process.env.PR_BRANCH;
+      const branch = this.prBranch ?? process.env.PR_BRANCH;
       this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
       return { content: `Committed and pushed (${staged.split("\n").length} file(s)): ${message}` };
     } catch (e) {
@@ -35861,6 +35863,23 @@ var NODE_CAPABILITIES = {
   "autofactory-flag-implementer": { createFlag: true, editFiles: true },
   "autofactory-flag-testing": { createFlag: false, editFiles: true }
 };
+var CAP_CREATE_FLAG = "create_flag";
+var CAP_EDIT_FILES = "edit_files";
+function resolveGrant(configKey, capabilities) {
+  if (capabilities) {
+    return {
+      grant: {
+        createFlag: capabilities.includes(CAP_CREATE_FLAG),
+        editFiles: capabilities.includes(CAP_EDIT_FILES)
+      },
+      source: "edge"
+    };
+  }
+  const fallback = NODE_CAPABILITIES[configKey];
+  if (fallback)
+    return { grant: fallback, source: "fallback" };
+  return { grant: { createFlag: false, editFiles: false }, source: "none" };
+}
 var AnthropicAgentRunner = class {
   opts;
   client;
@@ -35869,15 +35888,16 @@ var AnthropicAgentRunner = class {
     this.client = new Anthropic(opts.apiKey ? { apiKey: opts.apiKey } : {});
   }
   async runNode(req) {
-    const grant = NODE_CAPABILITIES[req.configKey] ?? { createFlag: false, editFiles: false };
+    const { grant, source } = resolveGrant(req.configKey, req.capabilities);
     const caps = {
       createFlag: grant.createFlag && this.opts.writer !== void 0,
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true
     };
+    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} editFiles=${caps.editFiles}`);
     const writer = caps.createFlag ? this.opts.writer : void 0;
     const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
-    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles);
+    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef);
     const tools = buildSandboxTools(caps);
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
     const messages = [{ role: "user", content: req.prompt }];
@@ -35940,7 +35960,7 @@ function textOf(content) {
 function anthropicModelId(name) {
   if (!name)
     return DEFAULT_MODEL;
-  const id = name.includes(".") ? name.split(".").slice(1).join(".") : name;
+  const id = name.trim().replace(/^[a-z]{2}\./i, "").replace(/^anthropic\./i, "");
   return id.trim() || DEFAULT_MODEL;
 }
 
@@ -35966,14 +35986,21 @@ function decideApproval(mode, reviewApproved, risk) {
   }
 }
 function interpretWalk(tags) {
-  const decision = (tags.review_approved ?? tags.review_decision ?? tags.decision ?? tags.approved ?? "").toLowerCase();
+  const decision = (tags.review_approved ?? // canonical
+  tags.review_decision ?? // legacy
+  tags.decision ?? // legacy
+  tags.approved ?? // legacy
+  "").toLowerCase();
   const reviewApproved = decision === "approve" || decision === "approved" || decision === "true";
-  const rawRisk = (tags.risk ?? tags.risk_level ?? "").toLowerCase();
+  const rawRisk = (tags.risk_level ?? // canonical
+  tags.risk ?? // legacy
+  "").toLowerCase();
   const risk = rawRisk === "low" || rawRisk === "medium" || rawRisk === "high" ? rawRisk : void 0;
   return { reviewApproved, risk };
 }
 
 // src/comment.ts
+var MARKER = "<!-- auto-factory-phase1 -->";
 async function postPrComment(body, target = {}) {
   const token = target.token ?? process.env.GITHUB_TOKEN;
   const repo = target.repo ?? process.env.GITHUB_REPOSITORY;
@@ -35982,20 +36009,42 @@ async function postPrComment(body, target = {}) {
     console.log("(PR comment skipped \u2014 missing token / repo / PR number)");
     return;
   }
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Content-Type": "application/json"
+  };
+  const markedBody = `${MARKER}
+${body}`;
   try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/issues/${prNumber}/comments`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ body })
+    const existingId = await findExistingComment(repo, prNumber, headers);
+    const url = existingId ? `https://api.github.com/repos/${repo}/issues/comments/${existingId}` : `https://api.github.com/repos/${repo}/issues/${prNumber}/comments`;
+    const res = await fetch(url, {
+      method: existingId ? "PATCH" : "POST",
+      headers,
+      body: JSON.stringify({ body: markedBody })
     });
-    console.log(res.ok ? "Posted PR summary comment." : `PR comment failed: HTTP ${res.status}`);
+    if (res.ok) {
+      console.log(existingId ? "Updated PR summary comment." : "Posted PR summary comment.");
+    } else {
+      console.log(`PR comment failed: HTTP ${res.status}`);
+    }
   } catch (e) {
     console.warn(`PR comment error (non-fatal): ${e instanceof Error ? e.message : e}`);
+  }
+}
+async function findExistingComment(repo, prNumber, headers) {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/issues/${prNumber}/comments?per_page=100`,
+      { headers }
+    );
+    if (!res.ok) return void 0;
+    const comments = await res.json();
+    return comments.find((c) => c.body?.includes(MARKER))?.id;
+  } catch {
+    return void 0;
   }
 }
 
@@ -36014,6 +36063,10 @@ function handoffNumber(handoff, field) {
 function handoffString(handoff, field) {
   const v = handoff?.[field];
   return typeof v === "string" ? v : void 0;
+}
+function handoffStringArray(handoff, field) {
+  const v = handoff?.[field];
+  return Array.isArray(v) ? v.filter((x) => typeof x === "string") : void 0;
 }
 function buildPrompt(hasInbound, ctx) {
   const header = [
@@ -36059,6 +36112,7 @@ async function walkGraph(graphDef, runner, context, graphTracker) {
     const cfg = node.getConfig();
     const maxTurns = handoffNumber(inboundHandoff, "max_turns");
     const requestType = handoffString(inboundHandoff, "request_type");
+    const capabilities = handoffStringArray(inboundHandoff, "capabilities");
     const result = await runner.runNode({
       configKey: key,
       prompt: buildPrompt(inboundHandoff !== void 0, ctx),
@@ -36066,7 +36120,8 @@ async function walkGraph(graphDef, runner, context, graphTracker) {
       ...cfg.model?.name ? { model: cfg.model.name } : {},
       tracker: cfg.createTracker(),
       ...maxTurns !== void 0 ? { maxTurns } : {},
-      ...requestType ? { requestType } : {}
+      ...requestType ? { requestType } : {},
+      ...capabilities ? { capabilities } : {}
     });
     Object.assign(accumulatedTags, result.tags);
     const output = lastAssistantText(result);
@@ -36152,7 +36207,9 @@ function createAgentRunner(provider) {
     sandboxRoot,
     codeChangesEnabled,
     ...process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {},
-    ...writer ? { writer } : {}
+    ...writer ? { writer } : {},
+    ...process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {},
+    ...process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}
   });
 }
 function flagCreationWriter() {
@@ -36202,6 +36259,7 @@ function mapActionInputs() {
   set("VEGA_ENDPOINT", "vega_endpoint");
   set("VEGA_TOKEN", "vega_token");
   set("VEGA_AUTH_HEADER", "vega_auth_header");
+  set("VEGA_REQUEST_TYPE", "vega_request_type");
 }
 async function main() {
   mapActionInputs();

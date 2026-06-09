@@ -66,6 +66,15 @@ export function createApp(cfg: BeaconConfig, ld: LdClient): Express {
         const ready = await otherSideHasFile(cfg, gh, service.side, flag.sourceFile).catch(() => false);
         if (!ready) {
           outcomes.push({ flag: flag.flagKey, scope, action: "waiting", detail: "other service not deployed yet" });
+          // No retry queue in the prototype: a "waiting" flag is released only when
+          // the OTHER service's deploy notification arrives and re-evaluates. Log
+          // enough to act on if that notification is lost — the manual fix is to
+          // re-POST this notification (same sha/service) once both sides are deployed.
+          console.warn(
+            `[beacon] WAITING: flag '${flag.flagKey}' (scope=${scope}, file=${flag.sourceFile}) — ` +
+              `service '${serviceKey}' deployed at ${sha} but the other side hasn't yet. ` +
+              `If its notification never arrives, re-POST /flag-releases for this service once both are deployed.`,
+          );
           continue;
         }
       }

@@ -85,13 +85,14 @@
 
 <h1>LaunchDarkly Auto-Factory</h1>
 <p class="sub">Prototype design: autonomous, safe software releases — Phases 1 &amp; 2</p>
-<p class="meta">Prototype design · last updated 2026-05-29</p>
+<p class="meta">Prototype design · last updated 2026-06-09</p>
 
 <div class="callout">
   <div class="label">What this document is</div>
   The design for the prototype: guiding principles, architecture, directory structure, key decisions,
   and the considerations carried into the build. This is the design rationale; <strong>current build
-  status lives in <code>docs/build-checklist.md</code></strong> and open items in <code>docs/ISSUES.md</code>.
+  status lives in the repo <code>README.md</code></strong> and the architectural decisions in
+  <code>docs/adr/</code>.
 </div>
 
 <div class="callout good" style="border-left-color:var(--good);background:#e7f4ee;">
@@ -153,6 +154,16 @@ partner installing the prototype with as little friction as possible:</p>
   runner</strong>: a <strong>GitHub Action assembles PR context (diff, files, metadata) and calls Vega</strong>, which runs
   the agent graph and returns the agents' output (proposed changes + a risk score + an APPROVE/REJECT). No agent loop
   ships in this repo.
+</div>
+
+<div class="callout" style="border-left-color:var(--good);background:#e7f4ee;">
+  <div class="label" style="color:var(--good);">What changed in the build (2026-06-09)</div>
+  This section describes the original Vega-only plan. The build pivoted to a <strong>provider seam</strong>
+  (<code>AgentRunner</code>): the <strong>default is a local Anthropic tool-use loop</strong> with
+  capability-gated sandbox tools, and Vega is the alternative — selected at runtime by the
+  <code>auto-factory-ai-provider</code> LaunchDarkly flag. So an agent loop <strong>does</strong> ship in
+  this repo now (<code>packages/shared/src/anthropic/</code>); the LD AI SDK still resolves the agent
+  configs/graphs and records metrics natively. See ADR 0005.
 </div>
 
 <div class="callout">
@@ -279,7 +290,7 @@ launchdarkly-auto-factory/
 │
 ├── config/                        the documented CUSTOMIZATION surface partners edit
 │   ├── agentcontrol/              agent instructions + graph shape (provisioned by the bridge)
-│   ├── ld-targets.yaml            source + target LD instances/envs (base URLs; tokens via env)
+│   ├── services.yaml              service → repo mapping (Beacon)
 │   ├── scopes.yaml                scope definitions (frontend/backend/fullstack)
 │   └── release-source.yaml        which release-config source is active (.release-flags vs LD-native)
 │       (note: approval MODE is NOT here — it lives in a LaunchDarkly flag, scoped per-repo)
@@ -290,7 +301,7 @@ launchdarkly-auto-factory/
 │       └── backend/
 │
 ├── .github/workflows/            Phase 1 entrypoints (PR-triggered)
-├── scripts/                      sync-sources, sanitize, local-run harness
+├── scripts/                      check-public (public-leak guard)
 ├── .env.example                  documents required secrets — NO real values
 └── .gitignore                    covers reference-private/, sources/repos/, .env
 </pre>
@@ -304,7 +315,7 @@ is <strong>public</strong>. The boundary is structural:</p>
   <tr>
     <td>Public repos we reference</td>
     <td><code>sources/repos/</code></td>
-    <td>Submodule or vendored via <code>scripts/sync-sources</code>, pinned in <code>manifest.yaml</code></td>
+    <td>Vendored manually, pinned in <code>sources/manifest.yaml</code> (synced on demand, not at build time)</td>
   </tr>
   <tr>
     <td>Reference pages that change (docs, confluence)</td>
@@ -313,8 +324,8 @@ is <strong>public</strong>. The boundary is structural:</p>
   </tr>
   <tr>
     <td>LD configs (flags, AI configs, graphs)</td>
-    <td><strong>Sanitized</strong> snapshot in <code>sources/ld-configs/</code>; raw in <code>reference-private/</code></td>
-    <td>Pull via LD MCP / API; run through a sanitizer before anything public</td>
+    <td>Live in the source LD project; not committed (the runtime path uses <code>bridge seed</code>)</td>
+    <td>Pulled via the config bridge (<code>sync</code> / <code>seed</code>) over the LD REST API; the source LD project is the sanitization boundary</td>
   </tr>
   <tr>
     <td>Internal build, orchestrator spec, Spinnaker details</td>
@@ -486,10 +497,14 @@ coordination logic needs a retry/timeout backstop or an explicit at-least-once d
 </table>
 
 <footer>
-  Prototype design document. The build is substantially underway — Phases 1 &amp; 2 are implemented
-  (Phase 1 agent execution awaits a reachable live Vega endpoint; canonical agent configs await a
-  sanitization review). See <code>docs/build-checklist.md</code> for status and <code>docs/ISSUES.md</code>
-  for known gaps.
+  Prototype design document. <strong>What changed in the build (2026-06-09):</strong> Phase 1 agent
+  execution pivoted from "Vega only" to a provider seam (<code>AgentRunner</code>) — the default is a
+  local Anthropic tool-use loop, with LaunchDarkly-hosted Vega selectable via the
+  <code>auto-factory-ai-provider</code> flag; an agent loop now ships in-repo
+  (<code>packages/shared/src/anthropic/</code>). Agent configs are not committed — they're seeded from
+  a source LD project at setup (<code>bridge seed</code>). Phase 1 runs end-to-end today on the
+  Anthropic path; Vega awaits entitlement. See the repo <code>README.md</code> for current status and
+  <code>docs/adr/</code> (esp. ADR 0005) for the decisions.
 </footer>
 
 </body>

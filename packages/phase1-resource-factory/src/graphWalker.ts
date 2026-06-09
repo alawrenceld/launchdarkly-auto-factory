@@ -59,6 +59,10 @@ function handoffString(handoff: Record<string, unknown> | undefined, field: stri
   const v = handoff?.[field];
   return typeof v === "string" ? v : undefined;
 }
+function handoffStringArray(handoff: Record<string, unknown> | undefined, field: string): string[] | undefined {
+  const v = handoff?.[field];
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : undefined;
+}
 
 /**
  * Build a node's prompt. Each node runs in its own conversation, so the prompt
@@ -120,6 +124,7 @@ export async function walkGraph(
     const cfg = node.getConfig();
     const maxTurns = handoffNumber(inboundHandoff, "max_turns");
     const requestType = handoffString(inboundHandoff, "request_type");
+    const capabilities = handoffStringArray(inboundHandoff, "capabilities");
     const result = await runner.runNode({
       configKey: key,
       prompt: buildPrompt(inboundHandoff !== undefined, ctx),
@@ -128,6 +133,7 @@ export async function walkGraph(
       tracker: cfg.createTracker(),
       ...(maxTurns !== undefined ? { maxTurns } : {}),
       ...(requestType ? { requestType } : {}),
+      ...(capabilities ? { capabilities } : {}),
     });
 
     Object.assign(accumulatedTags, result.tags);

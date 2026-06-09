@@ -8,12 +8,19 @@
  *
  *   bridge sync --out <dir> [--tags a,b] [--graphs key1,key2]
  *       Pull AI-configs (optionally tag-filtered) + named graphs FROM the SOURCE
- *       LD project (LD_SOURCE_* env) into <dir>. Output needs a sanitization
- *       review before committing to the public repo (see docs/ISSUES.md I3).
+ *       LD project (LD_SOURCE_* env) into <dir>. Output is for inspection; the
+ *       SOURCE project is the sanitization boundary for runtime-pulled configs.
+ *
+ *   bridge seed [--graphs key1,key2] [--staging <dir>] [--dry-run]
+ *       Plug-and-play setup: pull the graph(s) + the AI-configs they reference
+ *       FROM the SOURCE project into a gitignored staging dir, then provision
+ *       them straight INTO the TARGET project. No commit step.
+ *       Default graph: gha-auto-factory; default staging: .agentcontrol-cache.
  */
 
 import { LdClient, sourceConnection, targetConnection } from "@auto-factory/shared";
 import { provision } from "./provision.js";
+import { seed } from "./seed.js";
 import { sync } from "./sync.js";
 
 function flag(args: string[], name: string): string | undefined {
@@ -36,7 +43,7 @@ async function main(): Promise<void> {
     console.log(`Variations: ${r.variationsCreated} created, ${r.variationsExisting} existing`);
     console.log(`Graphs:     ${r.graphsCreated.length} created, ${r.graphsExisting.length} existing`);
     if (r.toolsStripped.length) {
-      console.log(`⚠ tools stripped from ${r.toolsStripped.length} variation(s) — re-attach in LD (ISSUES I4)`);
+      console.log(`⚠ tools stripped from ${r.toolsStripped.length} variation(s) — our snapshots hold only tool/snippet references, not definitions, so re-attach them in LD if the provider needs them`);
     }
     if (r.failures.length) {
       console.log(`✗ ${r.failures.length} failure(s):`);
@@ -59,11 +66,43 @@ async function main(): Promise<void> {
     console.log(`Syncing from project '${ld.projectKey}' → ${out}`);
     const r = await sync(ld, { outDir: out, tags, graphKeys });
     console.log(`Pulled ${r.aiConfigs.length} ai-config(s), ${r.graphs.length} graph(s).`);
-    console.log("⚠ Review/sanitize before committing to the public repo (ISSUES I3).");
+    console.log("⚠ Pulled instructions may reference internal tools/repos — review/sanitize before committing to this PUBLIC repo (or keep them only in the source LD project).");
     return;
   }
 
-  console.error("Usage: bridge <provision|sync> [options]");
+  if (cmd === "seed") {
+    const srcConn = sourceConnection();
+    if (!srcConn) throw new Error("Source not configured — set LD_SOURCE_API_KEY / LD_SOURCE_BASE_URL / LD_SOURCE_PROJECT_KEY");
+    const source = new LdClient(srcConn);
+    const target = new LdClient(targetConnection());
+    const graphKeys = (flag(args, "graphs")?.split(",").map((t) => t.trim()).filter(Boolean)) ?? ["gha-auto-factory"];
+    const stagingDir = flag(args, "staging") ?? ".agentcontrol-cache";
+    const dryRun = args.includes("--dry-run");
+    console.log(`Seeding from source '${source.projectKey}' → target '${target.projectKey}'${dryRun ? " (DRY RUN — no writes)" : ""}`);
+    console.log(`  graphs:  ${graphKeys.join(", ")}\n  staging: ${stagingDir}\n`);
+    const r = await seed({ source, target, graphKeys, stagingDir, dryRun });
+    console.log(`Pulled ${r.graphsPulled.length} graph(s), ${r.configsPulled.length} ai-config(s) into ${stagingDir}.`);
+    if (!r.graphsPulled.length) {
+      console.log("⚠ No graphs pulled from source — nothing to provision. Check --graphs and source project.");
+    }
+    const p = r.provision;
+    console.log(`Configs:    ${p.configsCreated.length} created, ${p.configsExisting.length} existing`);
+    console.log(`Variations: ${p.variationsCreated} created, ${p.variationsExisting} existing`);
+    console.log(`Graphs:     ${p.graphsCreated.length} created, ${p.graphsExisting.length} existing`);
+    if (p.toolsStripped.length) {
+      console.log(`⚠ tools stripped from ${p.toolsStripped.length} variation(s) — re-attach in LD if the provider needs them`);
+    }
+    if (p.failures.length) {
+      console.log(`✗ ${p.failures.length} failure(s):`);
+      for (const f of p.failures) console.log(`    ${f.resource} [${f.status}]: ${JSON.stringify(f.message)}`);
+      process.exitCode = 1;
+    } else {
+      console.log("Done.");
+    }
+    return;
+  }
+
+  console.error("Usage: bridge <provision|sync|seed> [options]");
   process.exitCode = 2;
 }
 

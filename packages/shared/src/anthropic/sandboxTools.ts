@@ -15,7 +15,7 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { LdResourceWriter } from "./ldWriter.js";
 
 export interface AnthropicToolDef {
@@ -186,13 +186,19 @@ export class SandboxToolExecutor {
     private readonly root: string,
     private readonly writer?: LdResourceWriter,
     private readonly allowEdits = false,
+    /** PR head branch to push to (git tools). Falls back to PR_BRANCH env. */
+    private readonly prBranch?: string,
+    /** PR base ref for the git_diff base...HEAD. Falls back to PR_BASE_REF env. */
+    private readonly prBaseRef?: string,
   ) {}
 
   /** Resolve a repo-relative path and reject anything escaping the sandbox root. */
   private safeResolve(rel: string): string {
     const abs = resolve(this.root, rel || ".");
+    // `relative` is "" for the root itself, "sub/x" for descendants, and starts
+    // with ".." (or is absolute, on a different drive/root) for escapes.
     const within = relative(this.root, abs);
-    if (within.startsWith("..") || resolve(abs) !== abs) {
+    if (within === ".." || within.startsWith(".." + sep) || isAbsolute(within)) {
       throw new Error(`path '${rel}' is outside the sandbox`);
     }
     return abs;
@@ -332,7 +338,7 @@ export class SandboxToolExecutor {
 
   /** Resolve the first base ref that exists locally, for a base...HEAD diff. */
   private resolveBaseRef(base?: string): string | undefined {
-    const name = base || process.env.PR_BASE_REF || "main";
+    const name = base || this.prBaseRef || process.env.PR_BASE_REF || "main";
     const candidates = [base, `origin/${name}`, name, "origin/main", "main"].filter((v): v is string => !!v);
     for (const ref of candidates) {
       try {
@@ -418,7 +424,7 @@ export class SandboxToolExecutor {
       const staged = this.runGit(["diff", "--cached", "--name-only"]).trim();
       if (!staged) return { content: "commit_and_push: no changes to commit" };
       this.runGit(["commit", "-m", message]);
-      const branch = process.env.PR_BRANCH;
+      const branch = this.prBranch ?? process.env.PR_BRANCH;
       this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
       return { content: `Committed and pushed (${staged.split("\n").length} file(s)): ${message}` };
     } catch (e) {

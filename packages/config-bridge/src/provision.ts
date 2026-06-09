@@ -4,8 +4,9 @@
  * Idempotent: GETs each resource first and only creates what's missing (backfills
  * variations). Ports the proven one-off behavior:
  *  - the first variation becomes the config's inline `defaultVariation`
- *  - `tools` / `toolKeys` are STRIPPED (target won't have them registered; we only
- *    hold references, not definitions) — see ISSUES.md I4
+ *  - `tools` / `toolKeys` are STRIPPED: our snapshots hold only references
+ *    (`{key, version}` / `{{snippet.x}}`), not the tool/snippet definitions, so
+ *    they can't be recreated verbatim — re-attach them in LD if needed
  *  - variations that fail (e.g. missing prompt snippet) are reported, not fatal
  */
 

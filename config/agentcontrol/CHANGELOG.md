@@ -17,6 +17,26 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-06-09
 
+### ✅ (cleanup) Dropped inert `prompt_template` from the committed graph copy
+- **Change:** Removed `"prompt_template": "{{PR_NUMBER}}"` from every edge of the
+  committed `graphs/auto-factory.json`. The graph walker owns prompt construction
+  for **every** provider (it never forwards `prompt_template` to Vega), so the field
+  was inert. Documented the handoff fields the walker DOES honor (`require_tags`,
+  `skip_if_tags`, `max_turns`, `request_type`) in this directory's README.
+- **Note:** this only touched the committed local copy. The live LD graph may still
+  carry the field; it's harmless (inert) but can be removed there too. See CLEANUP #28.
+
+### ✅ (cleanup) Edge-declared agent `capabilities` (config-driven write access)
+- **Change:** Added a `capabilities` array to two edges of the committed
+  `graphs/auto-factory.json`: the edge into `autofactory-flag-implementer` grants
+  `["create_flag", "edit_files"]`, the edge into `autofactory-flag-testing` grants
+  `["edit_files"]`. The Anthropic runner reads these instead of a hardcoded
+  config-key map (which it keeps only as a fallback). Always intersected with the
+  global `ENABLE_FLAG_CREATION` / `ENABLE_CODE_CHANGES` toggles.
+- **Why:** "which agent can write" should be config, not code — a renamed/added
+  agent no longer silently lands read-only. See CLEANUP #24. To take effect on the
+  Vega-seeded path, add the same `capabilities` to the live LD graph's edges.
+
 ### ✅ 0. Provider-selection flag (`auto-factory-ai-provider`) — foundational
 - **Change:** Created a multivariate string flag in the factory project: variations
   `anthropic` / `vega` (extensible to other providers), **default `anthropic`**.
@@ -54,12 +74,12 @@ Status legend: ✅ done · 🔜 planned/in progress
      all modified production code — rules T03/T04/T21–T25 and skip-conditions
      T14/T15). The agent now writes ONLY flag-on/flag-off tests for the code paths
      the flag-implementer wrapped (rules T01/T02/T08/T12/T13).
-  3. **(Extra) Repo-adaptive test conventions:** replaced the hardcoded gonfalon
-     Go/TypeScript patterns (`testify`, `@gonfalon/testing`, Vitest, the
+  3. **(Extra) Repo-adaptive test conventions:** replaced the hardcoded internal-monorepo
+     Go/TypeScript patterns (`testify`, `@internal/testing`, Vitest, the
      `T26/T27` framework constraints, `/app/run_validation.sh`) with "detect and
      follow the repo's existing framework; else the language's standard (e.g.
      pytest for Python)." Needed because the demo app is Python/Flask — the
-     gonfalon-only patterns would have produced Go/TS tests for Python code.
+     internal-monorepo-only patterns would have produced Go/TS tests for Python code.
 - **Why:** The agent has write + push tools now (PR
   launchdarkly-labs/launchdarkly-auto-factory#1, merged), but on demo PR #3 it
   described tests instead of creating them, and its scope/patterns were wrong for
@@ -92,13 +112,13 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ### ✅ 5. Flag Implementer (`autofactory-flag-implementer`) — tool-accurate cleanup (v2), fail-safe reverted (v3)
 - **Tool/pattern cleanup (v2, still in effect):**
-  - Removed the gonfalon-specific SDK-helper patterns (`createFlagFunction` /
-    `@gonfalon/dogfood-flags`, `flagfn.NewBool` / `OnErrorLogAsError`), the
+  - Removed the internal-monorepo-specific SDK-helper patterns (`createFlagFunction` /
+    `@internal/dogfood-flags`, `flagfn.NewBool` / `OnErrorLogAsError`), the
     `make go-generate` "Code Generation" section, and the `/app/run_validation.sh`
     "Validation" step — none apply in this runtime. Replaced with "match the repo's
     existing flag pattern."
   - Swapped `ldcli flags create` → the in-runtime `create_flag` tool, and push →
-    `commit_and_push`. NOTE: `ldcli` is LaunchDarkly's official CLI (not gonfalon) —
+    `commit_and_push`. NOTE: `ldcli` is LaunchDarkly's official CLI (not an internal tool) —
     this was a swap to our current tool, not a "fix." See backlog below.
 - **Fail-safe Task #3 — ADDED in v2, then REVERTED in v3 (decision "(a)"):** v2 had
   added "flag evaluation must FAIL SAFE … harden the shared helper" to keep the code

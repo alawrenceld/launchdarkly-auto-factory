@@ -10,7 +10,7 @@
  *   --service <key>         (env SERVICE)            required
  *   --environment <key>     (env ENVIRONMENT)        default "production"
  *   --sha <sha>             (env RAILWAY_GIT_COMMIT_SHA / GIT_SHA)
- *   --previous-sha <sha>    (env PREVIOUS_SHA)       see ISSUES I8
+ *   --previous-sha <sha>    (env PREVIOUS_SHA)       optional; see note below
  * Env: BEACON_URL, BEACON_WEBHOOK_SECRET (required)
  */
 
@@ -25,7 +25,10 @@ async function main(): Promise<void> {
   const service = arg("service") ?? process.env.SERVICE;
   const environment = arg("environment") ?? process.env.ENVIRONMENT ?? "production";
   const sha = arg("sha") ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_SHA;
-  // previousSha is not natively provided by all CD systems (e.g. Railway) — see ISSUES I8.
+  // Beacon diffs `.release-flags/` between the current and previous SHA (new =
+  // present now, absent before). Some CD systems (e.g. Railway) don't expose the
+  // previously-deployed SHA natively, so this is optional — when absent Beacon
+  // falls back to treating all release-flag files at the current SHA as new.
   const previousSha = arg("previous-sha") ?? process.env.PREVIOUS_SHA;
 
   if (!beaconUrl || !secret) throw new Error("BEACON_URL and BEACON_WEBHOOK_SECRET are required");

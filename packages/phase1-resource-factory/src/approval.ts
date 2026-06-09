@@ -4,8 +4,9 @@
  * require a human.
  *
  * The DECISION logic is firm. How the verdict/risk are read from agent tags is
- * best-effort (the exact tag keys agents emit are not yet pinned — see ISSUES I9),
- * so `interpretWalk` checks a few common keys and is easy to adjust.
+ * best-effort: the canonical tags are `review_approved` / `risk_level`, but
+ * `interpretWalk` also accepts a few legacy keys for resilience, so it's easy to
+ * adjust if the agent configs change.
  */
 
 import type { ApprovalMode, RiskLevel } from "@auto-factory/shared";
@@ -18,8 +19,9 @@ export interface ApprovalDecision {
 
 /**
  * Resolve the active approval mode. Defaults to "yolo".
- * TODO(I6): read from a per-repo LaunchDarkly flag; this env fallback is the
- * hardcoded-config path until that flag's evaluation context is pinned.
+ * TODO: read from a per-repo LaunchDarkly flag once that flag's evaluation
+ * context (context kind/key, server-SDK vs REST eval) is pinned; this env
+ * fallback is the interim path.
  */
 export function getApprovalMode(): ApprovalMode {
   const m = (process.env.APPROVAL_MODE || "yolo").toLowerCase();
@@ -47,20 +49,29 @@ export function decideApproval(
   }
 }
 
-/** Best-effort read of review verdict + risk from accumulated agent tags (ISSUES I9). */
+/**
+ * Read the review verdict + risk from accumulated agent tags. The canonical tags
+ * the code reviewer emits are `review_approved` and `risk_level` (documented in
+ * config/agentcontrol/README.md); the additional keys are LEGACY fallbacks kept
+ * only for resilience against older config variations.
+ */
 export function interpretWalk(tags: Record<string, string>): {
   reviewApproved: boolean;
   risk?: RiskLevel;
 } {
   const decision = (
-    tags.review_approved ??
-    tags.review_decision ??
-    tags.decision ??
-    tags.approved ??
+    tags.review_approved ?? // canonical
+    tags.review_decision ?? // legacy
+    tags.decision ?? // legacy
+    tags.approved ?? // legacy
     ""
   ).toLowerCase();
   const reviewApproved = decision === "approve" || decision === "approved" || decision === "true";
-  const rawRisk = (tags.risk ?? tags.risk_level ?? "").toLowerCase();
+  const rawRisk = (
+    tags.risk_level ?? // canonical
+    tags.risk ?? // legacy
+    ""
+  ).toLowerCase();
   const risk: RiskLevel | undefined =
     rawRisk === "low" || rawRisk === "medium" || rawRisk === "high" ? rawRisk : undefined;
   return { reviewApproved, risk };

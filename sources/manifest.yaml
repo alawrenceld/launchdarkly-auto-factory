@@ -1,7 +1,7 @@
 # External references this prototype draws from. PUBLIC sources only — anything
 # proprietary belongs in reference-private/ (gitignored), never here.
 #
-# Sources are PINNED SNAPSHOTS, synced on demand (scripts/sync-sources), not
+# Sources are PINNED SNAPSHOTS, vendored MANUALLY on demand (no sync script), not
 # live-fetched at build time. Refresh manually only on word of a critical change.
 # Treat all of these as INSPIRATION, not rigid patterns to follow strictly.
 
@@ -20,5 +20,6 @@ docs:
   #   snapshot: sources/docs/agent-graphs.md
 
 ld_configs:
-  # Sanitized snapshots of LD configs live in sources/ld-configs/.
-  # Raw/unsanitized exports stay in reference-private/.
+  # LD configs are NOT vendored here — the runtime path pulls them from the source
+  # LD project via the config bridge (`bridge sync` / `bridge seed`). Raw/internal
+  # exports stay in reference-private/.

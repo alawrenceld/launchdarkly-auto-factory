@@ -47,6 +47,13 @@ export interface AgentNodeRequest {
   /** Per-edge request type (e.g. "Fix"). Drives the Vega built-in persona; informational for Anthropic. */
   requestType?: string;
   /**
+   * Tool capabilities granted to this node, from the inbound graph edge's handoff
+   * `capabilities` array (e.g. ["create_flag", "edit_files"]). When undefined, the
+   * runner falls back to its built-in per-config-key defaults. Lets "which agent can
+   * write" live in config (the graph), not hardcoded keys in the runner.
+   */
+  capabilities?: string[];
+  /**
    * Per-node AI-config tracker. The runner records generation metrics
    * (duration, tokens, success/error) so they flow to LaunchDarkly's AI Config
    * monitoring dashboards, correlated to this graph run.

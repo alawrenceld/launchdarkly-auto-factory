@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "typecheck": "tsc --build --pretty",
+    "typecheck": "tsc --build --pretty && tsc -p tests --noEmit",
     "clean": "tsc --build --clean",
     "check:public": "node scripts/check-public.mjs",
     "test": "node --import tsx --test \"tests/*.test.ts\"",

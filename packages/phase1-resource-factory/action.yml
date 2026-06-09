@@ -13,6 +13,9 @@ inputs:
   ld_sdk_key:
     description: "LaunchDarkly server SDK key (sdk-...) for the FACTORY project's environment. Reads the provider flag, agent graph, and agent configs."
     required: true
+  ld_project_key:
+    description: "Factory/control-plane project key (where the AI configs, agent graph, and control flags live)."
+    required: false
   # --- Anthropic execution backend (default provider) ---
   anthropic_api_key:
     description: "Anthropic API key. Required when the auto-factory-ai-provider flag serves 'anthropic' (the default)."
@@ -67,6 +70,9 @@ inputs:
     required: false
   vega_auth_header:
     description: "Auth header name for Vega (defaults to Authorization)."
+    required: false
+  vega_request_type:
+    description: "Vega dispatch request type / persona (e.g. 'Fix'). Only used on the Vega provider path."
     required: false
   ld_project_slug:
     description: "Internal LaunchDarkly project ID, sent as Vega dispatch project_slug."

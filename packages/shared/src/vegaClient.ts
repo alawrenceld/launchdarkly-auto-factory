@@ -2,13 +2,14 @@
  * Vega client — dispatches agent work to LaunchDarkly's hosted AI (Vega) and
  * polls for the result.
  *
- * ⚠️  PLACEHOLDER. The real public Vega dispatch endpoint, auth model, and
- * payload/response shapes are pending from the LaunchDarkly team. This module
- * defines the STABLE INTERFACE the Phase 1 GitHub Action codes against, plus a
- * stub transport that throws until wired. When the real API docs arrive, only
- * `VegaTransport` implementations change — callers (the graph walker) do not.
+ * This is the **transport seam** for the Vega provider: `VegaClient` owns the
+ * dispatch→poll loop and codes against the `VegaTransport` interface, never a
+ * concrete transport. `GraphQLVegaTransport` (vegaTransport.ts) is the real
+ * implementation (endpoint + auth owned by the transport); `StubVegaTransport`
+ * is the no-config fallback that throws (used when VEGA_ENDPOINT/VEGA_TOKEN are
+ * unset and the provider flag still selects vega).
  *
- * Expected shape (from the reference, to be confirmed):
+ * Shape:
  *   - dispatch(configKey, prompt, context) -> { conversationId }   (async)
  *   - getStatus(conversationId) -> { status, messages, tags }      (poll to terminal)
  */
@@ -48,30 +49,23 @@ export interface VegaTransport {
 }
 
 export interface VegaClientOptions {
-  /** Vega API base URL (PLACEHOLDER — from env once known). */
-  endpoint?: string;
-  /** Auth token/credential (PLACEHOLDER — shape TBD). */
-  auth?: string;
   pollMillis?: number;
   timeoutMillis?: number;
 }
 
 /**
- * Stub transport: throws on use. Replace with the real HTTP/GraphQL transport
- * once the Vega API is documented. Kept so the rest of Phase 1 can be built and
- * unit-tested against the interface today.
+ * No-config fallback transport: throws on use. Selected when the provider flag
+ * serves `vega` but VEGA_ENDPOINT/VEGA_TOKEN aren't set. The real transport is
+ * `GraphQLVegaTransport` (vegaTransport.ts).
  */
 export class StubVegaTransport implements VegaTransport {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async dispatch(_req: VegaDispatchRequest): Promise<VegaDispatchResult> {
     throw new Error(
-      "Vega transport not wired yet — awaiting real API docs. " +
-        "Implement VegaTransport and inject it into VegaClient.",
+      "Vega transport not configured — set VEGA_ENDPOINT + VEGA_TOKEN, or use the default 'anthropic' provider.",
     );
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getStatus(_conversationId: string): Promise<VegaStatusResult> {
-    throw new Error("Vega transport not wired yet — awaiting real API docs.");
+    throw new Error("Vega transport not configured — set VEGA_ENDPOINT + VEGA_TOKEN.");
   }
 }
 

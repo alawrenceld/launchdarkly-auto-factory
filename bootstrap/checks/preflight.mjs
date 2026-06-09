@@ -33,6 +33,17 @@ export async function preflight() {
     }
   }
 
+  // Phase 1 runtime keys. LD_SDK_KEY is hard-required (the server + AI SDKs read
+  // the provider flag, agent graph, and agent configs); without it the action
+  // fails on the first PR even though the REST check above passed.
+  if (process.env.LD_SDK_KEY) ok.push("LD_SDK_KEY present");
+  else issues.push("LD_SDK_KEY not set (required at runtime by the server + AI SDKs)");
+
+  // ANTHROPIC_API_KEY is required on the default ('anthropic') provider path but
+  // optional if the auto-factory-ai-provider flag serves 'vega' — so it's a note.
+  if (process.env.ANTHROPIC_API_KEY) ok.push("ANTHROPIC_API_KEY present");
+  else notes.push("ANTHROPIC_API_KEY not set (required when the auto-factory-ai-provider flag serves 'anthropic' — the default)");
+
   for (const k of ["GITHUB_TOKEN", "BEACON_WEBHOOK_SECRET"]) {
     if (!process.env[k]) notes.push(`${k} not set (needed for Phase 2)`);
   }

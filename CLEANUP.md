@@ -4,6 +4,20 @@ Findings from a full-repo review (2026-06-09), focused on making this a plug-and
 customer-facing prototype. Each item is self-contained so an agent can work through them
 independently. Items are grouped by priority; within a group, order is suggested but not required.
 
+> ## Progress (2026-06-09)
+> **Done:** #1–#7, #9–#24, #26–#35, #37 (34 items). **Partial:** #25 (testability half done; the
+> `loadPhase1Config` centralization deferred). **Deferred — needs owner input:** #8 (release-flags
+> hand-off: both approaches need a decision). **Skipped (intentional):** #36 (cosmetic, build-risk).
+>
+> **Gate status:** `npm test` (68 pass), `npm run typecheck`, `npm run check:public` all green; the
+> action bundle is rebuilt. Tests are now typechecked (#2). One pre-existing public-leak in the
+> CHANGELOG was fixed in passing. Each item below carries a `✅/⏸️/⏭️` note with specifics.
+>
+> **Untested-against-live caveats to verify before relying on them:** #4 (`bridge seed` — no
+> LD_SOURCE_* creds here) and #25's git threading (no live PR/remote here). #24's edge-`capabilities`
+> + #28's `prompt_template` removal also touch the live LD graph, which still differs from the
+> committed copy (the fallbacks make this harmless).
+
 **Ground rules for whoever works this list:**
 - This repo is PUBLIC. Run `npm run check:public` after every change. Never reference
   internal LaunchDarkly instance/tool names.
@@ -18,7 +32,16 @@ independently. Items are grouped by priority; within a group, order is suggested
 
 ## P0 — Broken right now
 
-### 1. `tests/walker.test.ts` is broken — the test suite is red (3 failures)
+> **Status (2026-06-09):** all three P0 items DONE. `npm test` → 35 pass, `npm run typecheck`
+> green (now includes `tests/`), `npm run check:public` green.
+> **Also fixed in passing:** `config/agentcontrol/CHANGELOG.md` was leaking a blocked
+> internal codename in 6 places — `check:public` was exiting 1 before any of this work.
+> Genericized to "internal-monorepo" / `@internal/…` so the public check passes.
+
+### 1. ✅ DONE — `tests/walker.test.ts` is broken — the test suite is red (3 failures)
+Rewritten against the AI-SDK `AgentGraphDefinition` surface using the real
+`AgentGraphDefinition.buildNodes(...)` + a `FakeRunner implements AgentRunner`
+(scripted `{status, tags}` per configKey). Same three scenarios retained.
 - **File:** `tests/walker.test.ts`
 - **Symptom:** `npm test` → 3 failures: `TypeError: graphDef.rootNode is not a function`.
 - **Cause:** the test was written against the old `walkGraph(graph, vegaClient, ctx)` signature.
@@ -35,7 +58,9 @@ independently. Items are grouped by priority; within a group, order is suggested
   `getConfig()` (instructions/model/createTracker), `getEdges()`). Keep the same three scenarios:
   full chain, `skip_if_tags` short-circuit, unmet `require_tags`.
 
-### 2. Tests are not typechecked, which is how #1 slipped through
+### 2. ✅ DONE — Tests are not typechecked, which is how #1 slipped through
+Added `tests/tsconfig.json` (extends base, `noEmit`, `composite:false`); root
+`typecheck` is now `tsc --build --pretty && tsc -p tests --noEmit`.
 - **Files:** `tsconfig.json` (root — only references `packages/*`), `package.json:18` (test script
   runs via `tsx`, which strips types without checking them).
 - **Fix:** add a `tests/tsconfig.json` (extends `tsconfig.base.json`, `noEmit: true`, references the
@@ -43,7 +68,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   `"typecheck": "tsc --build --pretty && tsc -p tests --noEmit"`. This makes signature drift in
   `tests/` a CI failure instead of a runtime surprise.
 
-### 3. `approval.ts` has zero test coverage despite being the most recently fixed logic
+### 3. ✅ DONE — `approval.ts` has zero test coverage despite being the most recently fixed logic
+Added `tests/approval.test.ts`: `decideApproval` across all 3 modes × approved/rejected ×
+risk low/high/undefined; `interpretWalk` for every accepted decision key + value form + risk
+parsing; `getApprovalMode` default/normalization/fallback (restores `APPROVAL_MODE` after each).
 - **Files:** `packages/phase1-resource-factory/src/approval.ts` (all three functions);
   the latest commit on this branch ("honor the reviewer's review_approved tag") changed
   `interpretWalk` with no test.
@@ -56,7 +84,23 @@ independently. Items are grouped by priority; within a group, order is suggested
 
 ## P1 — Plug-and-play blockers (a design partner cannot succeed today)
 
-### 4. Agent configs can't reach a customer — add a seed-from-LaunchDarkly path
+### 4. ✅ DONE (code) — Agent configs can't reach a customer — add a seed-from-LaunchDarkly path
+Added `bridge seed` (`packages/config-bridge/src/seed.ts` + CLI command): pulls the
+graph(s) from LD_SOURCE_* into a gitignored `.agentcontrol-cache/`, reads the graph's
+referenced config keys (root + edge source/target), pulls **exactly those** AI configs
+(extended `sync` with a `configKeys` option), then provisions the staged copies into the
+target project. `bootstrap/create.mjs` runs `seed` when LD_SOURCE_* is set, else falls back
+to local-dir `provision`. `.agentcontrol-cache/` is gitignored.
+> ⚠️ **Untested against live LaunchDarkly** — no LD_SOURCE_* creds available in this
+> session, and the source is the internal prototype project. The sync→provision shape
+> compatibility was verified structurally against a reference AI-config GET response
+> (`variations[]` with instructions/model/modelConfigKey → `provision`'s VAR_FIELDS) and
+> the committed graph shape. The CLI guards (clear error when source unconfigured, usage
+> line) were smoke-tested. **Someone with prototype-project read creds should run
+> `bridge seed --dry-run` once to confirm the live API responses match.**
+
+#### Original notes
+### 4-orig. Agent configs can't reach a customer — add a seed-from-LaunchDarkly path
 - **Files:** `config/agentcontrol/ai-configs/` (empty by design — see below);
   `bootstrap/create.mjs:36-38` provisions from it; `packages/config-bridge/src/cli.ts`
   (`sync` and `provision` exist as separate commands but nothing chains them);
@@ -87,7 +131,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   - Update the stale "provision is a no-op pending sanitization" messaging (see #12, #16) to
     describe the seed flow instead.
 
-### 5. `.env.example` is missing `ANTHROPIC_API_KEY` — the DEFAULT provider's key
+### 5. ✅ DONE — `.env.example` is missing `ANTHROPIC_API_KEY` — the DEFAULT provider's key
+Added `ANTHROPIC_API_KEY` (with the "default provider" comment) plus a "Phase 1 behavior
+toggles" block documenting `ENABLE_FLAG_CREATION`, `ENABLE_CODE_CHANGES`, `APPROVAL_MODE`,
+`GRAPH_KEY`, `SANDBOX_ROOT`, `VEGA_REQUEST_TYPE`, and `LD_PIPELINE_CONTEXT_KEY`.
 - **File:** `.env.example`
 - **Why it matters:** the `auto-factory-ai-provider` flag defaults to `anthropic`
   (`packages/shared/src/providerFlag.ts:14`), and `AnthropicAgentRunner` needs
@@ -99,7 +146,9 @@ independently. Items are grouped by priority; within a group, order is suggested
   `APPROVAL_MODE`, `GRAPH_KEY`, `SANDBOX_ROOT`, `VEGA_REQUEST_TYPE`, and
   `LD_PIPELINE_CONTEXT_KEY` (read at `packages/shared/src/ldSdk.ts:64`).
 
-### 6. `action.yml` and `mapActionInputs` are out of sync
+### 6. ✅ DONE — `action.yml` and `mapActionInputs` are out of sync
+Declared `ld_project_key` and `vega_request_type` inputs in `action.yml`, and added the
+`VEGA_REQUEST_TYPE` ← `vega_request_type` mapping in `mapActionInputs`. Bundle rebuilt.
 - **Files:** `packages/phase1-resource-factory/action.yml` (inputs list),
   `packages/phase1-resource-factory/src/action.ts:122-146` (`mapActionInputs`).
 - **Mismatches:**
@@ -111,7 +160,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   or remove the orphaned mapping. Keep `action.yml`, `mapActionInputs`, and `.env.example`
   as one consistent contract.
 
-### 7. Preflight doesn't check the keys Phase 1 actually needs
+### 7. ✅ DONE — Preflight doesn't check the keys Phase 1 actually needs
+`bootstrap/checks/preflight.mjs` now checks `LD_SDK_KEY` (issue if missing) and
+`ANTHROPIC_API_KEY` (note if missing, since the provider flag could serve vega). Did NOT add
+the optional live SDK-init verification (kept the check fast/dependency-light).
 - **File:** `bootstrap/checks/preflight.mjs`
 - **Issue:** preflight validates Node version + `LD_API_KEY`/`LD_PROJECT_KEY` reachability, but
   never checks `LD_SDK_KEY` (hard-required at runtime, `packages/shared/src/ldSdk.ts:34`) or
@@ -121,7 +173,22 @@ independently. Items are grouped by priority; within a group, order is suggested
   (note/warning, since the provider flag could serve `vega`). Optionally verify the SDK key by
   initializing the server SDK with a short timeout.
 
-### 8. Phase 1 never writes the `.release-flags/` file that Phase 2 consumes
+### 8. ⏸️ DEFERRED (needs an owner decision) — Phase 1 never writes the `.release-flags/` file that Phase 2 consumes
+Both offered approaches carry friction I can't resolve confidently without the owner:
+- **(a) instruction-based** (flag-implementer writes the file via its existing `write_file` +
+  `commit_and_push`): the agent instructions are the live LD config, **not in this repo** (per #4 the
+  configs aren't committed). Implementing it means editing the live `auto-factory-prototype` config —
+  an external change, out of scope for a repo cleanup, and unverifiable from here.
+- **(b) action writes it deterministically** after a successful walk: cleaner in principle, but the
+  action (`action.ts`) currently does **no git** — the agents own commit/push via sandbox tools. To
+  make the file actually reach Phase 2 it must be committed+pushed to the PR branch, so (b) means
+  adding a git commit/push path to the action itself (new capability, untestable here, and it would
+  race/duplicate the agents' own pushes).
+Recommendation to surface: (b) keyed by **flag key** (`.release-flags/<flag-key>.json`, per plan §8),
+writing `{flagKey, scope?}` derived from the walk's `flag_key`/`flag_created` tags, with the action
+reusing the same git path the sandbox `commit_and_push` uses — but confirm with the owner whether the
+action should gain git capability before building it. Docs (plan.html, GUIDE) still describe the file
+as landing; left as-is pending the approach decision.
 - **Files:** `docs/plan.html` (Phase 1 diagram: "+ `.release-flags/<id>.json` written");
   `examples/demo-app/GUIDE.md:25` ("A `.release-flags/pr-N.json` lands"); the agent tooling
   (`packages/shared/src/anthropic/sandboxTools.ts`) and the CHANGELOG show no agent/tool/
@@ -134,7 +201,14 @@ independently. Items are grouped by priority; within a group, order is suggested
   instruction; fits "idempotent glue code"). Then fix the docs to match. Note plan §8 already
   recommends keying by **flag key, not PR number** — do that here rather than `pr-N.json`.
 
-### 9. Public files reference gitignored docs (broken links for partners)
+### 9. ✅ DONE — Public files reference gitignored docs (broken links for partners)
+Replaced every reference to gitignored docs with inline substance: `README.md` (links → plan.html
++ adr/; Status/Quickstart rewritten with #12), `approval.ts` (I9/I6 → inline tag/flag notes),
+`config-bridge/{cli,provision,sync}.ts` (I3/I4 → inline tool-strip + sanitization notes),
+`beacon/trigger.ts` (I5 was RESOLVED — corrected the stale "deferred" comment),
+`beacon/notify.ts` (I8 → inline previousSha-diff explanation, verified against discovery.ts),
+`GUIDE.md` (I7 → inline; see #22), `plan.html` (lines 94/491 → README + adr/). `grep` for
+ISSUES/build-checklist/demo-punchlist in tracked non-dist files now returns nothing.
 - **Occurrences:**
   - `README.md:14-15` → `docs/build-checklist.md`, `docs/ISSUES.md`; `README.md:26` → `docs/ISSUES.md`
   - `docs/plan.html` "What this document is" callout (~line 94) and footer (~line 489) → both
@@ -153,7 +227,10 @@ independently. Items are grouped by priority; within a group, order is suggested
 
 ## P2 — Documentation that no longer matches the code
 
-### 10. `packages/phase1-resource-factory/README.md` describes a package that doesn't exist
+### 10. ✅ DONE — `packages/phase1-resource-factory/README.md` describes a package that doesn't exist
+Rewritten to the actual flat `src/` layout, the provider-seam architecture (default local Anthropic,
+Vega alternative, links ADR 0005), handoff semantics, env-driven approval modes (flag planned), the
+commit-the-bundle requirement, and the action.yml input contract.
 - **Wrong now:**
   - Directory table (`github-action/`, `agents/`, `approval/`, `adapters/ci-github/`, `adapters/ld/`)
     — actual layout is flat: `src/{action,approval,comment,graphWalker,index,prContext}.ts` + `action.yml`.
@@ -172,7 +249,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   (env-driven, flag planned), PR comment posting, the `action.yml` input contract, and the
   commit-the-bundle requirement.
 
-### 11. `packages/config-bridge/README.md` — wrong directories, wrong config location, resolved question
+### 11. ✅ DONE — `packages/config-bridge/README.md` — wrong directories, wrong config location, resolved question
+Rewritten around the flat `src/` layout and the real CLI (`provision` / `sync` / `seed`), points at
+`config/agentcontrol/` as the canonical location and the LD_*/LD_SOURCE_* env contract (no YAML
+connection file), states graph CRUD is REST (resolved), and documents idempotency + tool-stripping.
 - **Wrong now:** the dir table (`configs/`, `provision/`, `sync/`) — actual layout is flat
   `src/{cli,provision,sync,index}.ts`; canonical copies live in **`config/agentcontrol/`**, not
   `packages/config-bridge/configs/`; "Build-time detail to confirm: Agent Graph CRUD may need the
@@ -181,7 +261,11 @@ independently. Items are grouped by priority; within a group, order is suggested
   and `bridge sync --out <dir> [--tags ...] [--graphs ...]`, the LD_*/LD_SOURCE_* env contract,
   idempotency behavior, and the tools/snippets-stripping caveat.
 
-### 12. Root `README.md` Status section is stale (and now inaccurate)
+### 12. ✅ DONE — Root `README.md` Status section is stale (and now inaccurate)
+Rewrote Status (Phase 1 end-to-end on Anthropic; provider-flag architecture; dropped the test
+count and the "two gates" framing; listed what's genuinely open: Vega entitlement, Phase 2 live
+validation, approval-mode flag), fixed the Phase 1 bullet, and updated Quickstart to mention
+`LD_SDK_KEY` + `ANTHROPIC_API_KEY`. Done with #9/#37.
 - **Wrong now (`README.md:17-26`):**
   - "Two things gate a live end-to-end run: a reachable Vega dispatch endpoint and the canonical
     agent configs" — per the project owner, Phase 1 runs end-to-end today on the Anthropic
@@ -195,7 +279,11 @@ independently. Items are grouped by priority; within a group, order is suggested
   Quickstart to mention `LD_SDK_KEY` + `ANTHROPIC_API_KEY` (it currently says only "LD_API_KEY,
   LD_PROJECT_KEY, …").
 
-### 13. `docs/plan.html` architecture callouts contradict the build
+### 13. ✅ DONE — `docs/plan.html` architecture callouts contradict the build
+Added a dated (2026-06-09) "What changed in the build" callout right after the §2 Vega callout
+(preserved the original, per the instruction not to rewrite history), rewrote the footer to
+describe the provider seam + seed flow, and bumped "last updated" to 2026-06-09. The diagram
+markup itself wasn't restructured — the callout + footer carry the correction.
 - **Wrong now:** §2 "Agent runtime: Vega" callout says "**No agent loop ships in this repo**" and the
   Phase 1 diagram shows Vega as the only execution path; the footer says "Phase 1 agent execution
   awaits a reachable live Vega endpoint; canonical agent configs await a sanitization review".
@@ -205,7 +293,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   resolution; an agent loop *does* ship in `packages/shared/src/anthropic/`. Update the
   "last updated" date.
 
-### 14. Missing ADR for the biggest architectural decision in the repo
+### 14. ✅ DONE — Missing ADR for the biggest architectural decision in the repo
+Wrote `docs/adr/0005-provider-seam-local-anthropic-execution.md` (context/decision/consequences as
+specified) and added the "superseded in part by ADR 0005" note to ADR 0004's status. Also fixed
+two stale ISSUES refs found in the (public) ADRs: 0004's "ISSUES I1" and 0002's "ISSUES I5".
 - **Files:** `docs/adr/` (0001–0004). ADR 0004 still describes Vega-behind-a-stub as the execution
   story.
 - **Fix:** add `docs/adr/0005-provider-seam-local-anthropic-execution.md`: context (Vega dispatch
@@ -215,7 +306,11 @@ independently. Items are grouped by priority; within a group, order is suggested
   consequences (agent loop now ships in-repo; Vega path preserved unchanged). Add a one-line
   "Superseded in part by ADR 0005" note to ADR 0004's status.
 
-### 15. `packages/beacon/README.md` directory table doesn't match the code
+### 15. ✅ DONE — `packages/beacon/README.md` directory table doesn't match the code
+Rewrote the table for the real flat `src/` files, removed the (nonexistent) Railway adapter and
+stated Beacon calls the LD release API directly (ADR 0002), and documented the HTTP contract
+(`POST /flag-releases` + `x-beacon-secret`, `GET /health`), the `auto-factory-notify` bin, and the
+`config/*.yaml` + env config surface.
 - **Wrong now:** table lists `notifier/`, `discovery/`, `scope/`, `coordination/`,
   `adapters/cd-railway/` — actual layout is flat `src/{server,notify,discovery,scope,fullstack,github,trigger,config,index}.ts`.
   There is **no Railway adapter at all** — Beacon calls the LaunchDarkly release API directly
@@ -224,7 +319,11 @@ independently. Items are grouped by priority; within a group, order is suggested
   with `x-beacon-secret`, `GET /health`), the `auto-factory-notify` bin, and the config surface
   (`config/services.yaml`, `config/scopes.yaml`, `config/release-source.yaml`, env).
 
-### 16. `bootstrap/create.mjs` prints stale next-steps
+### 16. ✅ DONE — `bootstrap/create.mjs` prints stale next-steps
+Secrets/vars list now matches the workflow template (`LD_SDK_KEY`, `ANTHROPIC_API_KEY`,
+`LD_API_KEY` secrets; `LD_APP_PROJECT_KEY` variable; GITHUB_TOKEN noted as auto-provided).
+The no-op caveat is replaced by a description of the seed flow (and how to enable it via
+LD_SOURCE_*). Done together with #4.
 - **File:** `bootstrap/create.mjs:41-50`
 - **Wrong now:** "Add repo secrets: LD_API_KEY (+ GITHUB_TOKEN and BEACON_WEBHOOK_SECRET for
   Phase 2)" — the workflow template (`bootstrap/github-action-template/auto-factory.yml`) actually
@@ -234,14 +333,21 @@ independently. Items are grouped by priority; within a group, order is suggested
 - **Fix:** align the printed secrets/vars list with the template; replace the no-op caveat with a
   description of the seed-from-LaunchDarkly flow once #4 lands.
 
-### 17. `packages/shared/README.md` undersells/misdescribes the package
+### 17. ✅ DONE — `packages/shared/README.md` undersells/misdescribes the package
+Replaced with a one-line-per-file module map (AgentRunner seam, Anthropic runner + sandbox tools +
+ldWriter, Vega client/transport, ldSdk bootstrap, providerFlag, releaseAdapter, env, config, types)
+plus a "customization seams" section.
 - **Wrong now:** describes only "types, LD API client, config schemas". The package now contains the
   heart of the prototype: the `AgentRunner` seam, the Anthropic runner + sandbox tools + LD writer,
   the Vega client/transport, the native SDK bootstrap (`ldSdk.ts`), the provider flag, and the
   release adapter.
 - **Fix:** add a short module map (one line per file) so partners can find the customization seams.
 
-### 18. `packages/shared/src/vegaClient.ts` header says PLACEHOLDER — it isn't anymore
+### 18. ✅ DONE — `packages/shared/src/vegaClient.ts` header says PLACEHOLDER — it isn't anymore
+Rewrote the header (transport seam; GraphQLVegaTransport real, StubVegaTransport = no-config
+fallback), deleted the dead `endpoint`/`auth` fields from `VegaClientOptions` (verified `VegaClient`
+never reads them — build passes), updated the stub's message, and dropped the two eslint-disable
+comments. Bundle rebuilt.
 - **File:** `packages/shared/src/vegaClient.ts:1-14, 50-56`
 - **Wrong now:** "⚠️ PLACEHOLDER. The real public Vega dispatch endpoint, auth model, and
   payload/response shapes are pending" — `GraphQLVegaTransport` exists (`vegaTransport.ts`), the
@@ -252,13 +358,16 @@ independently. Items are grouped by priority; within a group, order is suggested
   `StubVegaTransport` is the no-config fallback"), delete `endpoint`/`auth` from
   `VegaClientOptions`, and drop the two `eslint-disable` comments (the repo has no eslint config).
 
-### 19. `setup-steps.md` is an abandoned scratch file at the repo root
+### 19. ✅ DONE — `setup-steps.md` is an abandoned scratch file at the repo root
+Moved the Agent-Dispatch-entitlement note into the Vega section of `.env.example`; deleted the file.
 - **File:** `setup-steps.md` (3 lines, ends with a dangling "- ").
 - **Fix:** move its one real fact ("the Agent Dispatch API must be enabled via a LaunchDarkly flag /
   entitlement for the project before Vega dispatch works") into the Vega section of `.env.example`
   or the root README's Vega notes, then delete the file.
 
-### 20. `config/ld-targets.yaml` is decorative — nothing reads it
+### 20. ✅ DONE — `config/ld-targets.yaml` is decorative — nothing reads it
+Chose (a): deleted the file (confirmed no code reads it — only docs referenced it) and fixed the
+plan.html directory tree to drop it and list the real config files. Connection surface is `.env`.
 - **File:** `config/ld-targets.yaml`; referenced as the config surface by
   `packages/config-bridge/README.md:13-14` and `docs/plan.html` §3.
 - **Issue:** the `${LD_BASE_URL}`-style placeholders are never interpolated; source/target
@@ -268,7 +377,11 @@ independently. Items are grouped by priority; within a group, order is suggested
   surface, or (b) make `env.ts` actually read it as defaults-under-env. (a) is less code and
   honest; recommended for a prototype.
 
-### 21. `sources/` scaffolding promises tooling that doesn't exist
+### 21. ✅ DONE — `sources/` scaffolding promises tooling that doesn't exist
+Chose (b): kept the manifest (harmless intent doc) but removed every reference to nonexistent
+scripts. `manifest.yaml` now says "vendored manually (no sync script)" and that LD configs aren't
+vendored (bridge sync/seed instead); plan.html §3 `scripts/` line and §4 table rows updated to drop
+`scripts/sync-sources` / `scripts/sanitize` and describe the bridge-based flow.
 - **Files:** `sources/manifest.yaml` (all entries commented out), `sources/ld-configs/.gitkeep`;
   `docs/plan.html` §3/§4 references `scripts/sync-sources` and `scripts/sanitize` — `scripts/`
   contains only `check-public.mjs`.
@@ -276,7 +389,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   in practice; the bridge's `sync` covers LD configs), or keep the manifest but fix plan.html to say
   syncing is manual. Don't ship references to scripts that don't exist.
 
-### 22. `examples/demo-app/GUIDE.md` vs. the real demo setup
+### 22. ✅ DONE — `examples/demo-app/GUIDE.md` vs. the real demo setup
+Added a "What this is" note (in-repo copy = reference/starting point; the action targets whatever
+repo installs the workflow), noted that agents derive flag keys per-PR (not always `new-greeting`)
+and keyed the release-flag file by `<flag-key>`, and inlined the I7 content (done with #9).
 - **File:** `examples/demo-app/GUIDE.md`
 - **Issues:** (a) it implies this in-repo copy is *the* demo, while the working Phase 1 demo runs
   against a separate app repo wired with the workflow template — clarify the relationship
@@ -284,7 +400,13 @@ independently. Items are grouped by priority; within a group, order is suggested
   workflow); (b) the flag is named `new-greeting` here but agents derive flag keys per-PR — note
   that; (c) `docs/ISSUES.md` reference (covered by #9).
 
-### 23. `.gitignore` has an unexplained ignore of `examples/demo-app/README.md`
+### 23. ✅ DONE (with a caveat) — `.gitignore` has an unexplained ignore of `examples/demo-app/README.md`
+Moved the rule out of the Editor/OS block and added a comment explaining the likely reason:
+examples/demo-app is the default agent `SANDBOX_ROOT`, so with `ENABLE_CODE_CHANGES` agents may
+write/modify a README there during local runs, and the ignore keeps that churn uncommitted.
+> ⚠️ **Inferred, not confirmed.** The committed file is clean/human-looking and GUIDE.md (same dir)
+> IS tracked, so the asymmetry is a little odd. If the real reason differs, adjust the comment or
+> just delete the rule.
 - **File:** `.gitignore:35` (sitting under the "Editor / OS" section, with no comment).
 - **Fix:** if agents generate a README there during runs, say so in a comment and move it out of the
   Editor/OS block; otherwise delete the rule. Unexplained ignores of normal-looking files confuse
@@ -294,7 +416,15 @@ independently. Items are grouped by priority; within a group, order is suggested
 
 ## P3 — Code refactors worth doing (prototype-appropriate, not gold-plating)
 
-### 24. `NODE_CAPABILITIES` hardcodes agent config keys in the runner
+### 24. ✅ DONE — `NODE_CAPABILITIES` hardcodes agent config keys in the runner
+Capability grants now live on the graph edge `handoff.capabilities` array
+(`["create_flag", "edit_files"]` on the flag-implementer edge, `["edit_files"]` on the flag-testing
+edge). Flow: walker extracts `capabilities` from the inbound handoff → `AgentNodeRequest.capabilities`
+→ `resolveGrant()` in the runner uses it (source "edge"), else falls back to `NODE_CAPABILITIES` by
+key (source "fallback"), else read-only (source "none"). A per-node log line prints the grant + source
+so a renamed agent that silently lost its grant is visible. Always intersected with global
+ENABLE_* toggles. Unit-tested in `tests/resolveGrant.test.ts`; documented in agentcontrol README +
+CHANGELOG. Bundle rebuilt.
 - **File:** `packages/shared/src/anthropic/anthropicAgentRunner.ts:64-67`
 - **Issue:** write capabilities are granted by exact config key
   (`autofactory-flag-implementer`, `autofactory-flag-testing`). A partner who renames or adds an
@@ -306,7 +436,15 @@ independently. Items are grouped by priority; within a group, order is suggested
   `config/agentcontrol/`. Keep `NODE_CAPABILITIES` only as a fallback, and log when a node gets
   no grant so renames are diagnosable.
 
-### 25. Phase 1 env-var sprawl — centralize the runtime config
+### 25. ✅ PARTIAL — Phase 1 env-var sprawl — centralize the runtime config
+Did the testability-focused half: `prBranch`/`prBaseRef` are now passed explicitly into
+`AnthropicAgentRunnerOptions` → `SandboxToolExecutor` (constructor params), so `resolveBaseRef`
+(`git_diff`) and `commitAndPush` prefer the injected values and only fall back to `process.env`.
+The sandbox tools no longer *depend* on env mutation to test.
+> **Not done (deliberate):** the broader `loadPhase1Config()` centralization of action.ts's ~12 env
+> reads + folding in `mapActionInputs`. That's readability churn on the **untested** action
+> entrypoint (no unit harness, runs only in CI), where a missed var or changed default would
+> regress silently and I can't run it here. Left as a follow-up to do with eyes on a live run.
 - **Files:** `packages/phase1-resource-factory/src/action.ts` (reads ~12 env vars inline),
   `packages/shared/src/{env,ldSdk}.ts`, `packages/shared/src/anthropic/sandboxTools.ts:336,421`
   (reads `PR_BASE_REF` / `PR_BRANCH` directly from `process.env` deep inside tool code).
@@ -316,14 +454,21 @@ independently. Items are grouped by priority; within a group, order is suggested
   object, and pass `prBranch`/`prBaseRef` into `SandboxToolExecutor`/`AnthropicAgentRunnerOptions`
   explicitly. `mapActionInputs` folds into it. This is also what makes #6 stay fixed.
 
-### 26. `postPrComment` posts a new comment on every run
+### 26. ✅ DONE — `postPrComment` posts a new comment on every run
+Implemented the marker pattern: the body carries a hidden `<!-- auto-factory-phase1 -->` marker;
+the function lists the PR's comments (per_page=100), and PATCHes the existing marked comment if
+found, else POSTs. Best-effort/non-fatal behavior preserved. Bundle rebuilt.
 - **File:** `packages/phase1-resource-factory/src/comment.ts`
 - **Issue:** every `synchronize` (including the agents' own pushes — each agent commit re-triggers
   the workflow) appends another summary comment; busy PRs accumulate noise. Customer-facing polish.
 - **Fix:** standard marker pattern — embed `<!-- auto-factory-phase1 -->` in the body, list the PR's
   comments, and PATCH the existing one if found, else POST.
 
-### 27. Pin the agent tag contract; stop guessing in `interpretWalk`
+### 27. ✅ DONE — Pin the agent tag contract; stop guessing in `interpretWalk`
+Documented the canonical tags (`skip_flagging`, `flag_created`, `flag_key`, `needs_tests`,
+`review_approved`, `risk_level`) in `config/agentcontrol/README.md`. `interpretWalk` now reads the
+canonical keys FIRST — fixed a real ordering bug where legacy `risk` was read before canonical
+`risk_level` — and the legacy fallbacks are kept behind `// legacy` comments. Covered by #3's tests.
 - **Files:** `packages/phase1-resource-factory/src/approval.ts:50-67`;
   `packages/shared/src/anthropic/anthropicAgentRunner.ts:26-31` (TAGGING_NOTE);
   `config/agentcontrol/graphs/auto-factory.json` (edge conditions).
@@ -335,7 +480,12 @@ independently. Items are grouped by priority; within a group, order is suggested
   make `interpretWalk` read the canonical keys first, and either delete the fallbacks or keep them
   behind a comment that names them as legacy. Pair with tests from #3.
 
-### 28. `graphWalker` ignores `prompt_template` carried by every graph edge
+### 28. ✅ DONE — `graphWalker` ignores `prompt_template` carried by every graph edge
+Chose (b): documented the handoff fields the walker honors (`require_tags`, `skip_if_tags`,
+`max_turns`, `request_type`) in `config/agentcontrol/README.md` and stripped the inert
+`prompt_template` from the committed `graphs/auto-factory.json` (the walker owns prompt construction
+for every provider, so it never reached Vega). Logged in the CHANGELOG; live LD graph may still
+carry it (harmless).
 - **Files:** `config/agentcontrol/graphs/auto-factory.json` (every edge has
   `"prompt_template": "{{PR_NUMBER}}"`); `packages/phase1-resource-factory/src/graphWalker.ts`
   (`buildPrompt` never reads it).
@@ -346,7 +496,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   canonical graph JSON and note in `config/agentcontrol/README.md` which handoff fields the walker
   honors (`require_tags`, `skip_if_tags`, `max_turns`, `request_type`).
 
-### 29. `safeResolve` sandbox check — tighten the no-op clause
+### 29. ✅ DONE — `safeResolve` sandbox check — tighten the no-op clause
+Replaced the dead `resolve(abs) !== abs` clause with the idiomatic
+`within === ".." || within.startsWith(".." + sep) || isAbsolute(within)`. Unit tests added in
+`tests/sandboxTools.test.ts` (inside/descendant allowed, `../escape` rejected, absolute path rejected).
 - **File:** `packages/shared/src/anthropic/sandboxTools.ts:192-199`
 - **Issue:** `resolve(abs) !== abs` is always false (resolving an already-absolute path is identity)
   — dead guard. Escape protection rests solely on `within.startsWith("..")`, which works (including
@@ -356,7 +509,10 @@ independently. Items are grouped by priority; within a group, order is suggested
   `within === ".." || within.startsWith(".." + sep) || isAbsolute(within)`. Add a couple of unit
   tests (inside, `../escape`, absolute path) — this is the security boundary for agent tool calls.
 
-### 30. `anthropicModelId` mis-handles fully-qualified Bedrock-style ids
+### 30. ✅ DONE — `anthropicModelId` mis-handles fully-qualified Bedrock-style ids
+Now strips at most an optional region segment (`/^[a-z]{2}\./i`) then a single `anthropic.` prefix
+(case-insensitive); multi-dot/versioned ids pass through unchanged. Exported and unit-tested per
+shape in `tests/anthropicModelId.test.ts` (bare, prefixed, region+prefix, bare versioned, empty).
 - **File:** `packages/shared/src/anthropic/anthropicAgentRunner.ts:173-177`
 - **Issue:** the "strip provider prefix" rule (`split(".").slice(1)`) turns
   `us.anthropic.claude-sonnet-4-6-v1:0` into `anthropic.claude-sonnet-4-6-v1:0` — wrong for any
@@ -364,7 +520,10 @@ independently. Items are grouped by priority; within a group, order is suggested
 - **Fix:** strip at most one known provider prefix (case-insensitive `anthropic.`), optionally after
   a region segment; otherwise pass through unchanged. One unit test per shape.
 
-### 31. Beacon's fullstack "waiting" path still has no backstop (known, but now load-bearing)
+### 31. ✅ DONE (minimum viable) — Beacon's fullstack "waiting" path still has no backstop
+Added an actionable `console.warn("[beacon] WAITING: …")` on the waiting branch (flag, scope, file,
+service, sha + the manual re-trigger hint), and documented the manual re-POST runbook in the beacon
+README. No retry queue (overkill for the prototype, per the item).
 - **Files:** `packages/beacon/src/server.ts:65-71`, `packages/beacon/README.md` (open consideration).
 - **Issue:** acknowledged in the plan (§8) and README, but as the prototype heads to partners, a
   lost notification silently strands a release with no retry/timeout and no visibility.
@@ -372,7 +531,14 @@ independently. Items are grouped by priority; within a group, order is suggested
   manual re-trigger (re-POST the notification). A retry queue is overkill for the prototype; an
   honest runbook note is not.
 
-### 32. Test gaps for the code that now does the real work
+### 32. ✅ DONE — Test gaps for the code that now does the real work
+`tests/sandboxTools.test.ts` covers: read_file/list_dir/grep happy paths, unknown-tool handling,
+sandbox escape rejection (pairs with #29), tag accumulation, capability gating (`buildSandboxTools`
++ executor refusals when allowEdits/writer absent), edit_file uniqueness error + success, and
+create_flag fallback tagging (`flag_created`/`flag_key`) via a fake writer. `tests/ldWriter.test.ts`
+covers key validation, 409→alreadyExists vs created, tag dedupe/merge, and the safe-default variation
+shape (fake `LdClient`). `tests/vegaAgentRunner.test.ts` covers the field-for-field mapping +
+maxTurns forwarding (fake transport). No network, no git.
 - **Files:** no tests exist for `packages/shared/src/anthropic/*` (tool dispatch, capability gating,
   tag accumulation, `create_flag` fallback tagging at `sandboxTools.ts:301-304`), `ldWriter.ts`
   (409 → alreadyExists), or `vegaAgentRunner.ts`.
@@ -385,27 +551,37 @@ independently. Items are grouped by priority; within a group, order is suggested
 
 ## P4 — Nits / consistency
 
-### 33. Naming: "Auto-Factory" vs "AutoFactory" vs "auto-factory"
+### 33. ✅ DONE — Naming: "Auto-Factory" vs "AutoFactory" vs "auto-factory"
+Documented the convention in `config/agentcontrol/README.md`: prose form **AutoFactory**; new keys
+use `autofactory-` (AI configs) / `auto-factory-` (flags); existing live LD resources are not
+renamed. (Did not mass-rename existing prose/keys, per the item.)
 - README/plan/action.yml say "Auto-Factory"; CHANGELOG/agent configs/commit messages say
   "AutoFactory"; keys/flags use `auto-factory-*` and `autofactory-*` (`gha-auto-factory` graph but
   `autofactory-research-planner` configs). Pick one prose form (suggest **AutoFactory**) and one
   key prefix convention for *new* resources; don't rename existing LD resources (the configs/graph
   in LD are live) — just document the convention in `config/agentcontrol/README.md`.
 
-### 34. `initial_instructions.md` at the repo root
+### 34. ✅ DONE — `initial_instructions.md` at the repo root
+`git mv` → `docs/initial-instructions.md`. No inbound links to fix (grep found none).
 - Historical kickoff brief. Harmless, but for a partner-facing repo consider moving to
   `docs/initial-instructions.md` (and fix the one link in any doc that references it) so the root
   stays: README, CLEANUP, configs, code.
 
-### 35. `.vscode/settings.json` is an empty `{}` (2 bytes), tracked
+### 35. ✅ DONE — `.vscode/settings.json` is an empty `{}` (2 bytes), tracked
+`git rm`'d the empty file and added `.vscode/` to `.gitignore`.
 - Delete it (and add `.vscode/` to `.gitignore`) or put real recommended settings in it.
 
-### 36. `packages/*/tsconfig.tsbuildinfo` clutter
+### 36. ⏭️ SKIPPED (intentional) — `packages/*/tsconfig.tsbuildinfo` clutter
+Explicitly cosmetic ("Cosmetic only" in the item itself) and changing `tsBuildInfoFile` touches
+incremental-build behavior across every package + the new `tests/` project for no functional gain.
+The files are already gitignored (`*.tsbuildinfo`). Not worth the risk to the working build.
 - Untracked (covered by `*.tsbuildinfo`) but sitting in package roots because `tsc -b` defaults
   there. Optional: set `"tsBuildInfoFile": "dist/.tsbuildinfo"` in `tsconfig.base.json` variants to
   keep build state out of source dirs. Cosmetic only.
 
-### 37. README layout table omits `config/agentcontrol/` and the CHANGELOG convention
+### 37. ✅ DONE — README layout table omits `config/agentcontrol/` and the CHANGELOG convention
+Layout table now lists `config/agentcontrol/`, fixes the stale `phase1`/`shared`/`config-bridge`
+row descriptions, and a "Conventions" line documents the CHANGELOG-on-config-change agreement.
 - `README.md` Layout lists `config/` generically. Given the CHANGELOG-on-config-change convention
   (`config/agentcontrol/CHANGELOG.md`) is a real working agreement, surface it: one line in the
   Layout table or a "Conventions" bullet ("changes to AI configs / the graph / operational flags

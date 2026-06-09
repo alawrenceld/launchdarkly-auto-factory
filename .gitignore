@@ -6,6 +6,11 @@ reference-private/
 # Vendored external repos (synced on demand; pinned in sources/manifest.yaml)
 sources/repos/
 
+# Staging dir for `bridge seed` — runtime-pulled AI configs/graph from the
+# source LD project, provisioned straight into the target. Never committed
+# (these bypass check-public; the source LD project is the sanitization boundary).
+.agentcontrol-cache/
+
 # --- Secrets ---
 .env
 .env.local
@@ -32,6 +37,11 @@ packages/phase1-resource-factory/dist/*
 # --- Editor / OS ---
 .DS_Store
 *.swp
+.vscode/
+
+# examples/demo-app is the default agent SANDBOX_ROOT — with ENABLE_CODE_CHANGES,
+# agents may write/modify a README here during local runs. Ignored so that churn
+# isn't accidentally committed. (GUIDE.md is the tracked, human-authored guide.)
 examples/demo-app/README.md
 
 docs/build-checklist.md

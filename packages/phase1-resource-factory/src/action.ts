@@ -81,6 +81,8 @@ function createAgentRunner(provider: string): AgentRunner {
     codeChangesEnabled,
     ...(process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}),
     ...(writer ? { writer } : {}),
+    ...(process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {}),
+    ...(process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}),
   });
 }
 
@@ -143,6 +145,7 @@ function mapActionInputs(): void {
   set("VEGA_ENDPOINT", "vega_endpoint");
   set("VEGA_TOKEN", "vega_token");
   set("VEGA_AUTH_HEADER", "vega_auth_header");
+  set("VEGA_REQUEST_TYPE", "vega_request_type");
 }
 
 async function main(): Promise<void> {

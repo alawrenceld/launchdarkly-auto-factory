@@ -10,7 +10,6 @@
       "targetConfig": "autofactory-code-reviewer",
       "handoff": {
         "max_turns": 15,
-        "prompt_template": "{{PR_NUMBER}}",
         "request_type": "Fix"
       }
     },
@@ -20,8 +19,8 @@
       "targetConfig": "autofactory-flag-implementer",
       "handoff": {
         "max_turns": 20,
-        "prompt_template": "{{PR_NUMBER}}",
         "request_type": "Fix",
+        "capabilities": ["create_flag", "edit_files"],
         "skip_if_tags": {
           "skip_flagging": "true"
         }
@@ -33,8 +32,8 @@
       "targetConfig": "autofactory-flag-testing",
       "handoff": {
         "max_turns": 20,
-        "prompt_template": "{{PR_NUMBER}}",
         "request_type": "Fix",
+        "capabilities": ["edit_files"],
         "require_tags": {
           "needs_tests": "true"
         }
@@ -46,7 +45,6 @@
       "targetConfig": "autofactory-metrics-author",
       "handoff": {
         "max_turns": 20,
-        "prompt_template": "{{PR_NUMBER}}",
         "request_type": "Fix",
         "require_tags": {
           "flag_created": "true"

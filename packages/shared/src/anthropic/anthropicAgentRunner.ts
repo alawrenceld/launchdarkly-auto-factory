@@ -57,14 +57,43 @@ const MAX_TOKENS = 4096;
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 /**
- * Per-node capability grants (intersected with what's globally enabled). Only the
- * flag-implementer may create flags; the implementer and testing agents may edit
- * code + push; everything else is read-only.
+ * FALLBACK per-node capability grants, used only when the graph edge doesn't
+ * declare a `capabilities` array (see `resolveGrant`). Prefer putting grants on
+ * the graph edges so "which agent can write" is config, not code — this map is a
+ * safety net for graphs that predate that and is keyed by config key (so it
+ * silently misses renamed agents; the per-node log makes that diagnosable).
  */
 const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
   "autofactory-flag-implementer": { createFlag: true, editFiles: true },
   "autofactory-flag-testing": { createFlag: false, editFiles: true },
 };
+
+/** Capability tokens recognized on a graph edge's `capabilities` array. */
+export const CAP_CREATE_FLAG = "create_flag";
+export const CAP_EDIT_FILES = "edit_files";
+
+/**
+ * Resolve a node's requested capability grant: from the edge `capabilities` list
+ * when present, else the `NODE_CAPABILITIES` fallback, else read-only. Returns the
+ * grant + its source for logging (NOT yet intersected with what's globally enabled).
+ */
+export function resolveGrant(
+  configKey: string,
+  capabilities: string[] | undefined,
+): { grant: ToolCapabilities; source: "edge" | "fallback" | "none" } {
+  if (capabilities) {
+    return {
+      grant: {
+        createFlag: capabilities.includes(CAP_CREATE_FLAG),
+        editFiles: capabilities.includes(CAP_EDIT_FILES),
+      },
+      source: "edge",
+    };
+  }
+  const fallback = NODE_CAPABILITIES[configKey];
+  if (fallback) return { grant: fallback, source: "fallback" };
+  return { grant: { createFlag: false, editFiles: false }, source: "none" };
+}
 
 export interface AnthropicAgentRunnerOptions {
   /** Absolute path the sandbox tools operate within (the repo under review / the checkout). */
@@ -75,6 +104,10 @@ export interface AnthropicAgentRunnerOptions {
   writer?: LdResourceWriter;
   /** When true, file-edit + commit/push tools are enabled for capable nodes. */
   codeChangesEnabled?: boolean;
+  /** PR head branch the git tools push to (passed to the sandbox executor). */
+  prBranch?: string;
+  /** PR base ref the git_diff tool diffs against (passed to the sandbox executor). */
+  prBaseRef?: string;
 }
 
 export class AnthropicAgentRunner implements AgentRunner {
@@ -86,16 +119,27 @@ export class AnthropicAgentRunner implements AgentRunner {
 
   async runNode(req: AgentNodeRequest): Promise<AgentNodeResult> {
     // Effective capabilities = this node's grant ∩ globally-enabled features.
-    const grant = NODE_CAPABILITIES[req.configKey] ?? { createFlag: false, editFiles: false };
+    const { grant, source } = resolveGrant(req.configKey, req.capabilities);
     const caps: ToolCapabilities = {
       createFlag: grant.createFlag && this.opts.writer !== undefined,
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
     };
+    // Per-node diagnostic: makes a renamed/added agent that silently lost its
+    // grant (source "none", read-only) visible in the run logs.
+    console.log(
+      `[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} editFiles=${grant.editFiles} → effective createFlag=${caps.createFlag} editFiles=${caps.editFiles}`,
+    );
     const writer = caps.createFlag ? this.opts.writer : undefined;
 
     const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
-    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles);
+    const executor = new SandboxToolExecutor(
+      this.opts.sandboxRoot,
+      writer,
+      caps.editFiles,
+      this.opts.prBranch,
+      this.opts.prBaseRef,
+    );
     const tools = buildSandboxTools(caps) as Anthropic.Tool[];
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
 
@@ -168,10 +212,16 @@ function textOf(content: Anthropic.ContentBlock[]): string {
 
 /**
  * Map a LaunchDarkly model name to an Anthropic model id. LD model names may be
- * provider-qualified (e.g. "Anthropic.claude-sonnet-4-5") — strip the prefix.
+ * provider-qualified (e.g. "Anthropic.claude-sonnet-4-6") or Bedrock-style
+ * region-qualified (e.g. "us.anthropic.claude-sonnet-4-6-v1:0"). Strip at most an
+ * optional leading region segment and a single "anthropic." prefix; everything
+ * else (including multi-dot model ids like "...-v1:0") passes through unchanged.
  */
-function anthropicModelId(name: string | undefined): string {
+export function anthropicModelId(name: string | undefined): string {
   if (!name) return DEFAULT_MODEL;
-  const id = name.includes(".") ? name.split(".").slice(1).join(".") : name;
+  const id = name
+    .trim()
+    .replace(/^[a-z]{2}\./i, "") // optional region segment, e.g. "us."
+    .replace(/^anthropic\./i, ""); // single provider prefix
   return id.trim() || DEFAULT_MODEL;
 }

@@ -4,8 +4,9 @@
  *
  * Writes to a caller-provided output dir — deliberately NOT the public
  * `config/agentcontrol/`, because pulled instructions may contain internal
- * references that need a sanitization pass before they can be committed to a
- * public repo (see ISSUES.md I3).
+ * references that would need a sanitization pass before being committed to this
+ * PUBLIC repo. (The `seed` command keeps them in a gitignored staging dir and
+ * provisions straight into the target, so they never touch git.)
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -40,6 +41,12 @@ async function listAiConfigs(ld: LdClient): Promise<AiConfigListItem[]> {
 export interface SyncOptions {
   /** Only pull configs carrying at least one of these tags (case-insensitive). */
   tags?: string[];
+  /**
+   * Pull exactly these AI-config keys (bypasses listing/tag-filtering). Used by
+   * `seed` to fetch precisely the configs a graph references. A key that 404s is
+   * skipped silently.
+   */
+  configKeys?: string[];
   /** Agent graph keys to pull. */
   graphKeys?: string[];
   /** Output directory; `ai-configs/` and `graphs/` subdirs are created under it. */
@@ -60,14 +67,24 @@ export async function sync(ld: LdClient, opts: SyncOptions): Promise<SyncResult>
   const wanted = opts.tags?.map((t) => t.toLowerCase());
   const result: SyncResult = { aiConfigs: [], graphs: [] };
 
-  for (const item of await listAiConfigs(ld)) {
-    if (wanted) {
-      const tags = (item.tags ?? []).map((t) => t.toLowerCase());
-      if (!tags.some((t) => wanted.includes(t))) continue;
+  if (opts.configKeys?.length) {
+    // Explicit key list (seed path): pull exactly these, skipping any that 404.
+    for (const key of opts.configKeys) {
+      const full = await ld.getAiConfig(key);
+      if (full.status !== 200) continue;
+      writeFileSync(join(aiDir, `${key}.json`), JSON.stringify(full.data, null, 2) + "\n");
+      result.aiConfigs.push(key);
     }
-    const full = await ld.getAiConfig(item.key);
-    writeFileSync(join(aiDir, `${item.key}.json`), JSON.stringify(full.data, null, 2) + "\n");
-    result.aiConfigs.push(item.key);
+  } else {
+    for (const item of await listAiConfigs(ld)) {
+      if (wanted) {
+        const tags = (item.tags ?? []).map((t) => t.toLowerCase());
+        if (!tags.some((t) => wanted.includes(t))) continue;
+      }
+      const full = await ld.getAiConfig(item.key);
+      writeFileSync(join(aiDir, `${item.key}.json`), JSON.stringify(full.data, null, 2) + "\n");
+      result.aiConfigs.push(item.key);
+    }
   }
 
   for (const key of opts.graphKeys ?? []) {

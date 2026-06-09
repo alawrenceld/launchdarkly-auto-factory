@@ -13,5 +13,6 @@ pipeline hop. All knowledge of the beta/internal endpoints lives in one place: `
 (the path is a single function; the version header is set there).
 
 **Consequences.** When the public API ships (or shape changes), only the adapter changes — Beacon is
-insulated. Reading a flag's configured release policy is still open (ISSUES I5); overrides + demo
-defaults cover the gap meanwhile.
+insulated. Reading a flag's configured release policy is implemented (`getReleasePolicy` /
+`normalizeReleasePolicy` in `releaseAdapter.ts`); the trigger applies precedence
+**overrides > policy > demo defaults**.

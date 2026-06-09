@@ -2,9 +2,9 @@
  * Release trigger. Resolves the flag's variations, picks the release method
  * (override → sensible default), and executes via the shared release adapter.
  *
- * Scope note (prototype): handles BOOLEAN flags (off=false → on=true). Reading a
- * flag's configured release policy for defaults is deferred (see ISSUES I5);
- * when no overrides are supplied we fall back to demo defaults below.
+ * Scope note (prototype): handles BOOLEAN flags (off=false → on=true). Precedence
+ * for the rollout shape is overrides > the flag's configured release policy
+ * (read via getReleasePolicy) > the demo defaults below.
  */
 
 import {
@@ -18,7 +18,7 @@ import {
   type Stage,
 } from "@auto-factory/shared";
 
-/** Demo default rollout when neither overrides nor a policy provide stages (ISSUES I5). */
+/** Demo default rollout when neither overrides nor a configured policy provide stages. */
 const DEFAULT_STAGES: Stage[] = [
   { allocation: 20000, durationMillis: 300000 },
   { allocation: 50000, durationMillis: 300000 },
