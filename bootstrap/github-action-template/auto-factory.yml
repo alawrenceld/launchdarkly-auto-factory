@@ -40,6 +40,7 @@ jobs:
           enable_flag_creation: "true"   # create REAL flags in the app project
           enable_code_changes: "true"    # wire the flag into the code + push; add tests
           pr_branch: ${{ github.event.pull_request.head.ref }}
+          pr_base: ${{ github.event.pull_request.base.ref }}
           graph_key: gha-auto-factory
           approval_mode: yolo
           github_token: ${{ secrets.GITHUB_TOKEN }}

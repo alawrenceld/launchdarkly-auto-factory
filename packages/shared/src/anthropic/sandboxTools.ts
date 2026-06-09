@@ -58,6 +58,15 @@ const READONLY_TOOLS: AnthropicToolDef[] = [
     },
   },
   {
+    name: "git_diff",
+    description:
+      "Show the pull request's changes as a unified diff (base...HEAD), including commits added by earlier agents (flag wiring, tests). Call this FIRST to see exactly what changed instead of reading files one by one.",
+    input_schema: {
+      type: "object",
+      properties: { base: { type: "string", description: "Base ref to diff against (default: the PR base / main)" } },
+    },
+  },
+  {
     name: "tag_conversation",
     description:
       "Record routing tags for the AutoFactory pipeline. Call this once you've decided the outcome of your step so the chain can advance. Pass the tags your instructions specify (e.g. {\"flag_created\":\"true\"}, {\"skip_flagging\":\"true\"}, {\"needs_tests\":\"true\"}, {\"review_approved\":\"true\"}, {\"risk_level\":\"low\"}).",
@@ -188,6 +197,8 @@ export class SandboxToolExecutor {
           return { content: this.listDir(String(input.path ?? "")) };
         case "grep":
           return { content: this.grep(String(input.pattern ?? ""), input.path ? String(input.path) : "") };
+        case "git_diff":
+          return this.gitDiff(input.base ? String(input.base) : undefined);
         case "tag_conversation":
           return { content: this.tag(input.tags) };
         case "create_flag":
@@ -303,20 +314,50 @@ export class SandboxToolExecutor {
     return { content: `Edited ${rel}` };
   }
 
+  private runGit(args: string[]): string {
+    return execFileSync("git", args, { cwd: this.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  }
+
+  /** Resolve the first base ref that exists locally, for a base...HEAD diff. */
+  private resolveBaseRef(base?: string): string | undefined {
+    const name = base || process.env.PR_BASE_REF || "main";
+    const candidates = [base, `origin/${name}`, name, "origin/main", "main"].filter((v): v is string => !!v);
+    for (const ref of candidates) {
+      try {
+        this.runGit(["rev-parse", "--verify", "--quiet", ref]);
+        return ref;
+      } catch {
+        /* try next */
+      }
+    }
+    return undefined;
+  }
+
+  private gitDiff(base?: string): ToolExecResult {
+    try {
+      const ref = this.resolveBaseRef(base);
+      if (!ref) return { content: "git_diff: could not resolve a base ref (not a git checkout?)", isError: true };
+      const out = this.runGit(["diff", `${ref}...HEAD`]);
+      if (!out.trim()) return { content: `(no differences vs ${ref})` };
+      return out.length > 60_000 ? { content: `${out.slice(0, 60_000)}\n…[diff truncated]` } : { content: out };
+    } catch (e) {
+      const err = e as { stderr?: Buffer | string; message?: string };
+      return { content: `git_diff failed: ${(err.stderr?.toString() || err.message || String(e)).slice(0, 400)}`, isError: true };
+    }
+  }
+
   private commitAndPush(message: string): ToolExecResult {
     if (!this.allowEdits) return { content: "commit_and_push is not available", isError: true };
-    const git = (args: string[]): string =>
-      execFileSync("git", args, { cwd: this.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     try {
-      git(["config", "user.email", "autofactory@launchdarkly.com"]);
-      git(["config", "user.name", "LaunchDarkly AutoFactory"]);
-      git(["add", "-A"]);
+      this.runGit(["config", "user.email", "autofactory@launchdarkly.com"]);
+      this.runGit(["config", "user.name", "LaunchDarkly AutoFactory"]);
+      this.runGit(["add", "-A"]);
       // Nothing staged → report rather than fail the node.
-      const staged = execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: this.root, encoding: "utf8" }).trim();
+      const staged = this.runGit(["diff", "--cached", "--name-only"]).trim();
       if (!staged) return { content: "commit_and_push: no changes to commit" };
-      git(["commit", "-m", message]);
+      this.runGit(["commit", "-m", message]);
       const branch = process.env.PR_BRANCH;
-      git(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
+      this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
       return { content: `Committed and pushed (${staged.split("\n").length} file(s)): ${message}` };
     } catch (e) {
       const err = e as { stderr?: Buffer | string; message?: string };

@@ -36,6 +36,9 @@ inputs:
   pr_branch:
     description: "PR head branch to push agent commits to (e.g. github.event.pull_request.head.ref)."
     required: false
+  pr_base:
+    description: "PR base branch, used by the git_diff tool to show the change set (e.g. github.event.pull_request.base.ref)."
+    required: false
   ld_base_url:
     description: "LaunchDarkly API base URL."
     required: false

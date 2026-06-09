@@ -137,6 +137,7 @@ function mapActionInputs(): void {
   set("ENABLE_FLAG_CREATION", "enable_flag_creation");
   set("ENABLE_CODE_CHANGES", "enable_code_changes");
   set("PR_BRANCH", "pr_branch");
+  set("PR_BASE_REF", "pr_base");
   set("APPROVAL_MODE", "approval_mode");
   set("GITHUB_TOKEN", "github_token");
   set("VEGA_ENDPOINT", "vega_endpoint");

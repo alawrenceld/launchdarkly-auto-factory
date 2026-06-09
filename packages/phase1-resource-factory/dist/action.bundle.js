@@ -35444,6 +35444,14 @@ var READONLY_TOOLS = [
     }
   },
   {
+    name: "git_diff",
+    description: "Show the pull request's changes as a unified diff (base...HEAD), including commits added by earlier agents (flag wiring, tests). Call this FIRST to see exactly what changed instead of reading files one by one.",
+    input_schema: {
+      type: "object",
+      properties: { base: { type: "string", description: "Base ref to diff against (default: the PR base / main)" } }
+    }
+  },
+  {
     name: "tag_conversation",
     description: `Record routing tags for the AutoFactory pipeline. Call this once you've decided the outcome of your step so the chain can advance. Pass the tags your instructions specify (e.g. {"flag_created":"true"}, {"skip_flagging":"true"}, {"needs_tests":"true"}, {"review_approved":"true"}, {"risk_level":"low"}).`,
     input_schema: {
@@ -35546,6 +35554,8 @@ var SandboxToolExecutor = class {
           return { content: this.listDir(String(input.path ?? "")) };
         case "grep":
           return { content: this.grep(String(input.pattern ?? ""), input.path ? String(input.path) : "") };
+        case "git_diff":
+          return this.gitDiff(input.base ? String(input.base) : void 0);
         case "tag_conversation":
           return { content: this.tag(input.tags) };
         case "create_flag":
@@ -35659,20 +35669,50 @@ var SandboxToolExecutor = class {
     writeFileSync(abs, text.slice(0, idx) + newStr + text.slice(idx + oldStr.length), "utf8");
     return { content: `Edited ${rel}` };
   }
+  runGit(args) {
+    return execFileSync("git", args, { cwd: this.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  }
+  /** Resolve the first base ref that exists locally, for a base...HEAD diff. */
+  resolveBaseRef(base) {
+    const name = base || process.env.PR_BASE_REF || "main";
+    const candidates = [base, `origin/${name}`, name, "origin/main", "main"].filter((v) => !!v);
+    for (const ref of candidates) {
+      try {
+        this.runGit(["rev-parse", "--verify", "--quiet", ref]);
+        return ref;
+      } catch {
+      }
+    }
+    return void 0;
+  }
+  gitDiff(base) {
+    try {
+      const ref = this.resolveBaseRef(base);
+      if (!ref)
+        return { content: "git_diff: could not resolve a base ref (not a git checkout?)", isError: true };
+      const out = this.runGit(["diff", `${ref}...HEAD`]);
+      if (!out.trim())
+        return { content: `(no differences vs ${ref})` };
+      return out.length > 6e4 ? { content: `${out.slice(0, 6e4)}
+\u2026[diff truncated]` } : { content: out };
+    } catch (e) {
+      const err = e;
+      return { content: `git_diff failed: ${(err.stderr?.toString() || err.message || String(e)).slice(0, 400)}`, isError: true };
+    }
+  }
   commitAndPush(message) {
     if (!this.allowEdits)
       return { content: "commit_and_push is not available", isError: true };
-    const git = (args) => execFileSync("git", args, { cwd: this.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     try {
-      git(["config", "user.email", "autofactory@launchdarkly.com"]);
-      git(["config", "user.name", "LaunchDarkly AutoFactory"]);
-      git(["add", "-A"]);
-      const staged = execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: this.root, encoding: "utf8" }).trim();
+      this.runGit(["config", "user.email", "autofactory@launchdarkly.com"]);
+      this.runGit(["config", "user.name", "LaunchDarkly AutoFactory"]);
+      this.runGit(["add", "-A"]);
+      const staged = this.runGit(["diff", "--cached", "--name-only"]).trim();
       if (!staged)
         return { content: "commit_and_push: no changes to commit" };
-      git(["commit", "-m", message]);
+      this.runGit(["commit", "-m", message]);
       const branch = process.env.PR_BRANCH;
-      git(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
+      this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
       return { content: `Committed and pushed (${staged.split("\n").length} file(s)): ${message}` };
     } catch (e) {
       const err = e;
@@ -36091,6 +36131,7 @@ function mapActionInputs() {
   set("ENABLE_FLAG_CREATION", "enable_flag_creation");
   set("ENABLE_CODE_CHANGES", "enable_code_changes");
   set("PR_BRANCH", "pr_branch");
+  set("PR_BASE_REF", "pr_base");
   set("APPROVAL_MODE", "approval_mode");
   set("GITHUB_TOKEN", "github_token");
   set("VEGA_ENDPOINT", "vega_endpoint");
