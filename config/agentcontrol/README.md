@@ -19,6 +19,8 @@ are the canonical keys the pipeline reads — emit exactly these:
 | `flag_key` | flag-implementer | the created flag's key (set automatically by `create_flag`) |
 | `needs_tests` | metrics-author | `"true"` → route to the testing agent |
 | `review_approved` | code-reviewer | `"approve"`/`"approved"`/`"true"` → the change is approved |
+| `metrics_created` | metrics-author | `"true"` if any metric was created/reused (set automatically by `create_metric`) |
+| `metric_keys` | metrics-author | comma-separated metric keys attached (set automatically by `create_metric`) |
 | `risk_level` | code-reviewer | `low` / `medium` / `high` — gates `middle` approval mode |
 
 `interpretWalk` (`packages/phase1-resource-factory/src/approval.ts`) reads
@@ -32,13 +34,18 @@ Each graph edge's `handoff` object may carry: `require_tags`, `skip_if_tags`,
 **not** currently interpreted by the walker — see CLEANUP #28.)
 
 `capabilities` is a string array granting the **target** node tool access on the
-Anthropic provider: `"create_flag"` (real flag creation) and `"edit_files"`
-(write/edit/run_tests/commit_and_push). Put grants here so "which agent can write"
-is config, not code. When an edge omits `capabilities`, the runner falls back to a
-built-in per-config-key map (`autofactory-flag-implementer` →
-create_flag+edit_files, `autofactory-flag-testing` → edit_files); everything else
-is read-only. Grants are always intersected with the global `ENABLE_FLAG_CREATION`
-/ `ENABLE_CODE_CHANGES` toggles.
+Anthropic provider:
+- `"create_flag"` — real boolean flag creation in the app project.
+- `"create_metric"` — real guarded-release metric creation in the app project
+  (off a custom event the agent instruments with `track()`).
+- `"edit_files"` — `write_file` / `edit_file` / `run_tests` / `commit_and_push`.
+
+Put grants here so "which agent can write" is config, not code. When an edge omits
+`capabilities`, the runner falls back to a built-in per-config-key map
+(`autofactory-flag-implementer` → create_flag+edit_files, `autofactory-flag-testing`
+→ edit_files, `autofactory-metrics-author` → create_metric+edit_files); everything
+else is read-only. Grants are always intersected with the global
+`ENABLE_FLAG_CREATION` / `ENABLE_CODE_CHANGES` toggles.
 
 ## Naming convention
 

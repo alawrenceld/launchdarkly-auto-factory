@@ -8,6 +8,7 @@ import {
   SandboxToolExecutor,
   buildSandboxTools,
   type CreateFlagArgs,
+  type CreateMetricArgs,
   type LdResourceWriter,
   type LdWriteResult,
 } from "@auto-factory/shared";
@@ -98,29 +99,40 @@ describe("SandboxToolExecutor — capability gating", () => {
     assert.equal((await exec.execute("edit_file", { path: "a.txt", old_string: "hello", new_string: "hi" })).isError, true);
   });
 
-  it("create_flag is unavailable without a writer", async () => {
+  it("create_flag / create_metric are unavailable without a writer", async () => {
     const exec = new SandboxToolExecutor(root);
-    const r = await exec.execute("create_flag", { key: "x" });
-    assert.equal(r.isError, true);
-    assert.match(r.content, /not available/);
+    const flag = await exec.execute("create_flag", { key: "x" });
+    assert.equal(flag.isError, true);
+    assert.match(flag.content, /not available/);
+    const metric = await exec.execute("create_metric", { key: "x-error-rate", category: "error", event_key: "x-error" });
+    assert.equal(metric.isError, true);
+    assert.match(metric.content, /not available/);
   });
 
   it("buildSandboxTools offers only read-only tools by default", () => {
-    const names = buildSandboxTools({ createFlag: false, editFiles: false }).map((t) => t.name);
+    const names = buildSandboxTools({ createFlag: false, createMetric: false, editFiles: false }).map((t) => t.name);
     assert.ok(names.includes("read_file"));
     assert.ok(names.includes("git_diff"));
     assert.ok(!names.includes("create_flag"));
+    assert.ok(!names.includes("create_metric"));
     assert.ok(!names.includes("write_file"));
     assert.ok(!names.includes("commit_and_push"));
   });
 
   it("buildSandboxTools adds gated tools when capabilities are granted", () => {
-    const names = buildSandboxTools({ createFlag: true, editFiles: true }).map((t) => t.name);
+    const names = buildSandboxTools({ createFlag: true, createMetric: true, editFiles: true }).map((t) => t.name);
     assert.ok(names.includes("create_flag"));
+    assert.ok(names.includes("create_metric"));
     assert.ok(names.includes("write_file"));
     assert.ok(names.includes("edit_file"));
     assert.ok(names.includes("run_tests"));
     assert.ok(names.includes("commit_and_push"));
+  });
+
+  it("create_metric is offered independently of create_flag", () => {
+    const names = buildSandboxTools({ createFlag: false, createMetric: true, editFiles: true }).map((t) => t.name);
+    assert.ok(names.includes("create_metric"));
+    assert.ok(!names.includes("create_flag"));
   });
 });
 
@@ -155,5 +167,51 @@ describe("SandboxToolExecutor — create_flag fallback tagging", () => {
     assert.equal(r.isError, undefined);
     assert.equal(exec.tags.flag_created, "true");
     assert.equal(exec.tags.flag_key, "enable-thing");
+  });
+});
+
+describe("SandboxToolExecutor — create_metric", () => {
+  const fakeWriter = () => {
+    const calls: CreateMetricArgs[] = [];
+    const writer = {
+      projectKey: "demo",
+      async createMetric(args: CreateMetricArgs): Promise<LdWriteResult> {
+        calls.push(args);
+        return { created: true, alreadyExists: false, key: args.key, detail: `created ${args.key}` };
+      },
+    } as unknown as LdResourceWriter;
+    return { writer, calls };
+  };
+
+  it("sets metrics_created + accumulates metric_keys across calls", async () => {
+    const { writer } = fakeWriter();
+    const exec = new SandboxToolExecutor(root, writer);
+    await exec.execute("create_metric", { key: "f-error-rate", category: "error", event_key: "f-error" });
+    await exec.execute("create_metric", { key: "f-latency", category: "latency", event_key: "f-latency" });
+    assert.equal(exec.tags.metrics_created, "true");
+    assert.equal(exec.tags.metric_keys, "f-error-rate,f-latency");
+  });
+
+  it("passes the parsed args through to the writer", async () => {
+    const { writer, calls } = fakeWriter();
+    const exec = new SandboxToolExecutor(root, writer);
+    await exec.execute("create_metric", {
+      key: "f-success",
+      category: "business",
+      event_key: "f-success",
+      randomization_unit: "account",
+    });
+    assert.equal(calls[0]?.category, "business");
+    assert.equal(calls[0]?.eventKey, "f-success");
+    assert.equal(calls[0]?.randomizationUnit, "account");
+  });
+
+  it("rejects an invalid category before calling the writer", async () => {
+    const { writer, calls } = fakeWriter();
+    const exec = new SandboxToolExecutor(root, writer);
+    const r = await exec.execute("create_metric", { key: "f-x", category: "throughput", event_key: "f-x" });
+    assert.equal(r.isError, true);
+    assert.match(r.content, /category must be one of/);
+    assert.equal(calls.length, 0);
   });
 });

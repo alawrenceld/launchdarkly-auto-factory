@@ -17,6 +17,22 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-06-09
 
+### ✅ Metrics Author can now actually create metrics on the Anthropic path
+- **Problem:** the metrics-author's instructions were written for the Vega runtime
+  (Bash + curl to the metrics REST API + observability/LD MCP tools). On the default
+  **Anthropic** provider it had none of those — no metric-creation tool and no
+  `edit_files` grant — so it degraded to writing a markdown spec and tagged
+  `metrics_created=false`. (Confirmed on demo PR #8.)
+- **Code (tooling repo):** added a `create_metric` agent tool + `LdResourceWriter.createMetric`
+  (maps category error/latency/business → LD metric fields; idempotent on 409) and a
+  new `create_metric` capability.
+- **Graph:** the edge into `autofactory-metrics-author` now grants
+  `capabilities: ["create_metric", "edit_files"]` (so it can instrument a `track()`
+  event AND create the metric off it). Fallback `NODE_CAPABILITIES` also updated.
+- **Instructions:** the live `autofactory-metrics-author` config must be rewritten to
+  the Anthropic tool surface (`create_metric` / `edit_file` / `read_file`) instead of
+  Bash/curl/MCP — see the separate config update entry.
+
 ### ✅ (cleanup) Dropped inert `prompt_template` from the committed graph copy
 - **Change:** Removed `"prompt_template": "{{PR_NUMBER}}"` from every edge of the
   committed `graphs/auto-factory.json`. The graph walker owns prompt construction

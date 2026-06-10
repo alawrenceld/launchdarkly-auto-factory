@@ -3,15 +3,17 @@ import { describe, it } from "node:test";
 
 import { LdResourceWriter, type LdClient } from "@auto-factory/shared";
 
-/** Fake LdClient capturing the createFlag body and returning a scripted status. */
+/** Fake LdClient capturing the createFlag/createMetric body, returning a scripted status. */
 function fakeClient(status: number) {
   let lastBody: Record<string, unknown> | undefined;
+  const capture = async (body: unknown) => {
+    lastBody = body as Record<string, unknown>;
+    return { status, data: {} };
+  };
   const client = {
     projectKey: "demo",
-    createFlag: async (body: unknown) => {
-      lastBody = body as Record<string, unknown>;
-      return { status, data: {} };
-    },
+    createFlag: capture,
+    createMetric: capture,
   } as unknown as LdClient;
   return { client, body: () => lastBody };
 }
@@ -53,5 +55,66 @@ describe("LdResourceWriter.createBooleanFlag", () => {
     const b = body();
     assert.equal(b?.temporary, true);
     assert.deepEqual(b?.defaults, { onVariation: 0, offVariation: 1 });
+  });
+});
+
+describe("LdResourceWriter.createMetric", () => {
+  it("throws when key or eventKey is missing", async () => {
+    const { client } = fakeClient(201);
+    const w = new LdResourceWriter(client);
+    await assert.rejects(() => w.createMetric({ key: "", eventKey: "e", category: "error" }), /metric key is required/);
+    await assert.rejects(() => w.createMetric({ key: "k", eventKey: "", category: "error" }), /eventKey is required/);
+  });
+
+  it("error category → occurrence, LowerThanBaseline, default user unit", async () => {
+    const { client, body } = fakeClient(201);
+    await new LdResourceWriter(client).createMetric({ key: "k-error-rate", eventKey: "k-error", category: "error" });
+    const b = body();
+    assert.equal(b?.kind, "custom");
+    assert.equal(b?.eventKey, "k-error");
+    assert.equal(b?.isNumeric, false);
+    assert.equal(b?.successCriteria, "LowerThanBaseline");
+    assert.deepEqual(b?.randomizationUnits, ["user"]);
+    assert.equal(b?.unit, undefined); // occurrence metrics carry no numeric unit
+  });
+
+  it("latency category → numeric with unit + aggregation", async () => {
+    const { client, body } = fakeClient(201);
+    await new LdResourceWriter(client).createMetric({ key: "k-latency", eventKey: "k-latency", category: "latency" });
+    const b = body();
+    assert.equal(b?.isNumeric, true);
+    assert.equal(b?.unit, "ms");
+    assert.equal(b?.unitAggregationType, "average");
+    assert.equal(b?.successCriteria, "LowerThanBaseline");
+  });
+
+  it("business category → HigherThanBaseline occurrence", async () => {
+    const { client, body } = fakeClient(201);
+    await new LdResourceWriter(client).createMetric({ key: "k-success", eventKey: "k-success", category: "business" });
+    const b = body();
+    assert.equal(b?.isNumeric, false);
+    assert.equal(b?.successCriteria, "HigherThanBaseline");
+  });
+
+  it("honors a custom randomization unit and merges standard tags", async () => {
+    const { client, body } = fakeClient(201);
+    await new LdResourceWriter(client).createMetric({
+      key: "k",
+      eventKey: "e",
+      category: "error",
+      randomizationUnit: "account",
+      tags: ["flag:enable-x"],
+    });
+    const b = body();
+    assert.deepEqual(b?.randomizationUnits, ["account"]);
+    assert.deepEqual([...(b?.tags as string[])].sort(), ["auto-factory", "auto-generated", "flag:enable-x"]);
+  });
+
+  it("reports alreadyExists on 409", async () => {
+    const { client } = fakeClient(409);
+    const r = await new LdResourceWriter(client).createMetric({ key: "k", eventKey: "e", category: "error" });
+    assert.equal(r.created, false);
+    assert.equal(r.alreadyExists, true);
+    assert.match(r.detail, /already exists/);
   });
 });

@@ -35479,6 +35479,24 @@ var CREATE_FLAG_TOOL = {
     required: ["key"]
   }
 };
+var CREATE_METRIC_TOOL = {
+  name: "create_metric",
+  description: "Create a guarded-release metric in LaunchDarkly (the app/data-plane project) off a custom event. The metric measures one category of the flagged change during a guarded release. You must FIRST instrument the matching event in code (a LaunchDarkly `track(event_key, \u2026)` call on the path the flag wraps, via edit_file) so the metric has data once live. Idempotent: re-creating an existing key is a no-op. After it succeeds the metrics_created/metric_keys tags are updated for you.",
+  input_schema: {
+    type: "object",
+    properties: {
+      key: { type: "string", description: "Metric key, convention <flag-key>-<category>, e.g. enable-fact-endpoint-error-rate" },
+      category: { type: "string", enum: ["error", "latency", "business"], description: "error/latency = lower is better; business = higher is better" },
+      event_key: { type: "string", description: "The custom event name your track() call emits, e.g. fact-endpoint-error" },
+      name: { type: "string", description: "Human-readable metric name" },
+      description: { type: "string", description: "What the metric measures" },
+      randomization_unit: { type: "string", description: "Unit the metric is measured on; MUST match the flag rollout's unit. Default 'user'." },
+      unit: { type: "string", description: "Numeric unit for latency metrics (default 'ms'); ignored for error/business." },
+      tags: { type: "array", items: { type: "string" }, description: "Extra tags (auto-factory tags are added automatically)" }
+    },
+    required: ["key", "category", "event_key"]
+  }
+};
 var WRITE_FILE_TOOL = {
   name: "write_file",
   description: "Create or overwrite a repo file with the given contents (parent directories are created). Use for new files (e.g. a test file). Path is repo-relative.",
@@ -35525,6 +35543,8 @@ function buildSandboxTools(caps) {
   const tools = [...READONLY_TOOLS];
   if (caps.createFlag)
     tools.push(CREATE_FLAG_TOOL);
+  if (caps.createMetric)
+    tools.push(CREATE_METRIC_TOOL);
   if (caps.editFiles)
     tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, RUN_TESTS_TOOL, COMMIT_PUSH_TOOL);
   return tools;
@@ -35570,6 +35590,8 @@ var SandboxToolExecutor = class {
           return { content: this.tag(input.tags) };
         case "create_flag":
           return await this.createFlag(input);
+        case "create_metric":
+          return await this.createMetric(input);
         case "write_file":
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
@@ -35655,6 +35677,30 @@ var SandboxToolExecutor = class {
     });
     this.tags.flag_created = "true";
     this.tags.flag_key = result.key;
+    return { content: result.detail };
+  }
+  async createMetric(input) {
+    if (!this.writer)
+      return { content: "create_metric is not available", isError: true };
+    const category = String(input.category ?? "");
+    if (category !== "error" && category !== "latency" && category !== "business") {
+      return { content: "create_metric: category must be one of error | latency | business", isError: true };
+    }
+    const result = await this.writer.createMetric({
+      key: String(input.key ?? ""),
+      eventKey: String(input.event_key ?? ""),
+      category,
+      ...input.name ? { name: String(input.name) } : {},
+      ...input.description ? { description: String(input.description) } : {},
+      ...input.randomization_unit ? { randomizationUnit: String(input.randomization_unit) } : {},
+      ...input.unit ? { unit: String(input.unit) } : {},
+      ...Array.isArray(input.tags) ? { tags: input.tags.map(String) } : {}
+    });
+    this.tags.metrics_created = "true";
+    const keys = this.tags.metric_keys ? this.tags.metric_keys.split(",").filter(Boolean) : [];
+    if (!keys.includes(result.key))
+      keys.push(result.key);
+    this.tags.metric_keys = keys.join(",");
     return { content: result.detail };
   }
   writeFile(rel, content) {
@@ -35830,6 +35876,41 @@ var LdResourceWriter = class {
       detail: alreadyExists ? `Flag '${args.key}' already exists in project '${this.ld.projectKey}' (no change).` : `Created flag '${args.key}' in project '${this.ld.projectKey}'.`
     };
   }
+  /**
+   * Create a guarded-release metric off a custom event. Maps the friendly
+   * category to LaunchDarkly's metric fields (kind=custom, isNumeric/unit,
+   * successCriteria). Idempotent: a 409 (key already exists) is reported, not thrown.
+   */
+  async createMetric(args) {
+    if (!args.key)
+      throw new Error("metric key is required");
+    if (!args.eventKey)
+      throw new Error("metric eventKey is required");
+    const numeric = args.category === "latency";
+    const successCriteria = args.category === "business" ? "HigherThanBaseline" : "LowerThanBaseline";
+    const unit = args.randomizationUnit || "user";
+    const body = {
+      key: args.key,
+      name: args.name || args.key,
+      ...args.description ? { description: args.description } : {},
+      kind: "custom",
+      eventKey: args.eventKey,
+      isNumeric: numeric,
+      successCriteria,
+      randomizationUnits: [unit],
+      tags: dedupe(["auto-factory", "auto-generated", ...args.tags ?? []]),
+      // Numeric (latency) metrics need a unit + an aggregation; occurrence metrics don't.
+      ...numeric ? { unit: args.unit || "ms", unitAggregationType: "average" } : {}
+    };
+    const res = await this.ld.createMetric(body);
+    const alreadyExists = res.status === 409;
+    return {
+      created: !alreadyExists,
+      alreadyExists,
+      key: args.key,
+      detail: alreadyExists ? `Metric '${args.key}' already exists in project '${this.ld.projectKey}' (no change).` : `Created ${args.category} metric '${args.key}' (event '${args.eventKey}') in project '${this.ld.projectKey}'.`
+    };
+  }
 };
 
 // ../shared/dist/anthropic/anthropicAgentRunner.js
@@ -35848,6 +35929,9 @@ function modeNote(caps) {
   if (caps.createFlag) {
     lines.push("You have `create_flag` \u2014 creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.");
   }
+  if (caps.createMetric) {
+    lines.push("You have `create_metric` \u2014 creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). To make a metric measurable you must FIRST instrument its event in code: add a LaunchDarkly `track(event_key, \u2026)` call on the path the flag wraps (via `edit_file`), then call `create_metric` with the matching `event_key`. Creating the metric before signals flow is expected.");
+  }
   if (caps.editFiles) {
     lines.push("You have `write_file`, `edit_file`, `run_tests`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file). If you wrote or changed tests, call `run_tests` to confirm they pass and FIX any failures before committing. Then call `commit_and_push` ONCE to land your changes on the PR branch. Match the existing code patterns you find.");
   } else {
@@ -35860,16 +35944,21 @@ var DEFAULT_MAX_TURNS = 12;
 var MAX_TOKENS = 4096;
 var DEFAULT_MODEL = "claude-sonnet-4-6";
 var NODE_CAPABILITIES = {
-  "autofactory-flag-implementer": { createFlag: true, editFiles: true },
-  "autofactory-flag-testing": { createFlag: false, editFiles: true }
+  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true },
+  "autofactory-flag-testing": { createFlag: false, createMetric: false, editFiles: true },
+  // The metrics author creates LD metrics and instruments the event (track()) that
+  // feeds them — so it needs create_metric AND edit_files.
+  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true }
 };
 var CAP_CREATE_FLAG = "create_flag";
+var CAP_CREATE_METRIC = "create_metric";
 var CAP_EDIT_FILES = "edit_files";
 function resolveGrant(configKey, capabilities) {
   if (capabilities) {
     return {
       grant: {
         createFlag: capabilities.includes(CAP_CREATE_FLAG),
+        createMetric: capabilities.includes(CAP_CREATE_METRIC),
         editFiles: capabilities.includes(CAP_EDIT_FILES)
       },
       source: "edge"
@@ -35878,7 +35967,7 @@ function resolveGrant(configKey, capabilities) {
   const fallback = NODE_CAPABILITIES[configKey];
   if (fallback)
     return { grant: fallback, source: "fallback" };
-  return { grant: { createFlag: false, editFiles: false }, source: "none" };
+  return { grant: { createFlag: false, createMetric: false, editFiles: false }, source: "none" };
 }
 var AnthropicAgentRunner = class {
   opts;
@@ -35891,10 +35980,11 @@ var AnthropicAgentRunner = class {
     const { grant, source } = resolveGrant(req.configKey, req.capabilities);
     const caps = {
       createFlag: grant.createFlag && this.opts.writer !== void 0,
+      createMetric: grant.createMetric && this.opts.writer !== void 0,
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true
     };
-    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} editFiles=${caps.editFiles}`);
-    const writer = caps.createFlag ? this.opts.writer : void 0;
+    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
+    const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
     const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
     const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef);

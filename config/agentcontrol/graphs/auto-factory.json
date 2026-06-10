@@ -46,6 +46,7 @@
       "handoff": {
         "max_turns": 20,
         "request_type": "Fix",
+        "capabilities": ["create_metric", "edit_files"],
         "require_tags": {
           "flag_created": "true"
         }

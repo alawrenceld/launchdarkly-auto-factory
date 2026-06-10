@@ -16,7 +16,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import type { LdResourceWriter } from "./ldWriter.js";
+import type { LdResourceWriter, MetricCategory } from "./ldWriter.js";
 
 export interface AnthropicToolDef {
   name: string;
@@ -100,6 +100,26 @@ const CREATE_FLAG_TOOL: AnthropicToolDef = {
   },
 };
 
+const CREATE_METRIC_TOOL: AnthropicToolDef = {
+  name: "create_metric",
+  description:
+    "Create a guarded-release metric in LaunchDarkly (the app/data-plane project) off a custom event. The metric measures one category of the flagged change during a guarded release. You must FIRST instrument the matching event in code (a LaunchDarkly `track(event_key, …)` call on the path the flag wraps, via edit_file) so the metric has data once live. Idempotent: re-creating an existing key is a no-op. After it succeeds the metrics_created/metric_keys tags are updated for you.",
+  input_schema: {
+    type: "object",
+    properties: {
+      key: { type: "string", description: "Metric key, convention <flag-key>-<category>, e.g. enable-fact-endpoint-error-rate" },
+      category: { type: "string", enum: ["error", "latency", "business"], description: "error/latency = lower is better; business = higher is better" },
+      event_key: { type: "string", description: "The custom event name your track() call emits, e.g. fact-endpoint-error" },
+      name: { type: "string", description: "Human-readable metric name" },
+      description: { type: "string", description: "What the metric measures" },
+      randomization_unit: { type: "string", description: "Unit the metric is measured on; MUST match the flag rollout's unit. Default 'user'." },
+      unit: { type: "string", description: "Numeric unit for latency metrics (default 'ms'); ignored for error/business." },
+      tags: { type: "array", items: { type: "string" }, description: "Extra tags (auto-factory tags are added automatically)" },
+    },
+    required: ["key", "category", "event_key"],
+  },
+};
+
 const WRITE_FILE_TOOL: AnthropicToolDef = {
   name: "write_file",
   description:
@@ -153,6 +173,8 @@ const COMMIT_PUSH_TOOL: AnthropicToolDef = {
 export interface ToolCapabilities {
   /** Offer `create_flag` (needs a writer). */
   createFlag: boolean;
+  /** Offer `create_metric` (needs a writer). */
+  createMetric: boolean;
   /** Offer `write_file` / `edit_file` / `commit_and_push`. */
   editFiles: boolean;
 }
@@ -161,6 +183,7 @@ export interface ToolCapabilities {
 export function buildSandboxTools(caps: ToolCapabilities): AnthropicToolDef[] {
   const tools = [...READONLY_TOOLS];
   if (caps.createFlag) tools.push(CREATE_FLAG_TOOL);
+  if (caps.createMetric) tools.push(CREATE_METRIC_TOOL);
   if (caps.editFiles) tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, RUN_TESTS_TOOL, COMMIT_PUSH_TOOL);
   return tools;
 }
@@ -176,8 +199,8 @@ export interface ToolExecResult {
 
 /**
  * Executes tool calls against a fixed root directory, accumulating routing tags.
- * One instance per node run. `writer` enables `create_flag`; `allowEdits` enables
- * the file-mutation + git tools.
+ * One instance per node run. `writer` enables `create_flag` / `create_metric`;
+ * `allowEdits` enables the file-mutation + git tools.
  */
 export class SandboxToolExecutor {
   readonly tags: Record<string, string> = {};
@@ -219,6 +242,8 @@ export class SandboxToolExecutor {
           return { content: this.tag(input.tags) };
         case "create_flag":
           return await this.createFlag(input);
+        case "create_metric":
+          return await this.createMetric(input);
         case "write_file":
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
@@ -307,6 +332,31 @@ export class SandboxToolExecutor {
     // Set routing tags so the chain advances even if the agent forgets to tag.
     this.tags.flag_created = "true";
     this.tags.flag_key = result.key;
+    return { content: result.detail };
+  }
+
+  private async createMetric(input: Record<string, unknown>): Promise<ToolExecResult> {
+    if (!this.writer) return { content: "create_metric is not available", isError: true };
+    const category = String(input.category ?? "");
+    if (category !== "error" && category !== "latency" && category !== "business") {
+      return { content: "create_metric: category must be one of error | latency | business", isError: true };
+    }
+    const result = await this.writer.createMetric({
+      key: String(input.key ?? ""),
+      eventKey: String(input.event_key ?? ""),
+      category: category as MetricCategory,
+      ...(input.name ? { name: String(input.name) } : {}),
+      ...(input.description ? { description: String(input.description) } : {}),
+      ...(input.randomization_unit ? { randomizationUnit: String(input.randomization_unit) } : {}),
+      ...(input.unit ? { unit: String(input.unit) } : {}),
+      ...(Array.isArray(input.tags) ? { tags: input.tags.map(String) } : {}),
+    });
+    // Accumulate routing tags so the chain reflects real metric creation even if
+    // the agent forgets to tag. metric_keys is a growing comma-separated list.
+    this.tags.metrics_created = "true";
+    const keys = this.tags.metric_keys ? this.tags.metric_keys.split(",").filter(Boolean) : [];
+    if (!keys.includes(result.key)) keys.push(result.key);
+    this.tags.metric_keys = keys.join(",");
     return { content: result.detail };
   }
 

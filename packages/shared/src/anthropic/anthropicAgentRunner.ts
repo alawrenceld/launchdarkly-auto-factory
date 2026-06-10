@@ -41,6 +41,11 @@ function modeNote(caps: ToolCapabilities): string {
       "You have `create_flag` — creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.",
     );
   }
+  if (caps.createMetric) {
+    lines.push(
+      "You have `create_metric` — creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). To make a metric measurable you must FIRST instrument its event in code: add a LaunchDarkly `track(event_key, …)` call on the path the flag wraps (via `edit_file`), then call `create_metric` with the matching `event_key`. Creating the metric before signals flow is expected.",
+    );
+  }
   if (caps.editFiles) {
     lines.push(
       "You have `write_file`, `edit_file`, `run_tests`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file). If you wrote or changed tests, call `run_tests` to confirm they pass and FIX any failures before committing. Then call `commit_and_push` ONCE to land your changes on the PR branch. Match the existing code patterns you find.",
@@ -64,12 +69,16 @@ const DEFAULT_MODEL = "claude-sonnet-4-6";
  * silently misses renamed agents; the per-node log makes that diagnosable).
  */
 const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
-  "autofactory-flag-implementer": { createFlag: true, editFiles: true },
-  "autofactory-flag-testing": { createFlag: false, editFiles: true },
+  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true },
+  "autofactory-flag-testing": { createFlag: false, createMetric: false, editFiles: true },
+  // The metrics author creates LD metrics and instruments the event (track()) that
+  // feeds them — so it needs create_metric AND edit_files.
+  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true },
 };
 
 /** Capability tokens recognized on a graph edge's `capabilities` array. */
 export const CAP_CREATE_FLAG = "create_flag";
+export const CAP_CREATE_METRIC = "create_metric";
 export const CAP_EDIT_FILES = "edit_files";
 
 /**
@@ -85,6 +94,7 @@ export function resolveGrant(
     return {
       grant: {
         createFlag: capabilities.includes(CAP_CREATE_FLAG),
+        createMetric: capabilities.includes(CAP_CREATE_METRIC),
         editFiles: capabilities.includes(CAP_EDIT_FILES),
       },
       source: "edge",
@@ -92,7 +102,7 @@ export function resolveGrant(
   }
   const fallback = NODE_CAPABILITIES[configKey];
   if (fallback) return { grant: fallback, source: "fallback" };
-  return { grant: { createFlag: false, editFiles: false }, source: "none" };
+  return { grant: { createFlag: false, createMetric: false, editFiles: false }, source: "none" };
 }
 
 export interface AnthropicAgentRunnerOptions {
@@ -122,14 +132,15 @@ export class AnthropicAgentRunner implements AgentRunner {
     const { grant, source } = resolveGrant(req.configKey, req.capabilities);
     const caps: ToolCapabilities = {
       createFlag: grant.createFlag && this.opts.writer !== undefined,
+      createMetric: grant.createMetric && this.opts.writer !== undefined,
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
     };
     // Per-node diagnostic: makes a renamed/added agent that silently lost its
     // grant (source "none", read-only) visible in the run logs.
     console.log(
-      `[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} editFiles=${grant.editFiles} → effective createFlag=${caps.createFlag} editFiles=${caps.editFiles}`,
+      `[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} → effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`,
     );
-    const writer = caps.createFlag ? this.opts.writer : undefined;
+    const writer = caps.createFlag || caps.createMetric ? this.opts.writer : undefined;
 
     const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
