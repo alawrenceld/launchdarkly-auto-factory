@@ -166,7 +166,12 @@ describe("Beacon server", async () => {
 
     // Guarded release started (metricKeys present) + handed to the monitor.
     assert.equal(h.patches.length >= 1, true);
-    const instr = (h.patches[0] as { instructions: Array<Record<string, unknown>> }).instructions[0];
+    const instructions = (h.patches[0] as { instructions: Array<Record<string, unknown>> }).instructions;
+    // The fake flag is dark (no environments payload) → the patch must turn
+    // targeting on atomically with starting the release (LD rejects releases
+    // on off flags — confirmed live: "flag … is off").
+    assert.equal(instructions[0]?.kind, "turnFlagOn");
+    const instr = instructions[1];
     assert.equal(instr?.kind, "startAutomatedRelease");
     assert.equal(instr?.releaseKind, "guarded");
     // LD rejects guarded stages above 50% — confirmed live ("stage allocation

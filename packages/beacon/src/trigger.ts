@@ -36,6 +36,8 @@ const DEFAULT_RANDOMIZATION_UNIT = "user";
 
 interface FlagVariations {
   variations?: Array<{ _id: string; value: unknown }>;
+  /** Present when the flag is fetched with `?env=<key>`. */
+  environments?: Record<string, { on?: boolean }>;
 }
 
 export interface TriggerResult {
@@ -49,7 +51,7 @@ export async function triggerRelease(
   flag: DiscoveredFlag,
   environmentKey: string,
 ): Promise<TriggerResult> {
-  const { data } = await ld.getFlag<FlagVariations>(flag.flagKey);
+  const { data } = await ld.getFlag<FlagVariations>(flag.flagKey, `?env=${encodeURIComponent(environmentKey)}`);
   const variations = data.variations ?? [];
   const onVar = variations.find((v) => v.value === true);
   const offVar = variations.find((v) => v.value === false);
@@ -58,6 +60,11 @@ export async function triggerRelease(
       `Prototype supports boolean flags only; '${flag.flagKey}' has no true/false variations`,
     );
   }
+  // Auto-factory flags are created DARK (targeting off) — merge ≠ release. LD
+  // refuses to start an automated release on an off flag ("flag … is off",
+  // confirmed live), so the same semantic patch turns targeting on; the release
+  // instruction owns the fallthrough, so no traffic shifts except via stages.
+  const flagIsOn = data.environments?.[environmentKey]?.on === true;
 
   // Defaults precedence: .release-flags overrides > the flag's release policy > demo defaults.
   let policy: ReleasePolicy | null = null;
@@ -102,6 +109,7 @@ export async function triggerRelease(
   await startRelease(ld, {
     flagKey: flag.flagKey,
     environmentKey,
+    turnFlagOn: !flagIsOn,
     releaseKind: method,
     originalVariationId: offVar._id,
     targetVariationId: onVar._id,

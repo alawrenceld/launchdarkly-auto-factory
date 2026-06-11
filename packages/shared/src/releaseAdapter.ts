@@ -41,6 +41,10 @@ export interface ReleasePlacement {
 export interface StartReleaseParams {
   flagKey: string;
   environmentKey: string;
+  /** Turn targeting on in the same semantic patch (releases can't start on an
+   *  off flag, and auto-factory flags are created dark). The release
+   *  instruction owns the fallthrough, so no traffic shifts except via stages. */
+  turnFlagOn?: boolean;
   releaseKind: Exclude<ReleaseKind, "immediate">; // "guarded" | "progressive"
   originalVariationId: string;
   targetVariationId: string;
@@ -93,11 +97,13 @@ export function buildStartAutomatedRelease(params: StartReleaseParams): Record<s
 
 /** Start an automated (guarded/progressive) release on a flag. */
 export async function startRelease(ld: LdClient, params: StartReleaseParams): Promise<void> {
-  const instruction = buildStartAutomatedRelease(params);
+  const instructions: Record<string, unknown>[] = [];
+  if (params.turnFlagOn) instructions.push({ kind: "turnFlagOn" });
+  instructions.push(buildStartAutomatedRelease(params));
   await ld.patchFlagSemantic(
     params.flagKey,
     params.environmentKey,
-    [instruction],
+    instructions,
     "auto-factory: start automated release",
   );
 }
