@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoFactory — Pipeline Overview</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --node: #1f2630;
+    --node-border: #30363d;
+    --accent1: #58a6ff;   /* Phase 1 */
+    --accent2: #3fb950;   /* Phase 2 */
+    --rollback: #f85149;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --tip-bg: #21262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.5rem 4rem;
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header { max-width: 1200px; margin: 0 auto 2rem; }
+  h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
+  header p { color: var(--muted); margin: 0; max-width: 60rem; }
+
+  .phase { max-width: 1200px; margin: 0 auto 2.25rem; background: var(--panel);
+           border: 1px solid var(--node-border); border-radius: 12px; padding: 1.25rem 1.5rem 1.75rem; }
+  .phase h2 { margin: 0 0 .15rem; font-size: 1.05rem; letter-spacing: .02em; }
+  .phase .sub { color: var(--muted); font-size: .85rem; margin: 0 0 1.1rem; }
+  .phase.p1 h2 { color: var(--accent1); }
+  .phase.p2 h2 { color: var(--accent2); }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: .4rem .25rem; }
+
+  .node {
+    position: relative; flex: 1 1 150px; min-width: 138px; max-width: 215px;
+    background: var(--node); border: 1px solid var(--node-border); border-radius: 10px;
+    padding: .7rem .8rem .75rem; cursor: help;
+    transition: border-color .15s, transform .15s;
+  }
+  .p1 .node:hover { border-color: var(--accent1); transform: translateY(-2px); }
+  .p2 .node:hover { border-color: var(--accent2); transform: translateY(-2px); }
+  .node.rollback { border-style: dashed; }
+  .node.rollback:hover { border-color: var(--rollback); }
+
+  .node .step { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .node .title { font-weight: 600; font-size: .92rem; margin-top: .1rem; }
+  .node .hint { font-size: .78rem; color: var(--muted); margin-top: .25rem; }
+
+  .arrow { align-self: center; color: var(--muted); font-size: 1.1rem; padding: 0 .1rem; user-select: none; }
+
+  /* Tooltips */
+  .tip {
+    visibility: hidden; opacity: 0; transition: opacity .15s ease .05s;
+    position: absolute; z-index: 10; left: 50%; transform: translateX(-50%);
+    top: calc(100% + 10px); width: 330px;
+    background: var(--tip-bg); border: 1px solid var(--node-border); border-radius: 10px;
+    padding: .8rem .95rem; font-size: .82rem; color: var(--text);
+    box-shadow: 0 10px 30px rgba(0,0,0,.55);
+  }
+  .tip::before {
+    content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg);
+    width: 10px; height: 10px; background: var(--tip-bg);
+    border-left: 1px solid var(--node-border); border-top: 1px solid var(--node-border);
+  }
+  .node:hover .tip { visibility: visible; opacity: 1; }
+  .flow .node:nth-child(-n+3) .tip { left: 0; transform: none; }
+  .flow .node:nth-child(-n+3) .tip::before { left: 36px; }
+  .tip b { color: #fff; }
+  .tip ul { margin: .35rem 0 0; padding-left: 1.05rem; }
+  .tip li { margin: .18rem 0; }
+  .tip .k { color: var(--accent1); font-family: ui-monospace, monospace; font-size: .78rem; }
+  .p2 .tip .k { color: var(--accent2); }
+
+  .legend { max-width: 1200px; margin: 0 auto; color: var(--muted); font-size: .8rem; }
+  .legend span { margin-right: 1.25rem; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: .35rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AutoFactory — from pull request to guarded release</h1>
+  <p>Two autonomous phases. Phase&nbsp;1 turns a pull request into release-ready resources
+     (flag, metrics, tests, review). Phase&nbsp;2 notices the deploy and runs the release —
+     guarded by the metrics Phase&nbsp;1 created. Hover any node for the actual logic.</p>
+</header>
+
+<section class="phase p1">
+  <h2>Phase 1 — PR → release-ready resources</h2>
+  <p class="sub">Runs in CI on every pull request. Five LaunchDarkly-hosted agents, chained by an agent graph.</p>
+  <div class="flow">
+
+    <div class="node">
+      <div class="step">Step 1</div>
+      <div class="title">Developer opens a PR</div>
+      <div class="hint">a plain feature PR — no flags, no ceremony</div>
+      <div class="tip"><b>Nothing special required of the author.</b> The change is written
+        unconditionally (no flag in the diff). Everything that follows — flagging decision,
+        wiring, metrics, tests — is the pipeline's job, not the developer's.</div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 2</div>
+      <div class="title">Action invokes AutoFactory</div>
+      <div class="hint">GitHub Action on the PR checkout</div>
+      <div class="tip"><b>A reusable CI action</b> runs on <span class="k">pull_request</span> with the
+        PR branch checked out — that checkout is the agents' sandbox.
+        <ul>
+          <li>Resolves the <b>agent graph + agent instructions live from LaunchDarkly</b> (AI Configs); prompts are config, not code.</li>
+          <li>A <b>provider flag</b> picks the execution backend (e.g. Anthropic API vs. an internal agent runtime) per run.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 3</div>
+      <div class="title">Research &amp; Planner</div>
+      <div class="hint">read-only recon + classification</div>
+      <div class="tip"><b>Read-only agent</b> (diff, files, grep). Produces the brief every later agent consumes:
+        <ul>
+          <li>Classifies the PR: <span class="k">pr_type</span>, <span class="k">risk_level</span>, <span class="k">change_patterns</span>, user-facing impact.</li>
+          <li>Detects the repo's existing flag/test/telemetry patterns so downstream agents match them.</li>
+          <li><b>Routing:</b> tags <span class="k">flag_worthy</span>; tagging <span class="k">skip_flagging=true</span> short-circuits the whole chain (docs-only PRs, dep bumps…).</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 4</div>
+      <div class="title">Flag Implementer</div>
+      <div class="hint">creates the flag <i>dark</i>, wires the code</div>
+      <div class="tip"><b>Creates a real boolean flag</b> (targeting OFF — merge ≠ release) and rewires the PR:
+        <ul>
+          <li>New behavior goes behind the flag; the <b>control path must preserve existing behavior exactly</b>.</li>
+          <li>Writes a <b>release manifest</b> (<span class="k">.release-flags/pr-N.json</span>) — the contract Phase 2 acts on.</li>
+          <li>Commits to the PR branch. Write access is a <b>capability granted per graph edge</b> (config, not code); idempotent on re-runs (existing flag → reuse).</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 5</div>
+      <div class="title">Metrics Author</div>
+      <div class="hint">how will we know it's safe?</div>
+      <div class="tip"><b>Decides how the change is measured</b> during the guarded release:
+        <ul>
+          <li>Covers the categories the change exposes: <b>error</b> (lower-better), <b>latency</b> (numeric ms, lower-better), <b>business</b> (higher-better).</li>
+          <li>Instruments <span class="k">track()</span> events on the flagged path (fail-safe — telemetry can never break a request), then creates the metrics off those events.</li>
+          <li><b>Rule:</b> metric randomization unit must match the flag's rollout unit, or the metric silently measures nothing.</li>
+          <li>Classifies each metric <b>killswitch / pause / monitoring</b> and writes <span class="k">metricKeys</span> into the manifest — closing the loop to Phase 2.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 6</div>
+      <div class="title">Flag Testing</div>
+      <div class="hint">flag-on + flag-off proof</div>
+      <div class="tip"><b>Writes paired tests for every flagged path</b> — one proving the new behavior
+        (flag on), one proving the old behavior is untouched (flag off).
+        <ul>
+          <li>Matches the repo's existing test framework and conventions.</li>
+          <li><b>Runs the suite itself</b> and fixes failures; only pushes once green.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 7</div>
+      <div class="title">Code Reviewer</div>
+      <div class="hint">independent verdict + risk level</div>
+      <div class="tip"><b>Read-only review of the whole enriched diff</b> (author's change + all agent commits):
+        <ul>
+          <li>Checks logic, error handling, the flag wiring (control path intact?), the instrumentation (events match each metric's <span class="k">event_key</span>), and test quality.</li>
+          <li>Emits <b>APPROVE / REJECT</b> + <span class="k">risk_level</span>; conservative blocking — false-positive blocks erode trust.</li>
+          <li>The verdict + risk gate the configured <b>approval mode</b> (auto-apply / gate on risk / require a human).</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 8</div>
+      <div class="title">Human merges</div>
+      <div class="hint">merge ≠ release</div>
+      <div class="tip"><b>The PR merges like any other</b> — with flag, metrics, tests, and review attached.
+        The feature ships <b>dark</b>: the flag is off, the control path serves, and the release manifest
+        rides along in the repo waiting for Phase 2.</div>
+    </div>
+
+  </div>
+</section>
+
+<section class="phase p2">
+  <h2>Phase 2 — deploy → guarded release (Beacon)</h2>
+  <p class="sub">Event-driven release orchestrator. Hosted separately from the app — customers run nothing.</p>
+  <div class="flow">
+
+    <div class="node">
+      <div class="step">Step 9</div>
+      <div class="title">CD deploys the services</div>
+      <div class="hint">normal pipeline, any provider</div>
+      <div class="tip"><b>The merge deploys through whatever CD the team already uses</b> (the demo uses
+        Railway's GitHub auto-deploy). AutoFactory doesn't own the deploy — it only needs to hear about it.</div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 10</div>
+      <div class="title">Deploy webhook → Beacon</div>
+      <div class="hint">open contract, thin adapters</div>
+      <div class="tip"><b>Anything that can POST <span class="k">{service, sha}</span> with the shared secret</b>
+        can announce a deploy: a provider's native webhook (via a small adapter that translates its payload),
+        a CI step, or curl.
+        <ul>
+          <li>Only a <b>successful</b> deploy event acts; build/fail/crash events are acknowledged and ignored.</li>
+          <li>Deliveries are <b>idempotent</b> — providers retry, and a re-delivered event can't double-trigger a release.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 11</div>
+      <div class="title">SHA diff → discovery</div>
+      <div class="hint">what's new since the last deploy?</div>
+      <div class="tip"><b>Beacon diffs <span class="k">.release-flags/</span> between the deployed SHA and the previous one</b> —
+        a manifest present now but not before is a release to run.
+        <ul>
+          <li><b>previousSha priority:</b> explicit value in the notification → Beacon's own deploy-state store
+            (last SHA seen per service+environment) → none (first deploy: everything current is new).</li>
+          <li>The store keeps <b>two SHAs deep</b> so a re-delivered notification re-diffs the same range instead of the empty one.</li>
+          <li>Survives batched merges and redeploys; no dependency on the CD system knowing its own history.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 12</div>
+      <div class="title">Scope &amp; fullstack check</div>
+      <div class="hint">is every needed service deployed?</div>
+      <div class="tip"><b>Each manifest carries a scope</b> — frontend, backend, or fullstack — and each service
+        registers which side it is.
+        <ul>
+          <li>Wrong side's notification → <b>skip</b> (the right side will handle it).</li>
+          <li><b>Fullstack:</b> Beacon asks the <i>other</i> side's live status endpoint for its deployed SHA and checks
+            that SHA contains the same manifest. Both sides present → release; otherwise <b>wait</b> — the other
+            service's own deploy notification re-evaluates.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 13</div>
+      <div class="title">Release trigger</div>
+      <div class="hint">method &amp; shape by priority</div>
+      <div class="tip"><b>One decision chain picks how the flag releases:</b>
+        <ul>
+          <li><b>Priority:</b> manifest <span class="k">releaseOverrides</span> → the flag's configured release policy →
+            defaults: <b>guarded if metrics are attached, progressive if not</b> (immediate only if explicitly requested).</li>
+          <li>Flags ship dark, so the trigger <b>turns targeting on in the same atomic change</b> that starts the release —
+            no traffic moves except through the stages.</li>
+          <li>Guarded stage allocations are <b>capped at 50%</b> (the comparison needs a control group);
+            the release completes to 100% after the final monitored stage.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 14</div>
+      <div class="title">Guarded release runs</div>
+      <div class="hint">staged %, metrics watching</div>
+      <div class="tip"><b>LaunchDarkly shifts traffic stage by stage</b> (e.g. 20% → 50%) while the Phase-1 metrics
+        compare treatment vs. control <b>live on real traffic</b> — no historical baseline needed.
+        <ul>
+          <li>Killswitch/pause metrics gate progression; <b>auto-rollback</b> is armed per metric.</li>
+          <li>The randomization unit from the manifest keeps measurement aligned with the rollout.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node">
+      <div class="step">Step 15</div>
+      <div class="title">Beacon monitors to the end</div>
+      <div class="hint">completed · reverted · stopped</div>
+      <div class="tip"><b>Beacon resolves the release id and polls it to a terminal state</b>, detached from the
+        webhook request (a release can run for days):
+        <ul>
+          <li><span class="k">completed</span> — rolled out to 100%.</li>
+          <li><span class="k">reverted</span> — a guardrail regressed; LaunchDarkly flipped traffic back to control.</li>
+          <li><span class="k">monitoring_stopped</span> — a human intervened.</li>
+          <li>Monitoring failures never affect the release itself — it runs server-side regardless.</li>
+        </ul></div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="node rollback">
+      <div class="step">Safety net</div>
+      <div class="title">Auto-rollback</div>
+      <div class="hint">regression → control, no human</div>
+      <div class="tip"><b>If a killswitch metric regresses, the release reverts on its own</b> — traffic returns
+        to the control variation in seconds, without a deploy and without paging anyone. "Rollback" here means
+        flipping the flag, not rolling back code: the bad path simply stops being served. The reverted release
+        is a terminal state Beacon reports.</div>
+    </div>
+
+  </div>
+</section>
+
+<div class="legend">
+  <span><span class="dot" style="background:var(--accent1)"></span>Phase 1 — CI / agent chain</span>
+  <span><span class="dot" style="background:var(--accent2)"></span>Phase 2 — Beacon release orchestration</span>
+  <span><span class="dot" style="background:var(--rollback)"></span>automated safety net</span>
+  <span style="float:right">AutoFactory prototype — hover any node for details</span>
+</div>
+
+</body>
+</html>
