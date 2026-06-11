@@ -4,7 +4,38 @@ import { describe, it } from "node:test";
 import { parseRailwayWebhook } from "@auto-factory/beacon";
 
 describe("parseRailwayWebhook", () => {
-  it("parses a successful deploy (current layout)", () => {
+  it("parses the live 2026 layout (captured from a real delivery)", () => {
+    // Abridged verbatim from a real Railway delivery, 2026-06-11.
+    const result = parseRailwayWebhook({
+      type: "Deployment.deployed",
+      details: {
+        id: "c440d267-5917-4e72-b5e6-bdf38112d353",
+        branch: "main",
+        source: "GitHub",
+        status: "SUCCESS",
+        builder: "RAILPACK",
+        serviceId: "4c5ad7d9-f911-4abd-ab4d-ebe414d16074",
+        commitHash: "d21f6e5173405f5005b38cddd3e42e7237311f93",
+        repoSource: "ttotenberg-ld/launchdarkly-autofactory-demo",
+      },
+      resource: {
+        project: { id: "cd0547d8", name: "resplendent-enjoyment" },
+        service: { id: "4c5ad7d9", name: "demo-frontend" },
+        deployment: { id: "c440d267" },
+        environment: { id: "392e31fd", name: "production", isEphemeral: false },
+      },
+      severity: "INFO",
+      timestamp: "2026-06-11T20:22:49.000Z",
+    });
+    assert.deepEqual(result, {
+      kind: "deploy_success",
+      service: "demo-frontend",
+      sha: "d21f6e5173405f5005b38cddd3e42e7237311f93",
+      railwayEnvironment: "production",
+    });
+  });
+
+  it("parses a successful deploy (older layout)", () => {
     const result = parseRailwayWebhook({
       type: "DEPLOY",
       status: "SUCCESS",

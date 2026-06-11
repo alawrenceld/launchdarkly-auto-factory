@@ -8,10 +8,13 @@
  * parser, not a Beacon change.
  *
  * Railway payload notes:
- *  - Railway has shipped two webhook generations; this parser accepts both
- *    field layouts (top-level `status` + `service.name` + `deployment.meta.*`,
- *    and variants nesting status/meta differently). Anything else is reported
- *    as `unrecognized` with the top-level keys, never thrown.
+ *  - Railway has shipped several webhook generations; this parser accepts the
+ *    CURRENT layout (captured live 2026-06-11: `type: "Deployment.deployed"`,
+ *    `details.status`/`details.commitHash`, `resource.service.name`,
+ *    `resource.environment.name`) plus the two older field layouts (top-level
+ *    `status` + `service.name` + `deployment.meta.*`, and variants nesting
+ *    status/meta differently). Anything else is reported as `unrecognized`
+ *    with the payload logged, never thrown.
  *  - Only a SUCCESSful deploy event triggers releases; other statuses
  *    (BUILDING, DEPLOYING, FAILED, REMOVED…) are acknowledged and ignored.
  *  - The Railway service name must match a key in `config/services.yaml`.
@@ -40,7 +43,7 @@ export function parseRailwayWebhook(body: unknown): RailwayParseResult {
   }
   const obj = body as Record<string, unknown>;
 
-  const status = firstString(obj, ["status", "deployment.status", "deploymentStatus"]);
+  const status = firstString(obj, ["status", "details.status", "deployment.status", "deploymentStatus"]);
   if (!status) {
     return { kind: "unrecognized", reason: `no status field (top-level keys: ${Object.keys(obj).join(", ")})` };
   }
@@ -51,8 +54,9 @@ export function parseRailwayWebhook(body: unknown): RailwayParseResult {
     return { kind: "ignored", reason: `deploy status ${status} (only a successful deploy triggers releases)` };
   }
 
-  const service = firstString(obj, ["service.name", "deployment.meta.serviceName", "serviceName"]);
+  const service = firstString(obj, ["service.name", "resource.service.name", "deployment.meta.serviceName", "serviceName"]);
   const sha = firstString(obj, [
+    "details.commitHash",
     "deployment.meta.commitHash",
     "deployment.meta.commitSha",
     "meta.commitHash",
@@ -65,6 +69,6 @@ export function parseRailwayWebhook(body: unknown): RailwayParseResult {
     };
   }
 
-  const railwayEnvironment = firstString(obj, ["environment.name", "environmentName"]);
+  const railwayEnvironment = firstString(obj, ["environment.name", "resource.environment.name", "environmentName"]);
   return { kind: "deploy_success", service, sha, ...(railwayEnvironment ? { railwayEnvironment } : {}) };
 }
