@@ -169,6 +169,11 @@ describe("Beacon server", async () => {
     const instr = (h.patches[0] as { instructions: Array<Record<string, unknown>> }).instructions[0];
     assert.equal(instr?.kind, "startAutomatedRelease");
     assert.equal(instr?.releaseKind, "guarded");
+    // LD rejects guarded stages above 50% — confirmed live ("stage allocation
+    // must not exceed 50%"); the release completes to 100% after the last stage.
+    const stages = instr?.stages as Array<{ allocation: number }>;
+    assert.equal(stages.length > 0, true);
+    for (const s of stages) assert.equal(s.allocation <= 50000, true, `stage ${s.allocation} exceeds 50%`);
     assert.equal(h.monitored.includes("enable-one"), true);
   });
 

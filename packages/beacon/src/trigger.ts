@@ -18,11 +18,19 @@ import {
   type Stage,
 } from "@auto-factory/shared";
 
-/** Demo default rollout when neither overrides nor a configured policy provide stages. */
-const DEFAULT_STAGES: Stage[] = [
+/** Demo default rollouts when neither overrides nor a configured policy provide stages. */
+const DEFAULT_PROGRESSIVE_STAGES: Stage[] = [
   { allocation: 20000, durationMillis: 300000 },
   { allocation: 50000, durationMillis: 300000 },
   { allocation: 100000, durationMillis: 300000 },
+];
+// Guarded stages are capped at 50% by LaunchDarkly (the metric comparison
+// needs a control group at least as large as the treatment); the release
+// completes to 100% after the final monitored stage passes. Confirmed live:
+// a 100% stage is rejected with "stage allocation must not exceed 50%".
+const DEFAULT_GUARDED_STAGES: Stage[] = [
+  { allocation: 20000, durationMillis: 300000 },
+  { allocation: 50000, durationMillis: 300000 },
 ];
 const DEFAULT_RANDOMIZATION_UNIT = "user";
 
@@ -87,7 +95,8 @@ export async function triggerRelease(
   const metricMonitoringPreferences: Record<string, { autoRollback: boolean }> = {};
   for (const m of metrics) metricMonitoringPreferences[m.key] = { autoRollback: true };
 
-  const stages = ov.stages ?? policy?.stages ?? DEFAULT_STAGES;
+  const stages =
+    ov.stages ?? policy?.stages ?? (method === "guarded" ? DEFAULT_GUARDED_STAGES : DEFAULT_PROGRESSIVE_STAGES);
   const usedDefaults = !ov.stages && !policy?.stages;
 
   await startRelease(ld, {
