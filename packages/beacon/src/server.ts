@@ -80,8 +80,12 @@ export function createApp(cfg: BeaconConfig, ld: LdClient, deps: BeaconDeps = {}
     });
 
   async function handleDeploy(n: DeployNotification): Promise<{ status: number; body: unknown }> {
+    // Every notification leaves a trace: silent successes are indistinguishable
+    // from lost deliveries when debugging a release that never started.
+    console.log(`[beacon] deploy notification: service=${n.service} sha=${n.sha} env=${n.environment}`);
     const service = cfg.services[n.service];
     if (!service) {
+      console.warn(`[beacon] unknown service '${n.service}' (registry: ${Object.keys(cfg.services).join(", ")})`);
       return { status: 400, body: { error: `unknown service '${n.service}'` } };
     }
 
@@ -98,8 +102,14 @@ export function createApp(cfg: BeaconConfig, ld: LdClient, deps: BeaconDeps = {}
       discovered = await discoverNewReleaseFlags(gh, service.repo, cfg.releaseFlagsDir, n.sha, previousSha);
     } catch (e) {
       // Don't record the SHA: the next notification should retry this diff.
+      console.warn(`[beacon] discovery failed for ${n.service}@${n.sha}: ${String(e)}`);
       return { status: 502, body: { error: "discovery failed", detail: String(e) } };
     }
+    console.log(
+      `[beacon] discovery: ${discovered.length} new release flag(s) in ${n.sha}` +
+        ` (previousSha=${previousSha ?? "none"} from ${previousShaSource})` +
+        (discovered.length ? ` → ${discovered.map((f) => f.flagKey).join(", ")}` : ""),
+    );
     store.record(n.service, n.environment, n.sha);
 
     const outcomes: FlagOutcome[] = [];
@@ -140,8 +150,12 @@ export function createApp(cfg: BeaconConfig, ld: LdClient, deps: BeaconDeps = {}
         if (result.method !== "immediate") onReleaseStarted(flag.flagKey, n.environment);
         outcomes.push({ flag: flag.flagKey, scope, action: "released", detail: result });
       } catch (e) {
+        console.warn(`[beacon] release trigger ERROR for '${flag.flagKey}': ${String(e)}`);
         outcomes.push({ flag: flag.flagKey, scope, action: "error", detail: String(e) });
       }
+    }
+    if (outcomes.length) {
+      console.log(`[beacon] outcomes: ${outcomes.map((o) => `${o.flag}=${o.action}`).join(", ")}`);
     }
 
     return {
