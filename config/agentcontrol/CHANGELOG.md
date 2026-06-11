@@ -15,6 +15,20 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-06-11
+
+### ✅ Code reviewer: metric-key vs event-key convention (false-positive REJECT fix)
+- **Problem:** on demo PR #10 the reviewer REJECTED (risk high) because the code's
+  `track()` events (`enable-haiku-endpoint-error`) didn't string-match the metric
+  KEYS (`enable-haiku-endpoint-error-rate`) — but that difference is the designed
+  convention; the metric's `event_key` field is the link, and the Metrics Author's
+  brief showed the correct pairing.
+- **Change (`autofactory-code-reviewer` `default` v3):** added a "Metric keys vs.
+  event keys (do NOT flag this as a mismatch)" section — validate `track()` events
+  against each metric's `event_key`, never against metric keys; flag only events
+  matching NO metric. Also added the Metrics Author to R09 (fail-safe telemetry,
+  event/metric linkage) and to the `agent` attribution enum.
+
 ## 2026-06-10
 
 ### ✅ Metrics-author tag convention: `flag:<flag-key>` → `flag-<flag-key>`
