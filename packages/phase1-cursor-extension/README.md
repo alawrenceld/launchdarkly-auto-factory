@@ -95,8 +95,17 @@ Then either:
   Press F5; in the Extension Development Host window, open a git repo, set the
   API keys, and run.
 
-- **Package a VSIX:** `npx @vscode/vsce package` in this directory, then install
-  the `.vsix` via the Extensions view → "Install from VSIX…".
+- **Package a VSIX:** from this directory, run the bundled `vsce` binary
+  directly (inside this npm workspace, `npx @vscode/vsce` can misroute into
+  `npm run`):
+
+  ```bash
+  ../../node_modules/.bin/vsce package --no-dependencies
+  ```
+
+  Then install the `.vsix` globally: `cursor --install-extension <abs-path>.vsix
+  --force` (one line, no sudo), or the Extensions view → "Install from VSIX…".
+  A VSIX is a user-level install, so it applies to every workspace you open.
 
 ## What a run does
 

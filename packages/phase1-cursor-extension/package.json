@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsc -b",
     "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.bundle.cjs",
-    "vscode:prepublish": "npm run build && npm run bundle"
+    "vscode:prepublish": "tsc -b && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.bundle.cjs"
   },
   "contributes": {
     "commands": [
