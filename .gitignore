@@ -52,3 +52,6 @@ docs/phase2-unknowns.md
 
 # Beacon's local deploy-state store (BEACON_STATE_FILE default)
 beacon-state.json
+
+# Phase 1 Cursor extension working notes (local-only)
+docs/phase1-cursor-unknowns.md

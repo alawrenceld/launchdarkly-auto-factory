@@ -23,6 +23,21 @@ tools, approval). They differ only at the edges:
 
 The Action is unaffected by this package; it is a separate, peer front end.
 
+## Model access (current limitation)
+
+The chain currently runs on a **direct Anthropic API call** using its own
+`ANTHROPIC_API_KEY` (the same local runner the GitHub Action uses). It does not
+route through Cursor's own model access.
+
+The intended design is to use the editor's models instead of a separate key,
+via the VS Code Language Model API (`vscode.lm`). That is **blocked on Cursor**:
+Cursor does not implement `vscode.lm` for extensions yet, so
+`selectChatModels()` returns no models there (it works in stock VS Code via
+Copilot). This is an open Cursor feature request. Until Cursor ships it, the
+extension needs its own Anthropic key. When Cursor adds `vscode.lm`, the
+`AgentRunner` seam in `@auto-factory/shared` lets us drop in an editor-models
+runner without touching the chain.
+
 ## Triggers
 
 - **Button:** the rocket in the **AutoFactory** sidebar, the status-bar item, or
