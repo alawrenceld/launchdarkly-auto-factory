@@ -9,12 +9,15 @@ end-to-end against a live demo repo. Not a product.
 
 ## How it works
 
-- **Phase 1 (CI, per pull request):** a GitHub Action resolves an agent graph and five agent
-  configs from LaunchDarkly and walks the chain: research and classify the PR, create a
-  feature flag (targeting off), wire the new behavior behind it, create guarded-release
-  metrics and instrument their events, write flag-on/flag-off tests, and produce a review
-  verdict. The agents commit to the PR branch. A release manifest
-  (`.release-flags/pr-N.json`) records the flag, metrics, and rollout parameters.
+- **Phase 1 (per change):** resolve an agent graph and five agent configs from LaunchDarkly
+  and walk the chain: research and classify the change, create a feature flag (targeting
+  off), wire the new behavior behind it, create guarded-release metrics and instrument their
+  events, write flag-on/flag-off tests, and produce a review verdict. A release manifest
+  (`.release-flags/…json`) records the flag, metrics, and rollout parameters. Phase 1 has two
+  interchangeable front ends over one shared core: a **GitHub Action** (runs on a PR, commits
+  to the PR branch) and a **Cursor/VS Code extension** (runs on your working tree from the
+  editor, leaving edits for you to review and commit). See
+  [packages/phase1-cursor-extension/](packages/phase1-cursor-extension/) for the editor path.
 - **Phase 2 (after deploy):** Beacon, a small HTTP service, receives deploy webhooks,
   diffs `.release-flags/` between the deployed SHA and the previous one, and starts a
   guarded release for each new manifest (turning the flag on atomically). It then monitors
@@ -28,8 +31,9 @@ Design history: [docs/adr/](docs/adr/).
 
 | Path | What it is |
 |------|------------|
-| `packages/phase1-resource-factory/` | The GitHub Action: graph walker, approval logic, PR comment |
-| `packages/shared/` | LD clients (REST + native SDK), the `AgentRunner` provider seam, the Anthropic runner and agent tools, release adapter |
+| `packages/shared/` | LD clients (REST + native SDK), the `AgentRunner` provider seam, the Anthropic runner and agent tools, the release adapter, and the provider-agnostic Phase 1 orchestration (graph walk + approval) |
+| `packages/phase1-resource-factory/` | Phase 1 front end #1: the GitHub Action (PR context, PR comment) |
+| `packages/phase1-cursor-extension/` | Phase 1 front end #2: the Cursor/VS Code extension (runs the chain on your working tree from the editor) |
 | `packages/beacon/` | Phase 2 release orchestrator (webhooks, discovery, trigger, monitor) |
 | `packages/config-bridge/` | CLI that provisions/syncs the agent configs and graph between LD projects |
 | `config/agentcontrol/ai-configs/` | The five agent definitions (instructions live here and in LD) |

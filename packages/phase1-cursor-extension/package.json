@@ -1,0 +1,148 @@
+{
+  "name": "@auto-factory/phase1-cursor-extension",
+  "displayName": "LaunchDarkly AutoFactory",
+  "description": "Phase 1 of LaunchDarkly AutoFactory, in the editor: research a change, create a feature flag, instrument guarded-release metrics, and write flag-path tests.",
+  "version": "0.0.1",
+  "publisher": "launchdarkly",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=20"
+  },
+  "categories": ["Other", "SCM Providers"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.bundle.cjs",
+  "scripts": {
+    "build": "tsc -b",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.bundle.cjs"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "launchdarkly-autofactory.run",
+        "title": "Run on Current Changes",
+        "category": "LaunchDarkly AutoFactory",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "launchdarkly-autofactory.setSecrets",
+        "title": "Set API Keys",
+        "category": "LaunchDarkly AutoFactory"
+      },
+      {
+        "command": "launchdarkly-autofactory.clearSecrets",
+        "title": "Clear Stored API Keys",
+        "category": "LaunchDarkly AutoFactory"
+      },
+      {
+        "command": "launchdarkly-autofactory.showOutput",
+        "title": "Show Output Log",
+        "category": "LaunchDarkly AutoFactory"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "launchdarkly-autofactory.run",
+          "group": "navigation",
+          "when": "scmProvider == git"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "launchdarkly-autofactory.run",
+          "when": "view == launchdarkly-autofactory.panel",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "launchdarkly-autofactory",
+          "title": "AutoFactory",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "launchdarkly-autofactory": [
+        {
+          "id": "launchdarkly-autofactory.panel",
+          "name": "Phase 1",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "LaunchDarkly AutoFactory",
+      "properties": {
+        "launchdarkly-autofactory.ldProjectKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Factory/control-plane LaunchDarkly project key (holds the agent graph and AI configs)."
+        },
+        "launchdarkly-autofactory.ldAppProjectKey": {
+          "type": "string",
+          "default": "autofactory-demo",
+          "markdownDescription": "App/data-plane LaunchDarkly project key where flags and metrics are created."
+        },
+        "launchdarkly-autofactory.ldBaseUrl": {
+          "type": "string",
+          "default": "https://app.launchdarkly.com",
+          "description": "LaunchDarkly API base URL."
+        },
+        "launchdarkly-autofactory.graphKey": {
+          "type": "string",
+          "default": "gha-auto-factory",
+          "description": "Agent graph key to resolve from LaunchDarkly and walk."
+        },
+        "launchdarkly-autofactory.baseBranch": {
+          "type": "string",
+          "default": "main",
+          "description": "Branch the current change set is diffed against (the agents' git_diff base)."
+        },
+        "launchdarkly-autofactory.approvalMode": {
+          "type": "string",
+          "enum": ["yolo", "middle", "manual"],
+          "default": "yolo",
+          "markdownEnumDescriptions": [
+            "Report the reviewer's verdict; never gate (edits are already in your working tree).",
+            "Surface a stronger warning when the reviewer flags high risk.",
+            "Always present the verdict as requiring your review before committing."
+          ],
+          "description": "How the reviewer's verdict is surfaced. The extension never commits for you, so this is advisory."
+        },
+        "launchdarkly-autofactory.enableFlagCreation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow the agents to create real flags/metrics in the app project. Turn off for a read-only dry run."
+        },
+        "launchdarkly-autofactory.enableCodeChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow the agents to edit files in your working tree (flag wiring, instrumentation, tests). Edits are left uncommitted for your review."
+        },
+        "launchdarkly-autofactory.autoRun": {
+          "type": "string",
+          "enum": ["off", "prompt", "auto"],
+          "default": "prompt",
+          "markdownEnumDescriptions": [
+            "Only run when you click the button or invoke the command.",
+            "When you commit on a non-base branch, offer to run via a notification.",
+            "When you commit on a non-base branch, run automatically."
+          ],
+          "description": "Automatic execution on new commits to a feature branch."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@auto-factory/shared": "*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0"
+  }
+}

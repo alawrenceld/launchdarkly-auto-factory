@@ -416,7 +416,11 @@ export class SandboxToolExecutor {
     try {
       const ref = this.resolveBaseRef(base);
       if (!ref) return { content: "git_diff: could not resolve a base ref (not a git checkout?)", isError: true };
-      const out = this.runGit(["diff", `${ref}...HEAD`]);
+      // push mode (GHA): committed delta vs base. workingTree mode (extension):
+      // diff the working tree against base so UNCOMMITTED agent edits (flag
+      // wiring, instrumentation, tests) are included — downstream agents need them.
+      const args = this.gitMode === "workingTree" ? ["diff", ref] : ["diff", `${ref}...HEAD`];
+      const out = this.runGit(args);
       if (!out.trim()) return { content: `(no differences vs ${ref})` };
       return out.length > 60_000 ? { content: `${out.slice(0, 60_000)}\n…[diff truncated]` } : { content: out };
     } catch (e) {

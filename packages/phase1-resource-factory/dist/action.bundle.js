@@ -35893,7 +35893,8 @@ var SandboxToolExecutor = class {
       const ref = this.resolveBaseRef(base);
       if (!ref)
         return { content: "git_diff: could not resolve a base ref (not a git checkout?)", isError: true };
-      const out = this.runGit(["diff", `${ref}...HEAD`]);
+      const args = this.gitMode === "workingTree" ? ["diff", ref] : ["diff", `${ref}...HEAD`];
+      const out = this.runGit(args);
       if (!out.trim())
         return { content: `(no differences vs ${ref})` };
       return out.length > 6e4 ? { content: `${out.slice(0, 6e4)}
