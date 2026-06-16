@@ -1,0 +1,127 @@
+---
+description: LaunchDarkly AutoFactory Phase 1 — research a change, create a feature flag, instrument guarded-release metrics, write flag-path tests, and review. Invoked by the /autofactory command or by @autofactory.
+alwaysApply: false
+---
+
+# LaunchDarkly AutoFactory — Phase 1 (native Cursor)
+
+You run the AutoFactory Phase 1 chain on the **current change set** in this repo:
+research → flag → metrics → tests → review. The detailed instructions for each
+phase live in LaunchDarkly (so they can be edited there); you fetch them at run
+time. This rule owns the **sequencing, the tool translation, and the LaunchDarkly
+conventions** — it does not restate each phase's rules.
+
+## Prerequisites (assume these are configured)
+
+- The **LaunchDarkly MCP server** is enabled in Cursor (provides `get-ai-config`,
+  `create-feature-flag`, flag/AI-config tools).
+- `LD_API_KEY` is exported in your shell (the metric-creation script uses it).
+- Project keys:
+  - **Factory project** (holds the agent instructions): `auto-factory-prototype`
+  - **App project** (where flags + metrics are created): `autofactory-demo`
+  - If your setup differs, substitute accordingly.
+
+## The change set
+
+Work from the diff of the current branch against its base (default `main`):
+run `git diff main...HEAD` for committed changes and `git status` / `git diff`
+for uncommitted ones. The agents inspect files directly too. Derive a short
+change id from the branch name (sanitized) — it names the release manifest.
+
+## Tool translation (IMPORTANT)
+
+The fetched LaunchDarkly instructions were written for a different runtime and
+name tools that do **not** exist here. Translate every such reference to the
+native equivalent:
+
+| Instruction says | Do this instead |
+|---|---|
+| `create_flag` / "create the flag" | Call the **LaunchDarkly MCP `create-feature-flag`** tool against the **app project**, using the flag convention below. |
+| `create_metric` / "create the metric" | Run `bash .cursor/autofactory/create-metric.sh …` (LD has no metric MCP tool). |
+| `write_file` / `edit_file` | Edit files natively. |
+| `run_tests` | Run the repo's test suite in the terminal (detect pytest / npm / go). |
+| `commit_and_push` | **Do nothing destructive** — leave all edits in the working tree for the developer to review and commit. Do not commit or push. |
+| `git_diff` | Run `git diff` in the terminal. |
+| `read_file` / `list_dir` / `grep` | Use your native file reading / listing / search. |
+| `tag_conversation(...)` | Don't call a tool — track these as state in your reasoning and report them in the final summary (see Output). |
+
+## Procedure
+
+Run these phases in order. For each, first **fetch the phase's instructions**
+from LaunchDarkly via the MCP `get-ai-config` tool with the **factory project**
+key and the config key below, read the `default` variation's `instructions`,
+then carry them out using the tool translation above. Interpolate any
+`{{REPO}}`, `{{PR_NUMBER}}`, `{{PR_BRANCH}}`, `{{LAUNCHDARKLY_PROJECT}}`
+placeholders from the current repo / branch / change id / app project key.
+
+1. **Research & Plan** — config key `autofactory-research-planner`. Classify the
+   change and produce the brief. **Short-circuit:** if the change is config-only,
+   a dependency bump, infrastructure, test-only, or docs with no user-facing
+   behavior change, STOP here — create no flag, no metrics, no tests; report that
+   no flag was needed and finish.
+2. **Flag** — config key `autofactory-flag-implementer`. Create the flag, then
+   wire the new behavior behind it. Flag-off must preserve existing behavior.
+3. **Metrics** — config key `autofactory-metrics-author`. Instrument `track()`
+   events on the flagged path, create the metrics, and write/update the release
+   manifest (below).
+4. **Tests** — config key `autofactory-flag-testing`. Write flag-on and flag-off
+   tests and run them; fix failures.
+5. **Review** — config key `autofactory-code-reviewer`. Review the whole change
+   set and produce a verdict (APPROVE/REJECT + risk level).
+
+## LaunchDarkly conventions
+
+**Flag** (via MCP `create-feature-flag`, app project) — boolean, treatment=true /
+control=false, temporary, off = control (so flag-off preserves existing
+behavior):
+
+- `key`: `enable-<descriptive-name>` (no ticket id)
+- `variations`: `[{ value: true, name: "Treatment" }, { value: false, name: "Control" }]`
+- `temporary`: true; off-variation = the Control (false) variation
+- `tags`: `["auto-factory", "auto-generated"]`
+- Idempotent: if it already exists (409), reuse it.
+
+**Metric** (via the script) — one per category the change exposes:
+
+```
+bash .cursor/autofactory/create-metric.sh \
+  --project autofactory-demo \
+  --key <flag-key>-<category> \
+  --category error|latency|business \
+  --event <flag-key>-<signal> \
+  --randomization-unit user \
+  --flag <flag-key>
+```
+
+The script maps category → LD shape (error/latency = lower-is-better; business =
+higher-is-better; latency = numeric ms) and tags the metric `auto-factory`,
+`auto-generated`, `flag-<flag-key>`. The `--event` must match the custom event
+name your `track()` call emits. Metric key convention: `<flag-key>-<category>`
+(e.g. `enable-x-error-rate`, `enable-x-latency`, `enable-x-success-rate`).
+
+**Release manifest** — write `.release-flags/<change-id>.json` so Phase 2 can
+discover it:
+
+```json
+{
+  "flagKey": "<flag-key>",
+  "releaseOverrides": {
+    "metricKeys": ["<flag-key>-error-rate", "<flag-key>-latency", "<flag-key>-success-rate"],
+    "randomizationUnit": "user"
+  }
+}
+```
+
+## Output
+
+Edits stay in the working tree (nothing committed/pushed). End with a summary:
+
+- the flag key created (and a link: `https://app.launchdarkly.com/autofactory-demo/~/features/<flag-key>`)
+- the metric keys created (links: `https://app.launchdarkly.com/autofactory-demo/metrics/<metric-key>/details`)
+- the manifest path written
+- the review **verdict** and **risk level** as a fenced JSON block:
+  ```json
+  { "review_approved": true, "risk_level": "low" }
+  ```
+- a reminder that the edits are in the working tree for the developer to review
+  and commit.
