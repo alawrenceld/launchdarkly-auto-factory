@@ -11,6 +11,7 @@ import { registerAutoTrigger } from "./autoTrigger.js";
 import { SECRET_IDS, SECRET_LABELS, applyConfig, clearSecrets, setSecret } from "./config.js";
 import { buildCursorContext } from "./cursorContext.js";
 import { hasChangeToProcess, isGitRepo, readRepoState } from "./git.js";
+import { buildCreatedLinks } from "./ldLinks.js";
 import { AutoFactoryViewProvider } from "./panel.js";
 import { nodeTitle, type RunReporter } from "./reporter.js";
 import { runPhase1 } from "./runChain.js";
@@ -155,19 +156,28 @@ async function runOnce(context: vscode.ExtensionContext, reason: string): Promis
           codeChanges: cfg.codeChanges,
           reporter,
         });
-        panel.done(result);
+        const links = buildCreatedLinks(cfg.appProjectKey, result.tags);
+        panel.done(result, links);
         output.appendLine("");
         output.appendLine(`──── ${result.runs.map((r) => nodeTitle(r.configKey)).join(" → ")}`);
         if (result.skipped.length) output.appendLine(`Skipped: ${result.skipped.join(", ")}`);
         output.appendLine(`Approval [${result.mode}]: ${result.decision.reason}`);
+        // Output-channel URLs are auto-linkified by the editor.
+        if (links.flag) output.appendLine(`Flag → ${links.flag.url}`);
+        for (const m of links.metrics) output.appendLine(`Metric ${m.key} → ${m.url}`);
 
         const verb = result.decision.requiresHuman ? "⏸ review required" : result.decision.apply ? "✓ approved" : "✗ rejected";
-        const detail = result.tags.flag_key ? ` — flag ${result.tags.flag_key}` : "";
+        const detail = links.flag ? ` — flag ${links.flag.key}` : "";
+        const buttons = links.flag ? ["Open Flag in LaunchDarkly", "Show Output"] : ["Show Output"];
         const choice = await vscode.window.showInformationMessage(
           `AutoFactory: ${verb}${detail}. Edits are in your working tree.`,
-          "Show Output",
+          ...buttons,
         );
-        if (choice === "Show Output") output.show();
+        if (choice === "Open Flag in LaunchDarkly" && links.flag) {
+          void vscode.env.openExternal(vscode.Uri.parse(links.flag.url));
+        } else if (choice === "Show Output") {
+          output.show();
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         reporter.failed(message);

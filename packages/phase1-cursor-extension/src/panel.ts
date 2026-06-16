@@ -6,6 +6,7 @@
 
 import * as vscode from "vscode";
 import type { NodeRun } from "@auto-factory/shared";
+import type { CreatedLinks } from "./ldLinks.js";
 import { NODE_SEQUENCE, type RunResult } from "./reporter.js";
 
 type NodeStatus = "pending" | "running" | "done" | "failed" | "skipped";
@@ -29,6 +30,9 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
       // The webview announces readiness on load; replay whatever state we have
       // so a recreated view restores instead of showing a blank chain.
       else if (msg?.type === "ready") this.replay();
+      else if (msg?.type === "open" && typeof msg.url === "string") {
+        void vscode.env.openExternal(vscode.Uri.parse(msg.url));
+      }
     });
   }
 
@@ -68,7 +72,7 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
     const status: NodeStatus = run.status === "failed" ? "failed" : "done";
     this.send({ type: "node", configKey: run.configKey, status, tags: run.tags });
   }
-  done(result: RunResult): void {
+  done(result: RunResult, links: CreatedLinks): void {
     const ran = new Set(result.runs.map((r) => r.configKey));
     for (const n of NODE_SEQUENCE) {
       if (!ran.has(n.key)) this.send({ type: "node", configKey: n.key, status: "skipped" as NodeStatus });
@@ -82,8 +86,8 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
       reason: result.decision.reason,
       apply: result.decision.apply,
       requiresHuman: result.decision.requiresHuman,
-      flagKey: result.tags.flag_key ?? "",
-      metricKeys: result.tags.metric_keys ?? "",
+      flag: links.flag ?? null,
+      metrics: links.metrics,
     });
   }
   failed(message: string): void {
@@ -123,6 +127,9 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
   .summary.show { display: block; }
   .summary .verdict { font-weight: 600; }
   .summary code { font-size: 11px; }
+  .summary .hint { margin-top: 6px; color: var(--vscode-descriptionForeground); }
+  a.ldlink { color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
+  a.ldlink:hover { text-decoration: underline; }
 </style></head>
 <body>
   <button class="run" id="run">▶ Run on current changes</button>
@@ -134,6 +141,11 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
   const $ = (id) => document.getElementById(id);
   const runBtn = $("run");
   runBtn.addEventListener("click", () => vscode.postMessage({ type: "run" }));
+  // Open LaunchDarkly deep links externally (the extension calls openExternal).
+  $("summary").addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("a.ldlink");
+    if (a) { e.preventDefault(); vscode.postMessage({ type: "open", url: a.getAttribute("data-url") }); }
+  });
   function setStep(key, status, tag) {
     const el = document.querySelector('.step[data-key="' + key + '"]');
     if (!el) return;
@@ -169,11 +181,12 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
       $("sub").textContent = "Done.";
       const s = $("summary"); s.classList.add("show");
       const icon = m.requiresHuman ? "⏸" : (m.apply ? "✓" : "✗");
+      const link = (r) => '<a class="ldlink" data-url="' + r.url + '" href="#" title="Open in LaunchDarkly">' + r.key + '</a>';
       let html = '<div class="verdict">' + icon + ' Review: ' + m.verdict + '</div>';
       html += '<div>' + m.reason + '</div>';
-      if (m.flagKey) html += '<div>Flag: <code>' + m.flagKey + '</code></div>';
-      if (m.metricKeys) html += '<div>Metrics: <code>' + m.metricKeys + '</code></div>';
-      html += '<div style="margin-top:6px;color:var(--vscode-descriptionForeground)">Edits are in your working tree — review and commit them.</div>';
+      if (m.flag) html += '<div>Flag: ' + link(m.flag) + '</div>';
+      if (m.metrics && m.metrics.length) html += '<div>Metrics: ' + m.metrics.map(link).join(', ') + '</div>';
+      html += '<div class="hint">Edits are in your working tree — review and commit them.</div>';
       s.innerHTML = html;
     }
     else if (m.type === "failed") {

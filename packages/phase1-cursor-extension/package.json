@@ -2,7 +2,7 @@
   "name": "launchdarkly-autofactory",
   "displayName": "LaunchDarkly AutoFactory",
   "description": "Phase 1 of LaunchDarkly AutoFactory, in the editor: research a change, create a feature flag, instrument guarded-release metrics, and write flag-path tests.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "launchdarkly",
   "private": true,
   "type": "module",
