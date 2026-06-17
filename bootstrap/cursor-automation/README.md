@@ -35,7 +35,7 @@ each to a native equivalent:
 ## Layout
 
 ```
-cursor-automation/
+bootstrap/cursor-automation/
   README.md
   dot-cursor/                      # rename or merge into a target repo's .cursor/
     rules/autofactory.mdc          # bootstrap rule: sequencing + tool translation + conventions

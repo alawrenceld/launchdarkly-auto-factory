@@ -13,11 +13,9 @@ end-to-end against a live demo repo. Not a product.
   and walk the chain: research and classify the change, create a feature flag (targeting
   off), wire the new behavior behind it, create guarded-release metrics and instrument their
   events, write flag-on/flag-off tests, and produce a review verdict. A release manifest
-  (`.release-flags/…json`) records the flag, metrics, and rollout parameters. Phase 1 has two
-  interchangeable front ends over one shared core: a **GitHub Action** (runs on a PR, commits
-  to the PR branch) and a **Cursor/VS Code extension** (runs on your working tree from the
-  editor, leaving edits for you to review and commit). See
-  [packages/phase1-cursor-extension/](packages/phase1-cursor-extension/) for the editor path.
+  (`.release-flags/…json`) records the flag, metrics, and rollout parameters. Phase 1 has three
+  interchangeable front ends over one shared core (see [Phase 1 front ends](#phase-1-front-ends)):
+  a **GitHub Action**, a **Cursor/VS Code extension**, and a **native Cursor automation**.
 - **Phase 2 (after deploy):** Beacon, a small HTTP service, receives deploy webhooks,
   diffs `.release-flags/` between the deployed SHA and the previous one, and starts a
   guarded release for each new manifest (turning the flag on atomically). It then monitors
@@ -32,17 +30,32 @@ Design history: [docs/adr/](docs/adr/).
 | Path | What it is |
 |------|------------|
 | `packages/shared/` | LD clients (REST + native SDK), the `AgentRunner` provider seam, the Anthropic runner and agent tools, the release adapter, and the provider-agnostic Phase 1 orchestration (graph walk + approval) |
-| `packages/phase1-resource-factory/` | Phase 1 front end #1: the GitHub Action (PR context, PR comment) |
-| `packages/phase1-cursor-extension/` | Phase 1 front end #2: the Cursor/VS Code extension (runs the chain on your working tree from the editor) |
+| `packages/phase1-resource-factory/` | Phase 1 front end #1 (GitHub Action): code; its drop-in workflow lives in `bootstrap/github-action-template/` |
+| `packages/phase1-cursor-extension/` | Phase 1 front end #2 (Cursor/VS Code extension): working-tree edits from the editor, calls Anthropic directly |
+| `bootstrap/cursor-automation/` | Phase 1 front end #3 (native Cursor automation): a drop-in `.cursor/` rule + command + MCP config; runs in Cursor's own agent (local prototype) |
 | `packages/beacon/` | Phase 2 release orchestrator (webhooks, discovery, trigger, monitor) |
 | `packages/config-bridge/` | CLI that provisions/syncs the agent configs and graph between LD projects |
 | `config/agentcontrol/ai-configs/` | The five agent definitions (instructions live here and in LD) |
 | `config/agentcontrol/graphs/` | The agent graph: chain order, routing conditions, per-agent write capabilities |
-| `bootstrap/` | One-command setup plus the drop-in workflow template |
+| `bootstrap/` | One-command setup, plus the drop-in front-end templates (GitHub Action workflow, Cursor automation) |
 | `examples/demo-app/` | Local sandbox the agents run against in dry-run mode |
 | `docs/` | Pipeline overview, ADRs, design docs |
 
-## Phase 1 setup
+## Phase 1 front ends
+
+The same five-agent chain (one shared core in `packages/shared`) runs from three entry points;
+pick whichever fits where you work. All three create the same flag/metrics/tests and write the
+same release manifest — they differ only in trigger, output, and which models run the agents.
+
+| Front end | Trigger | Output | Models | Status |
+|-----------|---------|--------|--------|--------|
+| **GitHub Action** — [`packages/phase1-resource-factory`](packages/phase1-resource-factory/), template in [`bootstrap/github-action-template/`](bootstrap/github-action-template/) | a pull request, in CI | commits to the PR branch | Anthropic API | primary, verified path |
+| **Cursor/VS Code extension** — [`packages/phase1-cursor-extension`](packages/phase1-cursor-extension/) | a button or a new commit, in the editor | edits left in your working tree | Anthropic API (Cursor can't expose its models to extensions) | working |
+| **Native Cursor automation** — [`bootstrap/cursor-automation`](bootstrap/cursor-automation/) | the `/autofactory` command in Cursor | edits left in your working tree | Cursor's own models (no API key) | local prototype; cloud (auto, PR-based) is a later phase |
+
+Setup for the GitHub Action is below; the extension and the automation each have their own README.
+
+## Phase 1 setup (GitHub Action)
 
 ### Prerequisites
 

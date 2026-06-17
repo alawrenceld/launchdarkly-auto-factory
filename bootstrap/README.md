@@ -6,7 +6,8 @@ flow with as few manual steps as possible ("simple, but not simpler").
 | Item | Purpose |
 |------|---------|
 | `create.*` | One command: wires CI, provisions the LD env (via `config-bridge`), sets up the secrets shape, and prepares the demo |
-| `github-action-template/` | Drop-in PR workflow partners copy into their repo |
+| `github-action-template/` | Phase 1 front end #1: drop-in PR workflow partners copy into their repo |
+| `cursor-automation/` | Phase 1 front end #3: drop-in `.cursor/` rule + command + MCP config that runs the chain in Cursor's own agent |
 | `checks/` | Preflight: tokens present, LD reachable, scopes valid — fail loudly with fixes |
 
 **Defaults are one layer deep:** bootstrap generates real, legible config files
