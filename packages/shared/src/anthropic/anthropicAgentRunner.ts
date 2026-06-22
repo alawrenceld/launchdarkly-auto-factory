@@ -76,6 +76,27 @@ const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
   "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true },
 };
 
+/**
+ * Routing tags each node MUST emit for the chain to advance, keyed by config
+ * key. These are the deterministic ones (a node's own decision / hand-off) — NOT
+ * the conditional ones (e.g. `skip_flagging`, set only when no flag is needed)
+ * nor the tool-auto ones (`flag_created`/`metric_keys`, set by create_flag/
+ * create_metric). If the agent finishes without these, the runner forces a final
+ * `tag_conversation` call (see `runNode`) so a node can never silently stall the
+ * chain or yield a misleading verdict (issue #9, failure modes #1 and #2). The
+ * graph side is guarded separately by `npm run check:configs`.
+ */
+export const NODE_REQUIRED_TAGS: Record<string, string[]> = {
+  "autofactory-research-planner": ["flag_worthy"], // always decides flag-worthiness
+  "autofactory-metrics-author": ["needs_tests"], // always hands off to testing
+  "autofactory-code-reviewer": ["review_approved"], // always produces a verdict
+};
+
+/** The required routing tags this node hasn't emitted yet (empty if all present). */
+export function missingRequiredTags(configKey: string, tags: Record<string, string>): string[] {
+  return (NODE_REQUIRED_TAGS[configKey] ?? []).filter((t) => !(t in tags));
+}
+
 /** Capability tokens recognized on a graph edge's `capabilities` array. */
 export const CAP_CREATE_FLAG = "create_flag";
 export const CAP_CREATE_METRIC = "create_metric";
@@ -197,6 +218,42 @@ export class AnthropicAgentRunner implements AgentRunner {
         messages.push({ role: "user", content: results });
 
         if (turn === maxTurns - 1) status = "stopped"; // hit the turn cap mid-task
+      }
+
+      // Safety net: if the agent finished without recording the routing tag(s)
+      // its node owns, force one `tag_conversation` call so the chain can't
+      // silently stall or report a misleading verdict (issue #9). Best-effort —
+      // a failure here doesn't fail the node.
+      const missing = missingRequiredTags(req.configKey, executor.tags);
+      if (missing.length > 0) {
+        try {
+          const forcePrompt =
+            `Before finishing you MUST record your routing decision. You have not set the required tag(s): ${missing.join(", ")}. ` +
+            "Call `tag_conversation` now with a `tags` object, choosing the correct value(s) per your instructions " +
+            "(e.g. your flag-worthiness decision, the testing hand-off, or your APPROVE/REJECT verdict and risk level).";
+          messages.push({ role: "user", content: forcePrompt });
+          const forced = await this.client.messages.create({
+            model,
+            max_tokens: MAX_TOKENS,
+            system,
+            tools,
+            messages,
+            tool_choice: { type: "tool", name: "tag_conversation" },
+          });
+          inputTokens += forced.usage.input_tokens;
+          outputTokens += forced.usage.output_tokens;
+          for (const b of forced.content.filter((c): c is Anthropic.ToolUseBlock => c.type === "tool_use")) {
+            await executor.execute(b.name, (b.input ?? {}) as Record<string, unknown>);
+          }
+          const stillMissing = missingRequiredTags(req.configKey, executor.tags);
+          console.log(
+            `[node] ${req.configKey} forced tag_conversation for missing [${missing.join(", ")}] → now ${
+              stillMissing.length ? `still missing [${stillMissing.join(", ")}]` : "all present"
+            }`,
+          );
+        } catch (e) {
+          console.warn(`[node] ${req.configKey} forced tag call failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+        }
       }
       req.tracker?.trackSuccess();
     } catch (e) {

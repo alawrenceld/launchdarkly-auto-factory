@@ -36239,6 +36239,17 @@ var NODE_CAPABILITIES = {
   // feeds them — so it needs create_metric AND edit_files.
   "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true }
 };
+var NODE_REQUIRED_TAGS = {
+  "autofactory-research-planner": ["flag_worthy"],
+  // always decides flag-worthiness
+  "autofactory-metrics-author": ["needs_tests"],
+  // always hands off to testing
+  "autofactory-code-reviewer": ["review_approved"]
+  // always produces a verdict
+};
+function missingRequiredTags(configKey, tags) {
+  return (NODE_REQUIRED_TAGS[configKey] ?? []).filter((t) => !(t in tags));
+}
 var CAP_CREATE_FLAG = "create_flag";
 var CAP_CREATE_METRIC = "create_metric";
 var CAP_EDIT_FILES = "edit_files";
@@ -36314,6 +36325,30 @@ var AnthropicAgentRunner = class {
         messages.push({ role: "user", content: results });
         if (turn === maxTurns - 1)
           status = "stopped";
+      }
+      const missing = missingRequiredTags(req.configKey, executor.tags);
+      if (missing.length > 0) {
+        try {
+          const forcePrompt = `Before finishing you MUST record your routing decision. You have not set the required tag(s): ${missing.join(", ")}. Call \`tag_conversation\` now with a \`tags\` object, choosing the correct value(s) per your instructions (e.g. your flag-worthiness decision, the testing hand-off, or your APPROVE/REJECT verdict and risk level).`;
+          messages.push({ role: "user", content: forcePrompt });
+          const forced = await this.client.messages.create({
+            model,
+            max_tokens: MAX_TOKENS,
+            system,
+            tools,
+            messages,
+            tool_choice: { type: "tool", name: "tag_conversation" }
+          });
+          inputTokens += forced.usage.input_tokens;
+          outputTokens += forced.usage.output_tokens;
+          for (const b of forced.content.filter((c) => c.type === "tool_use")) {
+            await executor.execute(b.name, b.input ?? {});
+          }
+          const stillMissing = missingRequiredTags(req.configKey, executor.tags);
+          console.log(`[node] ${req.configKey} forced tag_conversation for missing [${missing.join(", ")}] \u2192 now ${stillMissing.length ? `still missing [${stillMissing.join(", ")}]` : "all present"}`);
+        } catch (e) {
+          console.warn(`[node] ${req.configKey} forced tag call failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+        }
       }
       req.tracker?.trackSuccess();
     } catch (e) {
