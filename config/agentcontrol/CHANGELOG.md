@@ -15,6 +15,25 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-06-22
+
+### ✅ Fixed invalid `tag_conversation` signature in committed configs + added a routing-contract guard
+- **Problem (issue #9, failure mode #1):** `autofactory-metrics-author` and
+  `autofactory-research-planner` instructed the model to call
+  `tag_conversation(key="…", value="…")`, but the tool only accepts a single
+  `tags` object (`{"tags": {"k": "v"}}`). With the wrong signature the model
+  emits no tags, so the chain stalls and reports a misleading verdict.
+- **Fix:** rewrote the 5 affected calls to the valid form
+  `tag_conversation({"tags": {"…": "…"}})` (metrics-author: metrics_created /
+  metric_keys / needs_tests; research-planner: flag_worthy / skip_flagging).
+  These are the committed seed copies; re-sync the live LD configs to match if
+  they still carry the old form.
+- **Guard:** new `npm run check:configs` (`scripts/check-configs.mjs`, wired
+  into CI + a test) lints for the invalid signature and checks that every graph
+  edge's `require_tags`/`skip_if_tags` is producible by some agent or write
+  tool — so this class of routing-contract drift fails fast. Addresses issue #9
+  item #2; the runtime forced-tag-call (item #1) is the next step.
+
 ## 2026-06-11
 
 ### ✅ Committed the canonical public copies of all five agent configs
