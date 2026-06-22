@@ -14,6 +14,7 @@ import {
   GraphQLVegaTransport,
   LdClient,
   LdResourceWriter,
+  type StallInfo,
   StubVegaTransport,
   VegaAgentRunner,
   VegaClient,
@@ -105,6 +106,17 @@ function flagCreationWriter(): LdResourceWriter | undefined {
 }
 
 /**
+ * Human-readable description of a chain stall (unmet handoff) for logs, the GH
+ * annotation, and the PR comment.
+ */
+function describeStall(stall: StallInfo): string {
+  const edges = stall.unmet
+    .map((u) => `edge → ${u.target} requires ${Object.entries(u.requireMissing).map(([k, v]) => `${k}=${v}`).join(", ")} (never produced)`)
+    .join("; ");
+  return `chain stalled at '${stall.node}'; ${edges}. Downstream agents did not run.`;
+}
+
+/**
  * Variables for AI-config instruction interpolation (done by LaunchDarkly's AI
  * SDK). Run-level values only; per-step output flows through the node prompt.
  * LAUNCHDARKLY_PROJECT points at the data-plane app project where flags are created.
@@ -182,6 +194,13 @@ async function main(): Promise<void> {
   console.log(`Ran ${walk.runs.length} node(s): ${walk.runs.map((r) => r.configKey).join(" → ")}`);
   if (walk.skipped.length) console.log(`Skipped: ${walk.skipped.join(", ")}`);
 
+  // Make a stall observable: when the chain stops on an unmet handoff (a required
+  // routing tag was never produced) rather than at a terminal node, say so loudly
+  // — as a GitHub Actions warning annotation and in the PR comment — instead of
+  // letting it surface only as a misleading verdict (issue #9 item #3).
+  const stallText = walk.stalledAt ? describeStall(walk.stalledAt) : "";
+  if (stallText) console.log(`::warning::AutoFactory: ${stallText}`);
+
   const { reviewApproved, risk, skipFlagging } = interpretWalk(walk.tags);
   const mode = getApprovalMode();
   const decision = decideApproval(mode, reviewApproved, risk, skipFlagging);
@@ -202,6 +221,7 @@ async function main(): Promise<void> {
     "",
     `**Agents:** ${walk.runs.map((r) => r.configKey).join(" → ") || "(none ran)"}`,
     walk.skipped.length ? `**Skipped:** ${walk.skipped.join(", ")}` : "",
+    stallText ? `**⚠ Stalled:** ${stallText}` : "",
     "",
     `**Approval (${mode}):** ${decision.reason}`,
   ]

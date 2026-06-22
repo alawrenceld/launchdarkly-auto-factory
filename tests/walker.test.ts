@@ -93,21 +93,42 @@ describe("walkGraph", () => {
     assert.equal(r.skipped.length, 0);
   });
 
-  it("short-circuits when research sets skip_flagging (no flag needed)", async () => {
+  it("short-circuits when research sets skip_flagging (no flag needed) — NOT a stall", async () => {
     const r = await run({ research: { tags: { skip_flagging: "true" } } });
     assert.deepEqual(
       r.runs.map((x) => x.configKey),
       ["research"],
     );
     assert.deepEqual(r.skipped.sort(), ["flag", "review", "test"]);
+    // An intentional skip_if short-circuit is a clean stop, not a stall.
+    assert.equal(r.stalledAt, undefined);
   });
 
-  it("stops at flag when require_tags(flag_created) is unmet", async () => {
+  it("stalls observably at flag when require_tags(flag_created) is unmet", async () => {
     const r = await run({ flag: { tags: {} } });
     assert.deepEqual(
       r.runs.map((x) => x.configKey),
       ["research", "flag"],
     );
     assert.ok(r.skipped.includes("test") && r.skipped.includes("review"));
+    // The stall is surfaced with the node and the missing required tag.
+    assert.equal(r.stalledAt?.node, "flag");
+    assert.deepEqual(r.stalledAt?.unmet, [{ target: "test", requireMissing: { flag_created: "true" } }]);
+  });
+
+  it("a clean full run has no stall", async () => {
+    const r = await run({
+      flag: { tags: { flag_created: "true" } },
+      review: { tags: { review_approved: "approve" } },
+    });
+    assert.equal(r.stalledAt, undefined);
+  });
+
+  it("emits a 'stalled' walk event for live UIs", async () => {
+    const events: string[] = [];
+    await walkGraph(buildGraph(), new FakeRunner({ flag: { tags: {} } }), { PR_NUMBER: "1" }, undefined, (e) =>
+      events.push(e.type),
+    );
+    assert.ok(events.includes("stalled"), `expected a stalled event, got: ${events.join(", ")}`);
   });
 });

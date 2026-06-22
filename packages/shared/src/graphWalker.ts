@@ -28,12 +28,43 @@ export interface NodeRun {
   tags: Record<string, string>;
 }
 
+/** An outgoing edge that could NOT be taken because its `require_tags` weren't met. */
+export interface UnmetEdge {
+  /** Target node key the edge would have advanced to. */
+  target: string;
+  /** The required tag→value pairs that were absent or mismatched. */
+  requireMissing: Record<string, string>;
+}
+
+/**
+ * Why the walk stopped before a terminal node: the current node had outgoing
+ * edges, but every one was blocked by an unmet `require_tags` handoff (NOT an
+ * intentional `skip_if_tags` short-circuit, and NOT a genuine no-edge terminal).
+ * This is the "silently stalled" case issue #9 wants surfaced — a required
+ * routing tag was never produced, so the chain can't advance.
+ */
+export interface StallInfo {
+  /** The node the chain stalled at. */
+  node: string;
+  /** Tags present when it stalled (what the node actually emitted). */
+  tags: Record<string, string>;
+  /** The outgoing edges that couldn't be taken, with the missing tags. */
+  unmet: UnmetEdge[];
+}
+
 export interface WalkResult {
   runs: NodeRun[];
   /** Tags accumulated across all nodes. */
   tags: Record<string, string>;
   /** Node keys never reached because an edge condition stopped the chain. */
   skipped: string[];
+  /**
+   * Set when the chain stopped on an unmet handoff (a required tag was never
+   * emitted) rather than at a terminal node or an intentional skip. Undefined
+   * for a clean finish. Lets the caller report "stalled — X required Y, absent"
+   * instead of a misleading verdict.
+   */
+  stalledAt?: StallInfo;
 }
 
 /**
@@ -43,7 +74,8 @@ export interface WalkResult {
  */
 export type WalkEvent =
   | { type: "node-start"; configKey: string; index: number }
-  | { type: "node-complete"; configKey: string; index: number; run: NodeRun };
+  | { type: "node-complete"; configKey: string; index: number; run: NodeRun }
+  | { type: "stalled"; stall: StallInfo };
 
 /** All key/value pairs in `cond` are present and equal in `tags`. */
 function tagsMatch(tags: Record<string, string>, cond: Record<string, string>): boolean {
@@ -121,6 +153,7 @@ export async function walkGraph(
   let node: AgentGraphNode | null = graphDef.rootNode();
   // Handoff of the edge we traversed INTO the current node (root has none).
   let inboundHandoff: Record<string, unknown> | undefined;
+  let stalledAt: StallInfo | undefined;
 
   while (node && !visited.has(node.getKey())) {
     const key = node.getKey();
@@ -163,6 +196,31 @@ export async function walkGraph(
       break;
     }
 
+    // No edge taken: distinguish a genuine terminal (no outgoing edges) and an
+    // intentional skip (every blocked edge matched its skip_if) from a real
+    // stall (an outgoing edge's require_tags was never satisfied).
+    if (!next) {
+      const edges = node.getEdges();
+      const unmet: UnmetEdge[] = [];
+      for (const edge of edges) {
+        const h = edge.handoff;
+        const skip = handoffTags(h, "skip_if_tags");
+        if (skip && tagsMatch(accumulatedTags, skip)) continue; // intentionally skipped
+        const require = handoffTags(h, "require_tags");
+        if (require && !tagsMatch(accumulatedTags, require)) {
+          const requireMissing: Record<string, string> = {};
+          for (const [k, v] of Object.entries(require)) {
+            if (accumulatedTags[k] !== v) requireMissing[k] = v;
+          }
+          unmet.push({ target: edge.key, requireMissing });
+        }
+      }
+      if (unmet.length > 0) {
+        stalledAt = { node: key, tags: { ...accumulatedTags }, unmet };
+        onEvent?.({ type: "stalled", stall: stalledAt });
+      }
+    }
+
     if (next) graphTracker?.trackHandoffSuccess(key, next);
     node = next ? graphDef.getNode(next) : null;
     inboundHandoff = nextHandoff;
@@ -171,5 +229,5 @@ export async function walkGraph(
   const reached = new Set(runs.map((r) => r.configKey));
   const skipped = allNodeKeys(graphDef).filter((k) => !reached.has(k));
 
-  return { runs, tags: accumulatedTags, skipped };
+  return { runs, tags: accumulatedTags, skipped, ...(stalledAt ? { stalledAt } : {}) };
 }

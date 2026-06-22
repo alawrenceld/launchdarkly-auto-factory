@@ -83,7 +83,13 @@ export async function runPhase1(opts: RunOptions): Promise<RunResult> {
 
   const walk = await walkGraph(graphDef, runner, opts.context, graphTracker, (event) => {
     if (event.type === "node-start") reporter.nodeStart(event.configKey);
-    else reporter.nodeComplete(event.run);
+    else if (event.type === "node-complete") reporter.nodeComplete(event.run);
+    else if (event.type === "stalled") {
+      const u = event.stall.unmet
+        .map((e) => `→ ${e.target} needs ${Object.entries(e.requireMissing).map(([k, v]) => `${k}=${v}`).join(", ")}`)
+        .join("; ");
+      reporter.log(`⚠ chain stalled at ${event.stall.node}: unmet handoff ${u}`);
+    }
   });
 
   const { reviewApproved, risk, skipFlagging } = interpretWalk(walk.tags);

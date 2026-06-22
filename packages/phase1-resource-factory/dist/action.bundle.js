@@ -33351,6 +33351,7 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent) {
   const visited = /* @__PURE__ */ new Set();
   let node = graphDef.rootNode();
   let inboundHandoff;
+  let stalledAt;
   while (node && !visited.has(node.getKey())) {
     const key = node.getKey();
     visited.add(key);
@@ -33389,6 +33390,29 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent) {
       nextHandoff = h;
       break;
     }
+    if (!next) {
+      const edges = node.getEdges();
+      const unmet = [];
+      for (const edge of edges) {
+        const h = edge.handoff;
+        const skip = handoffTags(h, "skip_if_tags");
+        if (skip && tagsMatch(accumulatedTags, skip))
+          continue;
+        const require2 = handoffTags(h, "require_tags");
+        if (require2 && !tagsMatch(accumulatedTags, require2)) {
+          const requireMissing = {};
+          for (const [k, v] of Object.entries(require2)) {
+            if (accumulatedTags[k] !== v)
+              requireMissing[k] = v;
+          }
+          unmet.push({ target: edge.key, requireMissing });
+        }
+      }
+      if (unmet.length > 0) {
+        stalledAt = { node: key, tags: { ...accumulatedTags }, unmet };
+        onEvent?.({ type: "stalled", stall: stalledAt });
+      }
+    }
     if (next)
       graphTracker?.trackHandoffSuccess(key, next);
     node = next ? graphDef.getNode(next) : null;
@@ -33396,7 +33420,7 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent) {
   }
   const reached = new Set(runs.map((r) => r.configKey));
   const skipped = allNodeKeys(graphDef).filter((k) => !reached.has(k));
-  return { runs, tags: accumulatedTags, skipped };
+  return { runs, tags: accumulatedTags, skipped, ...stalledAt ? { stalledAt } : {} };
 }
 
 // ../shared/dist/approval.js
@@ -36503,6 +36527,10 @@ function flagCreationWriter() {
   }
   return new LdResourceWriter(new LdClient(appConnection()));
 }
+function describeStall(stall) {
+  const edges = stall.unmet.map((u) => `edge \u2192 ${u.target} requires ${Object.entries(u.requireMissing).map(([k, v]) => `${k}=${v}`).join(", ")} (never produced)`).join("; ");
+  return `chain stalled at '${stall.node}'; ${edges}. Downstream agents did not run.`;
+}
 function buildVariables(ctx) {
   return {
     PR_NUMBER: ctx.PR_NUMBER ?? "",
@@ -36564,6 +36592,8 @@ async function main() {
   console.log("\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 walk summary \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
   console.log(`Ran ${walk2.runs.length} node(s): ${walk2.runs.map((r) => r.configKey).join(" \u2192 ")}`);
   if (walk2.skipped.length) console.log(`Skipped: ${walk2.skipped.join(", ")}`);
+  const stallText = walk2.stalledAt ? describeStall(walk2.stalledAt) : "";
+  if (stallText) console.log(`::warning::AutoFactory: ${stallText}`);
   const { reviewApproved, risk, skipFlagging } = interpretWalk(walk2.tags);
   const mode = getApprovalMode();
   const decision = decideApproval(mode, reviewApproved, risk, skipFlagging);
@@ -36582,6 +36612,7 @@ async function main() {
     "",
     `**Agents:** ${walk2.runs.map((r) => r.configKey).join(" \u2192 ") || "(none ran)"}`,
     walk2.skipped.length ? `**Skipped:** ${walk2.skipped.join(", ")}` : "",
+    stallText ? `**\u26A0 Stalled:** ${stallText}` : "",
     "",
     `**Approval (${mode}):** ${decision.reason}`
   ].filter(Boolean).join("\n");
