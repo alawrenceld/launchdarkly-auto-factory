@@ -21,6 +21,8 @@ jobs:
       - run: npm ci
       - name: Public-leak guard
         run: npm run check:public
+      - name: Agent routing-contract guard
+        run: npm run check:configs
       - name: Typecheck
         run: npm run typecheck
       - name: Tests

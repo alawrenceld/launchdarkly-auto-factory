@@ -15,6 +15,7 @@
     "typecheck": "tsc --build --pretty && tsc -p tests --noEmit",
     "clean": "tsc --build --clean",
     "check:public": "node scripts/check-public.mjs",
+    "check:configs": "node scripts/check-configs.mjs",
     "test": "node --import tsx --test \"tests/*.test.ts\"",
     "bootstrap": "node bootstrap/create.mjs"
   },
