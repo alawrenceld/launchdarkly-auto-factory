@@ -33344,16 +33344,23 @@ function allNodeKeys(graphDef) {
   }
   return [...keys];
 }
-async function walkGraph(graphDef, runner, context, graphTracker, onEvent) {
+async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate) {
   const runs = [];
   const accumulatedTags = {};
   const ctx = { ...context };
+  const gatedSteps = new Set(gate?.steps ?? []);
   const visited = /* @__PURE__ */ new Set();
   let node = graphDef.rootNode();
   let inboundHandoff;
   let stalledAt;
+  let pendingApproval;
   while (node && !visited.has(node.getKey())) {
     const key = node.getKey();
+    if (gate && gatedSteps.has(key) && !await gate.resolve(key)) {
+      pendingApproval = { node: key };
+      onEvent?.({ type: "awaiting-approval", node: key });
+      break;
+    }
     visited.add(key);
     const cfg = node.getConfig();
     const maxTurns = handoffNumber(inboundHandoff, "max_turns");
@@ -33420,7 +33427,13 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent) {
   }
   const reached = new Set(runs.map((r) => r.configKey));
   const skipped = allNodeKeys(graphDef).filter((k) => !reached.has(k));
-  return { runs, tags: accumulatedTags, skipped, ...stalledAt ? { stalledAt } : {} };
+  return {
+    runs,
+    tags: accumulatedTags,
+    skipped,
+    ...stalledAt ? { stalledAt } : {},
+    ...pendingApproval ? { pendingApproval } : {}
+  };
 }
 
 // ../shared/dist/approval.js

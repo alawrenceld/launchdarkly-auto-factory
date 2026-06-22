@@ -132,3 +132,67 @@ describe("walkGraph", () => {
     assert.ok(events.includes("stalled"), `expected a stalled event, got: ${events.join(", ")}`);
   });
 });
+
+describe("walkGraph — approval gates", () => {
+  const fullScript = {
+    flag: { tags: { flag_created: "true" } },
+    review: { tags: { review_approved: "approve" } },
+  };
+
+  it("halts BEFORE a gated node when approval is not granted", async () => {
+    const r = await walkGraph(buildGraph(), new FakeRunner(fullScript), { PR_NUMBER: "1" }, undefined, undefined, {
+      steps: ["flag"],
+      resolve: () => false, // not approved
+    });
+    // Only research ran; the gated flag node and everything after did not.
+    assert.deepEqual(
+      r.runs.map((x) => x.configKey),
+      ["research"],
+    );
+    assert.deepEqual(r.pendingApproval, { node: "flag" });
+    assert.ok(r.skipped.includes("flag"));
+  });
+
+  it("runs the gated node (and continues) once approval is granted", async () => {
+    const r = await walkGraph(buildGraph(), new FakeRunner(fullScript), { PR_NUMBER: "1" }, undefined, undefined, {
+      steps: ["flag"],
+      resolve: () => true, // approved
+    });
+    assert.deepEqual(
+      r.runs.map((x) => x.configKey),
+      ["research", "flag", "test", "review"],
+    );
+    assert.equal(r.pendingApproval, undefined);
+  });
+
+  it("only consults the gate for gated nodes, and supports async resolve", async () => {
+    const asked: string[] = [];
+    const r = await walkGraph(buildGraph(), new FakeRunner(fullScript), { PR_NUMBER: "1" }, undefined, undefined, {
+      steps: ["test"],
+      resolve: async (node) => {
+        asked.push(node);
+        return true;
+      },
+    });
+    assert.deepEqual(asked, ["test"]); // never asked about research/flag/review
+    assert.deepEqual(
+      r.runs.map((x) => x.configKey),
+      ["research", "flag", "test", "review"],
+    );
+  });
+
+  it("emits an 'awaiting-approval' event when it halts", async () => {
+    const events: string[] = [];
+    await walkGraph(buildGraph(), new FakeRunner(fullScript), { PR_NUMBER: "1" }, undefined, (e) => events.push(e.type), {
+      steps: ["flag"],
+      resolve: () => false,
+    });
+    assert.ok(events.includes("awaiting-approval"), `got: ${events.join(", ")}`);
+  });
+
+  it("no gate config → unchanged behavior (full chain)", async () => {
+    const r = await run(fullScript);
+    assert.equal(r.pendingApproval, undefined);
+    assert.equal(r.runs.length, 4);
+  });
+});

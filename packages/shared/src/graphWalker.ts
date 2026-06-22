@@ -65,6 +65,31 @@ export interface WalkResult {
    * instead of a misleading verdict.
    */
   stalledAt?: StallInfo;
+  /**
+   * Set when the walk halted BEFORE a gated node because approval wasn't
+   * granted (see GateController). The named node and everything downstream did
+   * not run. Distinct from a stall: the chain is paused awaiting a human, not
+   * broken. Undefined when no gate halted the walk.
+   */
+  pendingApproval?: { node: string };
+}
+
+/**
+ * Controls per-step approval gates. `steps` are the agent node keys that
+ * require approval before they run (from the `auto-factory-approval-gates`
+ * flag). Before running a gated node the walker calls `resolve(nodeKey)`:
+ *  - true  → approved; run the node and continue.
+ *  - false → not approved; HALT before the node (WalkResult.pendingApproval).
+ *
+ * `resolve` may be async. Each front end answers it differently: the GitHub
+ * Action returns a non-blocking PR-label lookup (false → the run ends and a
+ * later re-run, after the label is added, proceeds); the Cursor extension
+ * shows an interactive prompt that blocks in-process until the human responds.
+ * Independent of the post-walk APPROVAL_MODE.
+ */
+export interface GateController {
+  steps: string[];
+  resolve(nodeKey: string): boolean | Promise<boolean>;
 }
 
 /**
@@ -75,7 +100,8 @@ export interface WalkResult {
 export type WalkEvent =
   | { type: "node-start"; configKey: string; index: number }
   | { type: "node-complete"; configKey: string; index: number; run: NodeRun }
-  | { type: "stalled"; stall: StallInfo };
+  | { type: "stalled"; stall: StallInfo }
+  | { type: "awaiting-approval"; node: string };
 
 /** All key/value pairs in `cond` are present and equal in `tags`. */
 function tagsMatch(tags: Record<string, string>, cond: Record<string, string>): boolean {
@@ -144,19 +170,32 @@ export async function walkGraph(
   context: Record<string, unknown>,
   graphTracker?: LDGraphTracker,
   onEvent?: (event: WalkEvent) => void,
+  gate?: GateController,
 ): Promise<WalkResult> {
   const runs: NodeRun[] = [];
   const accumulatedTags: Record<string, string> = {};
   const ctx: Record<string, unknown> = { ...context };
+  const gatedSteps = new Set(gate?.steps ?? []);
   const visited = new Set<string>();
 
   let node: AgentGraphNode | null = graphDef.rootNode();
   // Handoff of the edge we traversed INTO the current node (root has none).
   let inboundHandoff: Record<string, unknown> | undefined;
   let stalledAt: StallInfo | undefined;
+  let pendingApproval: { node: string } | undefined;
 
   while (node && !visited.has(node.getKey())) {
     const key = node.getKey();
+
+    // Approval gate: before running a gated node, ask the front end. If it
+    // isn't approved, halt BEFORE the node runs (so its side effects — flag
+    // creation, commits — don't happen) and report what's pending.
+    if (gate && gatedSteps.has(key) && !(await gate.resolve(key))) {
+      pendingApproval = { node: key };
+      onEvent?.({ type: "awaiting-approval", node: key });
+      break;
+    }
+
     visited.add(key);
 
     const cfg = node.getConfig();
@@ -229,5 +268,11 @@ export async function walkGraph(
   const reached = new Set(runs.map((r) => r.configKey));
   const skipped = allNodeKeys(graphDef).filter((k) => !reached.has(k));
 
-  return { runs, tags: accumulatedTags, skipped, ...(stalledAt ? { stalledAt } : {}) };
+  return {
+    runs,
+    tags: accumulatedTags,
+    skipped,
+    ...(stalledAt ? { stalledAt } : {}),
+    ...(pendingApproval ? { pendingApproval } : {}),
+  };
 }

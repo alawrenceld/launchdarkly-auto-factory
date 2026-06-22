@@ -10,6 +10,7 @@ export * from "./releaseAdapter.js";
 // reporter; the walk + approval logic lives here.
 export * from "./graphWalker.js";
 export * from "./approval.js";
+export * from "./approvalGates.js";
 export * from "./vegaClient.js";
 export * from "./vegaTransport.js";
 export * from "./ldSdk.js";
