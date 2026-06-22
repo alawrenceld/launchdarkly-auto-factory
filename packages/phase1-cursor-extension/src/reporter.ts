@@ -27,6 +27,8 @@ export interface RunResult {
   decision: ApprovalDecision;
   mode: string;
   provider: string;
+  /** Set when the run stopped at an approval gate (the user declined to proceed). */
+  pendingApproval?: { node: string };
 }
 
 export interface RunReporter {

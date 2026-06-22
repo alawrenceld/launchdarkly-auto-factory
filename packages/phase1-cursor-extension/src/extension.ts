@@ -155,6 +155,15 @@ async function runOnce(context: vscode.ExtensionContext, reason: string): Promis
           flagCreation: cfg.flagCreation,
           codeChanges: cfg.codeChanges,
           reporter,
+          // Approval gate → a modal that blocks the run until the human decides.
+          confirmGate: async (nodeKey) => {
+            const choice = await vscode.window.showInformationMessage(
+              `LaunchDarkly AutoFactory: approve running "${nodeTitle(nodeKey)}"?`,
+              { modal: true, detail: "This step is gated by auto-factory-approval-gates. Approve to run it (and continue), or stop the chain before it." },
+              "Approve",
+            );
+            return choice === "Approve";
+          },
         });
         const links = buildCreatedLinks(cfg.appProjectKey, result.tags);
         panel.done(result, links);
@@ -166,15 +175,17 @@ async function runOnce(context: vscode.ExtensionContext, reason: string): Promis
         if (links.flag) output.appendLine(`Flag → ${links.flag.url}`);
         for (const m of links.metrics) output.appendLine(`Metric ${m.key} → ${m.url}`);
 
-        const verb = result.decision.requiresHuman
-          ? "⏸ review required"
-          : result.decision.apply
-            ? "✓ approved"
-            : result.decision.noop
-              ? "• no flag needed"
-              : result.decision.incomplete
-                ? "⚠ incomplete"
-                : "✗ rejected";
+        const verb = result.pendingApproval
+          ? `⏸ stopped before ${nodeTitle(result.pendingApproval.node)} (approval declined)`
+          : result.decision.requiresHuman
+            ? "⏸ review required"
+            : result.decision.apply
+              ? "✓ approved"
+              : result.decision.noop
+                ? "• no flag needed"
+                : result.decision.incomplete
+                  ? "⚠ incomplete"
+                  : "✗ rejected";
         const detail = links.flag ? ` — flag ${links.flag.key}` : "";
         const buttons = links.flag ? ["Open Flag in LaunchDarkly", "Show Output"] : ["Show Output"];
         const choice = await vscode.window.showInformationMessage(

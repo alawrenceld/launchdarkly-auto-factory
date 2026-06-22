@@ -77,17 +77,22 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
     for (const n of NODE_SEQUENCE) {
       if (!ran.has(n.key)) this.send({ type: "node", configKey: n.key, status: "skipped" as NodeStatus });
     }
-    const verdict = result.tags.review_approved
-      ? `${result.tags.review_approved} (risk: ${result.tags.risk_level ?? "?"})`
-      : "no verdict";
+    const verdict = result.pendingApproval
+      ? `stopped before ${result.pendingApproval.node}`
+      : result.tags.review_approved
+        ? `${result.tags.review_approved} (risk: ${result.tags.risk_level ?? "?"})`
+        : "no verdict";
     this.send({
       type: "done",
       verdict,
-      reason: result.decision.reason,
+      reason: result.pendingApproval
+        ? "approval gate — the gated step was not run (approval declined)"
+        : result.decision.reason,
       apply: result.decision.apply,
       requiresHuman: result.decision.requiresHuman,
       noop: result.decision.noop,
       incomplete: result.decision.incomplete,
+      pending: !!result.pendingApproval,
       flag: links.flag ?? null,
       metrics: links.metrics,
     });
@@ -182,7 +187,7 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
       runBtn.disabled = false;
       $("sub").textContent = "Done.";
       const s = $("summary"); s.classList.add("show");
-      const icon = m.requiresHuman ? "⏸" : (m.apply ? "✓" : (m.noop ? "•" : (m.incomplete ? "⚠" : "✗")));
+      const icon = (m.pending || m.requiresHuman) ? "⏸" : (m.apply ? "✓" : (m.noop ? "•" : (m.incomplete ? "⚠" : "✗")));
       const link = (r) => '<a class="ldlink" data-url="' + r.url + '" href="#" title="Open in LaunchDarkly">' + r.key + '</a>';
       let html = '<div class="verdict">' + icon + ' Review: ' + m.verdict + '</div>';
       html += '<div>' + m.reason + '</div>';

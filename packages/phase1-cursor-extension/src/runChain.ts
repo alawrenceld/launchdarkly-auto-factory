@@ -13,6 +13,7 @@
 
 import {
   AnthropicAgentRunner,
+  type GateController,
   LdClient,
   LdResourceWriter,
   appConnection,
@@ -22,6 +23,7 @@ import {
   interpretWalk,
   pipelineContext,
   resolveAiProvider,
+  resolveApprovalGates,
   walkGraph,
 } from "@auto-factory/shared";
 import type { CursorContext } from "./cursorContext.js";
@@ -36,6 +38,13 @@ export interface RunOptions {
   flagCreation: boolean;
   codeChanges: boolean;
   reporter: RunReporter;
+  /**
+   * Interactive approval for a gated step (from auto-factory-approval-gates).
+   * Blocks in-process until the human responds: true → run the step and
+   * continue; false → stop before it. Omitted → gated steps are declined
+   * (safe default). Injected by the extension (which owns the vscode modal).
+   */
+  confirmGate?: (nodeKey: string) => Promise<boolean>;
 }
 
 /** A writer for real flag/metric creation in the app project, or undefined. */
@@ -81,16 +90,33 @@ export async function runPhase1(opts: RunOptions): Promise<RunResult> {
     ...(process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}),
   });
 
-  const walk = await walkGraph(graphDef, runner, opts.context, graphTracker, (event) => {
-    if (event.type === "node-start") reporter.nodeStart(event.configKey);
-    else if (event.type === "node-complete") reporter.nodeComplete(event.run);
-    else if (event.type === "stalled") {
-      const u = event.stall.unmet
-        .map((e) => `→ ${e.target} needs ${Object.entries(e.requireMissing).map(([k, v]) => `${k}=${v}`).join(", ")}`)
-        .join("; ");
-      reporter.log(`⚠ chain stalled at ${event.stall.node}: unmet handoff ${u}`);
-    }
-  });
+  // Per-step approval gates: gated agent node keys come from the
+  // auto-factory-approval-gates flag; the extension answers each gate with an
+  // interactive modal (opts.confirmGate). No gates → unchanged behavior.
+  const gatedSteps = await resolveApprovalGates(ldClient, ldContext);
+  const gate: GateController | undefined = gatedSteps.length
+    ? { steps: gatedSteps, resolve: (node) => opts.confirmGate?.(node) ?? false }
+    : undefined;
+
+  const walk = await walkGraph(
+    graphDef,
+    runner,
+    opts.context,
+    graphTracker,
+    (event) => {
+      if (event.type === "node-start") reporter.nodeStart(event.configKey);
+      else if (event.type === "node-complete") reporter.nodeComplete(event.run);
+      else if (event.type === "stalled") {
+        const u = event.stall.unmet
+          .map((e) => `→ ${e.target} needs ${Object.entries(e.requireMissing).map(([k, v]) => `${k}=${v}`).join(", ")}`)
+          .join("; ");
+        reporter.log(`⚠ chain stalled at ${event.stall.node}: unmet handoff ${u}`);
+      } else if (event.type === "awaiting-approval") {
+        reporter.log(`⏸ approval gate: stopped before ${event.node}`);
+      }
+    },
+    gate,
+  );
 
   const verdict = interpretWalk(walk.tags);
   const mode = getApprovalMode();
@@ -101,6 +127,7 @@ export async function runPhase1(opts: RunOptions): Promise<RunResult> {
     skipped: walk.skipped,
     tags: walk.tags,
     decision,
+    ...(walk.pendingApproval ? { pendingApproval: walk.pendingApproval } : {}),
     mode,
     provider,
   };
