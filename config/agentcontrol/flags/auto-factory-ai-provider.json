@@ -1,0 +1,13 @@
+{
+  "key": "auto-factory-ai-provider",
+  "name": "AutoFactory AI provider",
+  "description": "Selects the Phase 1 agent execution backend. Read natively by the runtime; defaults to 'anthropic' when this flag is absent. Provisioned off (serves 'anthropic'); flip on to serve 'vega'.",
+  "kind": "multivariate",
+  "temporary": false,
+  "tags": ["auto-factory"],
+  "variations": [
+    { "value": "anthropic", "name": "Anthropic" },
+    { "value": "vega", "name": "Vega" }
+  ],
+  "defaults": { "onVariation": 1, "offVariation": 0 }
+}

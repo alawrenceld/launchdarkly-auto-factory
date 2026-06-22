@@ -37,6 +37,20 @@ Status legend: ✅ done · 🔜 planned/in progress
 - Code: `packages/shared/src/approvalGates.ts` + a `GateController` hook in the
   walker; `packages/phase1-resource-factory/src/labels.ts` for the GHA labels.
 
+### ✅ Operational flags now bootstrap-provisioned (off by default)
+- **Change:** the two operational flags (`auto-factory-ai-provider`,
+  `auto-factory-approval-gates`) now have committed definitions under
+  `config/agentcontrol/flags/`, and `config-bridge provision`/`seed` (hence
+  `npm run bootstrap`) create them in the factory project alongside the AI
+  configs + graph. Previously only AI configs + graphs were provisioned, so a
+  fresh consumer project had no operational flags until created by hand.
+- **Safe by default:** each is provisioned **off** — provider serves `anthropic`,
+  gates serve `[]` (no gates) — so behavior is unchanged until a maintainer flips
+  it. Provisioning is idempotent and 404-tolerant: an existing flag (and its
+  targeting) is never overwritten.
+- Code: `packages/config-bridge/src/provision.ts` (`provisionFlag`, `flagsDir`),
+  `config/agentcontrol/flags/*.json`.
+
 ## 2026-06-22
 
 ### ✅ Tag registry as source of truth (issue #9 item #5)

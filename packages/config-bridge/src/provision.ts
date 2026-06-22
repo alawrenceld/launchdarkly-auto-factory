@@ -29,6 +29,8 @@ export interface ProvisionResult {
   failures: Array<{ resource: string; status: number; message: unknown }>;
   graphsCreated: string[];
   graphsExisting: string[];
+  flagsCreated: string[];
+  flagsExisting: string[];
 }
 
 interface AiVariation {
@@ -51,6 +53,15 @@ interface AgentGraphFile {
   description?: string;
   rootConfigKey?: string;
   edges?: Array<{ key: string; sourceConfig: string; targetConfig: string; handoff?: unknown }>;
+}
+/** A flag-creation body (the operational flags the runtime reads, e.g. the
+ *  provider selector and the approval gates). Provisioned off/default so the
+ *  flag exists and is discoverable in the consumer's LD UI without changing
+ *  behavior until they flip it. */
+interface FlagFile {
+  key: string;
+  name: string;
+  [k: string]: unknown;
 }
 
 function listJson(dir: string): string[] {
@@ -156,11 +167,35 @@ async function provisionGraph(
   }
 }
 
+/** Create an operational flag if absent (idempotent; existing flag left untouched). */
+async function provisionFlag(ld: LdClient, flag: FlagFile, result: ProvisionResult, dryRun: boolean): Promise<void> {
+  // 404-tolerant existence check, so an already-configured flag (and its
+  // targeting) is never overwritten.
+  const existing = await ld.request({ path: `/api/v2/flags/${ld.projectKey}/${flag.key}`, okStatuses: [404] });
+  if (existing.status === 200) {
+    result.flagsExisting.push(flag.key);
+    return;
+  }
+  try {
+    if (!dryRun) await ld.createFlag(flag);
+    result.flagsCreated.push(flag.key);
+  } catch (e) {
+    const err = e as LdApiError;
+    result.failures.push({ resource: `flag ${flag.key}`, status: err.status ?? 0, message: err.responseBody ?? String(e) });
+  }
+}
+
 export interface ProvisionOptions {
   /** Directory of AI-config JSON files. */
   aiConfigsDir: string;
   /** Directory of agent-graph JSON files. */
   graphsDir: string;
+  /**
+   * Directory of operational-flag JSON files. Default
+   * `config/agentcontrol/flags`. These are repo-owned operational defaults (NOT
+   * pulled from a source project), so the seed path provisions them too.
+   */
+  flagsDir?: string;
   /** When true, perform reads only — report what would be created without writing. */
   dryRun?: boolean;
 }
@@ -168,7 +203,7 @@ export interface ProvisionOptions {
 export async function provision(ld: LdClient, opts: ProvisionOptions): Promise<ProvisionResult> {
   const result: ProvisionResult = {
     configsCreated: [], configsExisting: [], variationsCreated: 0, variationsExisting: 0,
-    toolsStripped: [], failures: [], graphsCreated: [], graphsExisting: [],
+    toolsStripped: [], failures: [], graphsCreated: [], graphsExisting: [], flagsCreated: [], flagsExisting: [],
   };
   const dryRun = opts.dryRun ?? false;
 
@@ -180,6 +215,12 @@ export async function provision(ld: LdClient, opts: ProvisionOptions): Promise<P
   for (const file of listJson(opts.graphsDir)) {
     const g = JSON.parse(readFileSync(file, "utf8")) as AgentGraphFile;
     await provisionGraph(ld, g, result, dryRun);
+  }
+  // Operational flags (provider selector, approval gates). Always from the
+  // repo's committed defs, so this runs for both `provision` and `seed`.
+  for (const file of listJson(opts.flagsDir ?? "config/agentcontrol/flags")) {
+    const flag = JSON.parse(readFileSync(file, "utf8")) as FlagFile;
+    await provisionFlag(ld, flag, result, dryRun);
   }
   return result;
 }

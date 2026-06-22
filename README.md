@@ -68,7 +68,7 @@ Setup for the GitHub Action is below; the extension and the automation each have
 - An Anthropic API key (the default agent execution backend)
 - A GitHub repository for your application
 
-### 1. Provision the agent configs and graph
+### 1. Provision the agent configs, graph, and operational flags
 
 ```bash
 git clone <this repo> && cd launchdarkly-auto-factory
@@ -77,12 +77,14 @@ cp .env.example .env    # fill in LD_SDK_KEY, LD_API_KEY, LD_PROJECT_KEY, LD_APP
 npm run bootstrap
 ```
 
-Bootstrap runs preflight checks, then creates the five agent AI configs and the
-`gha-auto-factory` agent graph in your factory project from the committed definitions in
-`config/agentcontrol/`. It is idempotent: existing configs are left alone. After
-provisioning, the agent instructions are editable in the LaunchDarkly UI; the pipeline reads
-them at run time, so instruction changes take effect on the next PR without redeploying
-anything.
+Bootstrap runs preflight checks, then creates, in your factory project from the committed
+definitions in `config/agentcontrol/`: the five agent AI configs, the `gha-auto-factory`
+agent graph, and the two operational flags (`auto-factory-ai-provider`,
+`auto-factory-approval-gates`) — the latter **off by default**, so they're visible and
+ready to toggle in your LD UI without changing behavior. It is idempotent: existing
+resources are left untouched (your targeting is never overwritten). After provisioning, the
+agent instructions are editable in the LaunchDarkly UI; the pipeline reads them at run time,
+so instruction changes take effect on the next PR without redeploying anything.
 
 ### 2. Add the workflow to your app repo
 
@@ -125,20 +127,20 @@ config changes) short-circuit after the first agent.
 | `graph_key` | `gha-auto-factory` | which agent graph to walk |
 
 The `auto-factory-ai-provider` flag (factory project, string variations `anthropic`/`vega`)
-selects the execution backend per run. It is optional: when the flag does not exist, the
-pipeline defaults to `anthropic`.
+selects the execution backend per run. Bootstrap provisions it **off** (serves `anthropic`);
+flip it on to serve `vega`. (If the flag is ever absent, the runtime defaults to `anthropic`.)
 
-### Per-step approval gates (optional)
+### Per-step approval gates
 
 `auto-factory-approval-gates` (factory project, a **JSON flag** holding an array of agent
-node keys, default `[]`) pauses the chain **before** each listed agent until a human approves
-— independent of `approval_mode`, which governs the finished chain. For example,
-`["autofactory-flag-implementer"]` requires approval after research and before any flag is
-created. In the **GitHub Action**, a gated run halts and comments which PR label to add
+node keys) pauses the chain **before** each listed agent until a human approves — independent
+of `approval_mode`, which governs the finished chain. Bootstrap provisions it **off** (serves
+`[]` = no gates, behavior unchanged); its on-variation serves `["autofactory-flag-implementer"]`
+(approve after research, before any flag is created), and you can edit the variation to gate
+other steps. In the **GitHub Action**, a gated run halts and comments which PR label to add
 (`af-approve:<nodeKey>`); adding it re-runs the chain past that gate (the workflow template
 listens for the `labeled` event, and approval persists across pushes). In the **Cursor
-extension**, a modal asks to approve or stop at each gate. With the default empty array,
-behavior is unchanged.
+extension**, a modal asks to approve or stop at each gate.
 
 ## Phase 2 setup (Beacon)
 

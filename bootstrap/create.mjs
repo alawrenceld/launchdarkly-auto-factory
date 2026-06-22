@@ -33,17 +33,20 @@ if (issues.length) {
   process.exit(1);
 }
 
-// 3. Get agent configs + graph into the target project.
+// 3. Get agent configs + graph + operational flags into the target project.
 //    - If LD_SOURCE_* is configured: SEED (pull the live graph + the configs it
 //      references from the source project, provision straight into the target).
 //    - Otherwise: provision from the committed local copies in config/agentcontrol/.
+//    Either way the operational flags (provider selector, approval gates) are
+//    created from config/agentcontrol/flags/ — off by default, so behavior is
+//    unchanged until a maintainer flips them.
 const hasSource =
   process.env.LD_SOURCE_API_KEY && process.env.LD_SOURCE_BASE_URL && process.env.LD_SOURCE_PROJECT_KEY;
 if (hasSource) {
-  console.log("\nLD_SOURCE_* configured: seeding agent configs + graph from the source project…");
+  console.log("\nLD_SOURCE_* configured: seeding agent configs + graph (+ operational flags) from the source project…");
   execSync("node packages/config-bridge/dist/cli.js seed", { stdio: "inherit" });
 } else {
-  console.log("\nProvisioning agent configs + graph from local config/agentcontrol/…");
+  console.log("\nProvisioning agent configs + graph + operational flags from local config/agentcontrol/…");
   console.log("  (Set LD_SOURCE_* in .env to pull the live configs+graph from the prototype project instead.)");
   execSync("node packages/config-bridge/dist/cli.js provision", { stdio: "inherit" });
 }
