@@ -36285,6 +36285,54 @@ var LdResourceWriter = class {
 
 // ../shared/dist/anthropic/anthropicAgentRunner.js
 init_sdk();
+
+// ../shared/dist/observability.js
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+var TRACER_NAME = "launchdarkly-auto-factory";
+var MAX_CONTENT = 8e3;
+function aiTracer() {
+  return trace.getTracer(TRACER_NAME);
+}
+function truncate(s) {
+  return s.length > MAX_CONTENT ? `${s.slice(0, MAX_CONTENT)}\u2026[truncated]` : s;
+}
+function setGenAiAttributes(span, d) {
+  try {
+    const attrs = {
+      "gen_ai.operation.name": "chat",
+      "gen_ai.system": d.provider,
+      "gen_ai.provider": d.provider,
+      "gen_ai.request.model": d.requestModel,
+      "gen_ai.model": d.requestModel
+    };
+    if (d.usage) {
+      attrs["gen_ai.usage.input_tokens"] = d.usage.input;
+      attrs["gen_ai.usage.output_tokens"] = d.usage.output;
+      attrs["gen_ai.usage.total_tokens"] = d.usage.total;
+      attrs["gen_ai.usage.prompt_tokens"] = d.usage.input;
+      attrs["gen_ai.usage.completion_tokens"] = d.usage.output;
+    }
+    if (d.prompt)
+      attrs["gen_ai.input"] = truncate(d.prompt);
+    if (d.output)
+      attrs["gen_ai.output"] = truncate(d.output);
+    const td = d.tracker?.getTrackData?.();
+    if (td) {
+      attrs["launchdarkly.ai.config.key"] = td.configKey;
+      attrs["launchdarkly.ai.config.variation"] = td.variationKey;
+      attrs["launchdarkly.ai.config.version"] = td.version;
+      attrs["launchdarkly.ai.config.model"] = td.modelName;
+      attrs["launchdarkly.ai.provider"] = td.providerName;
+      attrs["launchdarkly.ai.run.id"] = td.runId;
+      if (td.graphKey)
+        attrs["launchdarkly.ai.graph.key"] = td.graphKey;
+    }
+    span.setAttributes(attrs);
+  } catch {
+  }
+}
+
+// ../shared/dist/anthropic/anthropicAgentRunner.js
 var TAGGING_NOTE = `
 
 You MUST call \`tag_conversation\` with the routing tag(s) your instructions specify
@@ -36377,6 +36425,7 @@ var AnthropicAgentRunner = class {
     let inputTokens = 0;
     let outputTokens = 0;
     const started = Date.now();
+    const span = aiTracer().startSpan(`chat ${req.configKey}`, { kind: SpanKind.CLIENT });
     try {
       for (let turn = 0; turn < maxTurns; turn++) {
         const resp = await this.client.messages.create({
@@ -36436,11 +36485,23 @@ var AnthropicAgentRunner = class {
       status = "failed";
       finalText = e instanceof Error ? e.message : String(e);
       req.tracker?.trackError();
+      if (e instanceof Error)
+        span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
       if (inputTokens || outputTokens) {
         req.tracker?.trackTokens({ input: inputTokens, output: outputTokens, total: inputTokens + outputTokens });
       }
+      setGenAiAttributes(span, {
+        provider: "anthropic",
+        requestModel: model,
+        ...req.tracker ? { tracker: req.tracker } : {},
+        prompt: req.prompt,
+        output: finalText,
+        ...inputTokens || outputTokens ? { usage: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens } } : {}
+      });
+      span.setStatus({ code: status === "completed" ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+      span.end();
     }
     return {
       status,
@@ -36506,52 +36567,6 @@ function mapModelParameters(ldParams, modelDef) {
     params.push({ id: def.id, value });
   }
   return { params, dropped };
-}
-
-// ../shared/dist/observability.js
-import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-var TRACER_NAME = "launchdarkly-auto-factory";
-var MAX_CONTENT = 8e3;
-function aiTracer() {
-  return trace.getTracer(TRACER_NAME);
-}
-function truncate(s) {
-  return s.length > MAX_CONTENT ? `${s.slice(0, MAX_CONTENT)}\u2026[truncated]` : s;
-}
-function setGenAiAttributes(span, d) {
-  try {
-    const attrs = {
-      "gen_ai.operation.name": "chat",
-      "gen_ai.system": d.provider,
-      "gen_ai.provider": d.provider,
-      "gen_ai.request.model": d.requestModel,
-      "gen_ai.model": d.requestModel
-    };
-    if (d.usage) {
-      attrs["gen_ai.usage.input_tokens"] = d.usage.input;
-      attrs["gen_ai.usage.output_tokens"] = d.usage.output;
-      attrs["gen_ai.usage.total_tokens"] = d.usage.total;
-      attrs["gen_ai.usage.prompt_tokens"] = d.usage.input;
-      attrs["gen_ai.usage.completion_tokens"] = d.usage.output;
-    }
-    if (d.prompt)
-      attrs["gen_ai.input"] = truncate(d.prompt);
-    if (d.output)
-      attrs["gen_ai.output"] = truncate(d.output);
-    const td = d.tracker?.getTrackData?.();
-    if (td) {
-      attrs["launchdarkly.ai.config.key"] = td.configKey;
-      attrs["launchdarkly.ai.config.variation"] = td.variationKey;
-      attrs["launchdarkly.ai.config.version"] = td.version;
-      attrs["launchdarkly.ai.config.model"] = td.modelName;
-      attrs["launchdarkly.ai.provider"] = td.providerName;
-      attrs["launchdarkly.ai.run.id"] = td.runId;
-      if (td.graphKey)
-        attrs["launchdarkly.ai.graph.key"] = td.graphKey;
-    }
-    span.setAttributes(attrs);
-  } catch {
-  }
 }
 
 // ../shared/dist/cursor/cursorAgentRunner.js
