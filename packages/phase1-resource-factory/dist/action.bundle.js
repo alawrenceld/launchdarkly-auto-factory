@@ -7366,9 +7366,9 @@ var require_dist = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentStatusProviderImpl.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentStatusProviderImpl.js
 var require_BigSegmentStatusProviderImpl = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentStatusProviderImpl.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentStatusProviderImpl.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var BigSegmentStoreStatusProviderImpl = class {
@@ -10265,25 +10265,25 @@ var require_cjs = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsStateOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsStateOptions.js
 var require_LDFlagsStateOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsStateOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsStateOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsState.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsState.js
 var require_LDFlagsState = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsState.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDFlagsState.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationStage.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationStage.js
 var require_LDMigrationStage = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationStage.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationStage.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.IsMigrationStage = exports.LDMigrationStage = void 0;
@@ -10303,17 +10303,17 @@ var require_LDMigrationStage = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationOpEvent.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationOpEvent.js
 var require_LDMigrationOpEvent = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationOpEvent.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationOpEvent.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationVariation.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationVariation.js
 var require_LDMigrationVariation = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationVariation.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/LDMigrationVariation.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LDConsistencyCheck = void 0;
@@ -10326,9 +10326,9 @@ var require_LDMigrationVariation = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/index.js
 var require_data = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/data/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -10355,41 +10355,41 @@ var require_data = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDBigSegmentsOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDBigSegmentsOptions.js
 var require_LDBigSegmentsOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDBigSegmentsOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDBigSegmentsOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDOptions.js
 var require_LDOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDProxyOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDProxyOptions.js
 var require_LDProxyOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDProxyOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDProxyOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDTLSOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDTLSOptions.js
 var require_LDTLSOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDTLSOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDTLSOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDMigrationOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDMigrationOptions.js
 var require_LDMigrationOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDMigrationOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDMigrationOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LDConcurrentExecution = exports.LDSerialExecution = exports.LDExecution = exports.LDExecutionOrdering = void 0;
@@ -10419,9 +10419,9 @@ var require_LDMigrationOptions = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDDataSystemOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDDataSystemOptions.js
 var require_LDDataSystemOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDDataSystemOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/LDDataSystemOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.isCustomOptions = exports.isPollingOnlyOptions = exports.isStreamingOnlyOptions = exports.isStandardOptions = void 0;
@@ -10444,9 +10444,9 @@ var require_LDDataSystemOptions = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/index.js
 var require_options = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/options/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -10474,73 +10474,73 @@ var require_options = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDClient.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDClient.js
 var require_LDClient = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDClient.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDClient.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDMigration.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDMigration.js
 var require_LDMigration = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDMigration.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDMigration.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataKind.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataKind.js
 var require_DataKind = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataKind.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataKind.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureStore.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureStore.js
 var require_LDFeatureStore = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureStore.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureStore.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalFeatureStore.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalFeatureStore.js
 var require_LDTransactionalFeatureStore = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalFeatureStore.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalFeatureStore.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDWaitForInitializationOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDWaitForInitializationOptions.js
 var require_LDWaitForInitializationOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDWaitForInitializationOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/LDWaitForInitializationOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/FileDataSourceOptions.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/FileDataSourceOptions.js
 var require_FileDataSourceOptions = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/FileDataSourceOptions.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/FileDataSourceOptions.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/Hook.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/Hook.js
 var require_Hook = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/Hook.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/Hook.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/index.js
 var require_integrations = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/integrations/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -10564,89 +10564,89 @@ var require_integrations = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStore.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStore.js
 var require_BigSegmentStore = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStore.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStore.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMembership.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMembership.js
 var require_BigSegmentStoreMembership = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMembership.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMembership.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMetadata.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMetadata.js
 var require_BigSegmentStoreMetadata = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMetadata.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreMetadata.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatus.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatus.js
 var require_BigSegmentStoreStatus = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatus.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatus.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataCollection.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataCollection.js
 var require_DataCollection = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataCollection.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/DataCollection.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/FullDataSet.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/FullDataSet.js
 var require_FullDataSet = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/FullDataSet.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/FullDataSet.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/KeyedItems.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/KeyedItems.js
 var require_KeyedItems = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/KeyedItems.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/KeyedItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/VersionedData.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/VersionedData.js
 var require_VersionedData = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/VersionedData.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/VersionedData.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatusProvider.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatusProvider.js
 var require_BigSegmentStoreStatusProvider = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatusProvider.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/BigSegmentStoreStatusProvider.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/persistent_store/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/persistent_store/index.js
 var require_persistent_store = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/persistent_store/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/persistent_store/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/index.js
 var require_interfaces = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/interfaces/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -10679,33 +10679,33 @@ var require_interfaces = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDDataSourceUpdates.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDDataSourceUpdates.js
 var require_LDDataSourceUpdates = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDDataSourceUpdates.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDDataSourceUpdates.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureRequestor.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureRequestor.js
 var require_LDFeatureRequestor = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureRequestor.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDFeatureRequestor.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalDataSourceUpdates.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalDataSourceUpdates.js
 var require_LDTransactionalDataSourceUpdates = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalDataSourceUpdates.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/LDTransactionalDataSourceUpdates.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/index.js
 var require_subsystems = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/subsystems/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -10732,9 +10732,9 @@ var require_subsystems = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/index.js
 var require_api = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/api/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/api/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -10768,9 +10768,9 @@ var require_api = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/cache/LruCache.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/cache/LruCache.js
 var require_LruCache = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/cache/LruCache.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/cache/LruCache.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var LruCache = class {
@@ -10875,9 +10875,9 @@ var require_LruCache = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentsManager.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentsManager.js
 var require_BigSegmentsManager = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentsManager.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/BigSegmentsManager.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -10981,9 +10981,9 @@ var require_BigSegmentsManager = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/createPluginEnvironmentMetadata.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/createPluginEnvironmentMetadata.js
 var require_createPluginEnvironmentMetadata = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/createPluginEnvironmentMetadata.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/createPluginEnvironmentMetadata.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.createPluginEnvironmentMetadata = void 0;
@@ -11010,9 +11010,9 @@ var require_createPluginEnvironmentMetadata = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createPayloadListenerFDv2.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createPayloadListenerFDv2.js
 var require_createPayloadListenerFDv2 = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createPayloadListenerFDv2.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createPayloadListenerFDv2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.createPayloadListener = void 0;
@@ -11063,9 +11063,9 @@ var require_createPayloadListenerFDv2 = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/VersionedDataKinds.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/VersionedDataKinds.js
 var require_VersionedDataKinds = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/VersionedDataKinds.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/VersionedDataKinds.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var VersionedDataKinds = class {
@@ -11085,9 +11085,9 @@ var require_VersionedDataKinds = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/serialization.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/serialization.js
 var require_serialization = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/serialization.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/serialization.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.deserializeSegment = exports.serializeSegment = exports.deserializeFlag = exports.serializeFlag = exports.deserializeDelete = exports.deserializePatch = exports.deserializePoll = exports.deserializeAll = exports.reviveFullPayload = exports.processSegment = exports.processFlag = exports.replacer = exports.nullReplacer = void 0;
@@ -11320,9 +11320,9 @@ var require_serialization = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createStreamListeners.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createStreamListeners.js
 var require_createStreamListeners = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createStreamListeners.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/createStreamListeners.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.createStreamListeners = exports.createDeleteListener = exports.createPatchListener = exports.createPutListener = void 0;
@@ -11386,9 +11386,9 @@ var require_createStreamListeners = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/NamespacedDataSet.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/NamespacedDataSet.js
 var require_NamespacedDataSet = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/NamespacedDataSet.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/NamespacedDataSet.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var NamespacedDataSet = class {
@@ -11429,9 +11429,9 @@ var require_NamespacedDataSet = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DependencyTracker.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DependencyTracker.js
 var require_DependencyTracker = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DependencyTracker.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DependencyTracker.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var NamespacedDataSet_1 = require_NamespacedDataSet();
@@ -11474,9 +11474,9 @@ var require_DependencyTracker = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DataSourceUpdates.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DataSourceUpdates.js
 var require_DataSourceUpdates = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DataSourceUpdates.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/DataSourceUpdates.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.computeDependencies = void 0;
@@ -11599,9 +11599,9 @@ var require_DataSourceUpdates = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileLoader.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileLoader.js
 var require_FileLoader = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileLoader.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileLoader.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var FileLoader = class {
@@ -11664,9 +11664,9 @@ var require_FileLoader = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/fileDataInitilizerFDv2.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/fileDataInitilizerFDv2.js
 var require_fileDataInitilizerFDv2 = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/fileDataInitilizerFDv2.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/fileDataInitilizerFDv2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -11764,9 +11764,9 @@ var require_fileDataInitilizerFDv2 = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/OneShotInitializerFDv2.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/OneShotInitializerFDv2.js
 var require_OneShotInitializerFDv2 = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/OneShotInitializerFDv2.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/OneShotInitializerFDv2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -11865,9 +11865,9 @@ var require_OneShotInitializerFDv2 = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/async/promisify.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/async/promisify.js
 var require_promisify = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/async/promisify.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/async/promisify.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function promisify2(method) {
@@ -11881,9 +11881,9 @@ var require_promisify = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncStoreFacade.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncStoreFacade.js
 var require_AsyncStoreFacade = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncStoreFacade.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncStoreFacade.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var promisify_1 = require_promisify();
@@ -11933,9 +11933,9 @@ var require_AsyncStoreFacade = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncTransactionalStoreFacade.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncTransactionalStoreFacade.js
 var require_AsyncTransactionalStoreFacade = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncTransactionalStoreFacade.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/AsyncTransactionalStoreFacade.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var promisify_1 = require_promisify();
@@ -11990,9 +11990,9 @@ var require_AsyncTransactionalStoreFacade = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/cache/TtlCache.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/cache/TtlCache.js
 var require_TtlCache = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/cache/TtlCache.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/cache/TtlCache.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function isStale(record) {
@@ -12076,9 +12076,9 @@ var require_TtlCache = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/persistentStoreKinds.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/persistentStoreKinds.js
 var require_persistentStoreKinds = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/persistentStoreKinds.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/persistentStoreKinds.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.persistentStoreKinds = void 0;
@@ -12133,9 +12133,9 @@ var require_persistentStoreKinds = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/sortDataSet.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/sortDataSet.js
 var require_sortDataSet = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/sortDataSet.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/sortDataSet.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var persistentStoreKinds_1 = require_persistentStoreKinds();
@@ -12183,9 +12183,9 @@ var require_sortDataSet = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/UpdateQueue.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/UpdateQueue.js
 var require_UpdateQueue = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/UpdateQueue.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/UpdateQueue.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var UpdateQueue = class {
@@ -12216,9 +12216,9 @@ var require_UpdateQueue = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/PersistentDataStoreWrapper.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/PersistentDataStoreWrapper.js
 var require_PersistentDataStoreWrapper = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/PersistentDataStoreWrapper.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/PersistentDataStoreWrapper.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var TtlCache_1 = require_TtlCache();
@@ -12404,9 +12404,9 @@ var require_PersistentDataStoreWrapper = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/InMemoryFeatureStore.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/InMemoryFeatureStore.js
 var require_InMemoryFeatureStore = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/InMemoryFeatureStore.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/InMemoryFeatureStore.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var InMemoryFeatureStore = class {
@@ -12507,9 +12507,9 @@ var require_InMemoryFeatureStore = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/TransactionalFeatureStore.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/TransactionalFeatureStore.js
 var require_TransactionalFeatureStore = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/TransactionalFeatureStore.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/TransactionalFeatureStore.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var InMemoryFeatureStore_1 = require_InMemoryFeatureStore();
@@ -12576,9 +12576,9 @@ var require_TransactionalFeatureStore = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/index.js
 var require_store = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/store/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/store/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.reviveFullPayload = exports.deserializePoll = exports.TransactionalFeatureStore = exports.PersistentDataStoreWrapper = exports.AsyncTransactionalStoreFacade = exports.AsyncStoreFacade = void 0;
@@ -12600,9 +12600,9 @@ var require_store = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessor.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessor.js
 var require_PollingProcessor = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessor.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessor.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -12688,9 +12688,9 @@ var require_PollingProcessor = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessorFDv2.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessorFDv2.js
 var require_PollingProcessorFDv2 = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessorFDv2.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/PollingProcessorFDv2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -12847,9 +12847,9 @@ var require_PollingProcessorFDv2 = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/Requestor.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/Requestor.js
 var require_Requestor = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/Requestor.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/Requestor.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -12861,6 +12861,7 @@ var require_Requestor = __commonJS({
         this._eTagCache = {};
         this._headers = Object.assign({}, baseHeaders);
         this._serviceEndpoints = serviceEndpointsOverride !== null && serviceEndpointsOverride !== void 0 ? serviceEndpointsOverride : config.serviceEndpoints;
+        this._timeoutMs = config.timeout * 1e3;
       }
       /**
        * Perform a request and utilize the ETag cache. The ETags are cached in the
@@ -12885,7 +12886,8 @@ var require_Requestor = __commonJS({
         var _a2, _b;
         const options = {
           method: "GET",
-          headers: this._headers
+          headers: this._headers,
+          timeout: this._timeoutMs
         };
         const uri = (0, js_sdk_common_1.getPollingUri)(this._serviceEndpoints, this._path, queryParams);
         (_a2 = this._logger) === null || _a2 === void 0 ? void 0 : _a2.debug(`Requestor making request to uri: ${uri}`);
@@ -12908,9 +12910,9 @@ var require_Requestor = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessor.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessor.js
 var require_StreamingProcessor = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessor.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessor.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -13021,9 +13023,9 @@ var require_StreamingProcessor = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessorFDv2.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessorFDv2.js
 var require_StreamingProcessorFDv2 = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessorFDv2.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/StreamingProcessorFDv2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -13166,9 +13168,9 @@ var require_StreamingProcessorFDv2 = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/TransactionalDataSourceUpdates.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/TransactionalDataSourceUpdates.js
 var require_TransactionalDataSourceUpdates = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/TransactionalDataSourceUpdates.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/TransactionalDataSourceUpdates.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var VersionedDataKinds_1 = require_VersionedDataKinds();
@@ -13263,9 +13265,9 @@ var require_TransactionalDataSourceUpdates = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/options/Configuration.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/options/Configuration.js
 var require_Configuration = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/options/Configuration.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/options/Configuration.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.defaultValues = exports.DEFAULT_STREAM_RECONNECT_DELAY = exports.DEFAULT_POLL_INTERVAL = void 0;
@@ -13276,7 +13278,7 @@ var require_Configuration = __commonJS({
       baseUri: js_sdk_common_1.TypeValidators.String,
       streamUri: js_sdk_common_1.TypeValidators.String,
       eventsUri: js_sdk_common_1.TypeValidators.String,
-      timeout: js_sdk_common_1.TypeValidators.Number,
+      timeout: js_sdk_common_1.TypeValidators.numberWithMin(1),
       capacity: js_sdk_common_1.TypeValidators.Number,
       logger: js_sdk_common_1.TypeValidators.Object,
       featureStore: js_sdk_common_1.TypeValidators.ObjectOrFactory,
@@ -13331,7 +13333,7 @@ var require_Configuration = __commonJS({
       stream: true,
       streamInitialReconnectDelay: exports.DEFAULT_STREAM_RECONNECT_DELAY,
       sendEvents: true,
-      timeout: 5,
+      timeout: 10,
       capacity: 1e4,
       flushInterval: 5,
       pollInterval: exports.DEFAULT_POLL_INTERVAL,
@@ -13543,9 +13545,9 @@ var require_Configuration = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/diagnostics/createDiagnosticsInitConfig.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/diagnostics/createDiagnosticsInitConfig.js
 var require_createDiagnosticsInitConfig = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/diagnostics/createDiagnosticsInitConfig.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/diagnostics/createDiagnosticsInitConfig.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -13591,9 +13593,9 @@ var require_createDiagnosticsInitConfig = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/collection.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/collection.js
 var require_collection = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/collection.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/collection.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.allAsync = exports.firstSeriesAsync = exports.allSeriesAsync = exports.firstResult = void 0;
@@ -13658,9 +13660,9 @@ var require_collection = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Reasons.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Reasons.js
 var require_Reasons = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Reasons.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Reasons.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Reasons = class {
@@ -13678,9 +13680,9 @@ var require_Reasons = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/EvalResult.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/EvalResult.js
 var require_EvalResult = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/EvalResult.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/EvalResult.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Reasons_1 = require_Reasons();
@@ -13718,9 +13720,9 @@ var require_EvalResult = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Bucketer.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Bucketer.js
 var require_Bucketer = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Bucketer.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Bucketer.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function valueForBucketing(value) {
@@ -13775,9 +13777,9 @@ var require_Bucketer = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/variations.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/variations.js
 var require_variations = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/variations.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/variations.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getBucketBy = exports.getOffVariation = exports.getVariation = void 0;
@@ -13807,9 +13809,9 @@ var require_variations = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/evalTargets.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/evalTargets.js
 var require_evalTargets = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/evalTargets.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/evalTargets.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -13846,9 +13848,9 @@ var require_evalTargets = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/makeBigSegmentRef.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/makeBigSegmentRef.js
 var require_makeBigSegmentRef = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/makeBigSegmentRef.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/makeBigSegmentRef.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function makeBigSegmentRef(segment) {
@@ -16294,9 +16296,9 @@ var require_semver2 = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Operations.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Operations.js
 var require_Operations = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Operations.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Operations.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var semver_1 = require_semver2();
@@ -16382,9 +16384,9 @@ var require_Operations = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchClause.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchClause.js
 var require_matchClause = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchClause.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchClause.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.maybeNegate = void 0;
@@ -16413,9 +16415,9 @@ var require_matchClause = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchSegmentTargets.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchSegmentTargets.js
 var require_matchSegmentTargets = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchSegmentTargets.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/matchSegmentTargets.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function segmentSearch(context, contextTargets, userTargets, userTargetSet) {
@@ -16466,9 +16468,9 @@ var require_matchSegmentTargets = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Evaluator.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Evaluator.js
 var require_Evaluator = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Evaluator.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/evaluation/Evaluator.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -16846,9 +16848,9 @@ var require_Evaluator = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/ContextDeduplicator.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/ContextDeduplicator.js
 var require_ContextDeduplicator = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/ContextDeduplicator.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/ContextDeduplicator.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var LruCache_1 = require_LruCache();
@@ -16871,9 +16873,9 @@ var require_ContextDeduplicator = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/isExperiment.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/isExperiment.js
 var require_isExperiment = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/isExperiment.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/isExperiment.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function isExperiment(flag, reason) {
@@ -16901,9 +16903,9 @@ var require_isExperiment = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/EventFactory.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/EventFactory.js
 var require_EventFactory = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/EventFactory.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/EventFactory.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -16933,9 +16935,9 @@ var require_EventFactory = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/FlagsStateBuilder.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/FlagsStateBuilder.js
 var require_FlagsStateBuilder = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/FlagsStateBuilder.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/FlagsStateBuilder.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var FlagsStateBuilder = class {
@@ -16989,9 +16991,9 @@ var require_FlagsStateBuilder = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/hooks/HookRunner.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/hooks/HookRunner.js
 var require_HookRunner = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/hooks/HookRunner.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/hooks/HookRunner.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var BEFORE_EVALUATION_STAGE_NAME = "beforeEvaluation";
@@ -17080,9 +17082,9 @@ var require_HookRunner = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpEventConversion.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpEventConversion.js
 var require_MigrationOpEventConversion = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpEventConversion.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpEventConversion.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -17279,9 +17281,9 @@ var require_MigrationOpEventConversion = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpTracker.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpTracker.js
 var require_MigrationOpTracker = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpTracker.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/MigrationOpTracker.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -17482,9 +17484,9 @@ var require_MigrationOpTracker = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/LDClientImpl.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/LDClientImpl.js
 var require_LDClientImpl = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/LDClientImpl.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/LDClientImpl.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -18165,9 +18167,9 @@ var require_LDClientImpl = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/Migration.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/Migration.js
 var require_Migration = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/Migration.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/Migration.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.createMigration = exports.LDMigrationError = exports.LDMigrationSuccess = void 0;
@@ -18390,9 +18392,9 @@ var require_Migration = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileDataSource.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileDataSource.js
 var require_FileDataSource = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileDataSource.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/data_sources/FileDataSource.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var serialization_1 = require_serialization();
@@ -18506,9 +18508,9 @@ var require_FileDataSource = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/FileDataSourceFactory.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/FileDataSourceFactory.js
 var require_FileDataSourceFactory = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/FileDataSourceFactory.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/FileDataSourceFactory.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var FileDataSource_1 = require_FileDataSource();
@@ -18543,9 +18545,9 @@ var require_FileDataSourceFactory = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/booleanVariation.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/booleanVariation.js
 var require_booleanVariation = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/booleanVariation.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/booleanVariation.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.variationForBoolean = exports.FALSE_VARIATION_INDEX = exports.TRUE_VARIATION_INDEX = void 0;
@@ -18558,9 +18560,9 @@ var require_booleanVariation = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataRuleBuilder.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataRuleBuilder.js
 var require_TestDataRuleBuilder = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataRuleBuilder.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataRuleBuilder.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -18677,9 +18679,9 @@ var require_TestDataRuleBuilder = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataFlagBuilder.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataFlagBuilder.js
 var require_TestDataFlagBuilder = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataFlagBuilder.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataFlagBuilder.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var js_sdk_common_1 = require_cjs();
@@ -19057,9 +19059,9 @@ var require_TestDataFlagBuilder = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataSource.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataSource.js
 var require_TestDataSource = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataSource.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestDataSource.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var TestDataSource = class {
@@ -19090,9 +19092,9 @@ var require_TestDataSource = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestData.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestData.js
 var require_TestData = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestData.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/TestData.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var createStreamListeners_1 = require_createStreamListeners();
@@ -19230,9 +19232,9 @@ var require_TestData = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/index.js
 var require_test_data = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/test_data/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TestDataRuleBuilder = exports.TestDataFlagBuilder = exports.TestData = void 0;
@@ -19245,9 +19247,9 @@ var require_test_data = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/index.js
 var require_integrations2 = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/integrations/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -19274,9 +19276,9 @@ var require_integrations2 = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/NullEventSource.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/NullEventSource.js
 var require_NullEventSource = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/NullEventSource.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/NullEventSource.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var NullEventSource = class {
@@ -19303,9 +19305,9 @@ var require_NullEventSource = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/index.js
 var require_events = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/events/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/events/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.NullEventSource = void 0;
@@ -19314,9 +19316,9 @@ var require_events = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/internal/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/internal/index.js
 var require_internal = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/internal/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/internal/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TtlCache = void 0;
@@ -19325,9 +19327,9 @@ var require_internal = __commonJS({
   }
 });
 
-// ../../node_modules/@launchdarkly/js-server-sdk-common/dist/index.js
+// ../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/index.js
 var require_dist2 = __commonJS({
-  "../../node_modules/@launchdarkly/js-server-sdk-common/dist/index.js"(exports) {
+  "../../node_modules/@launchdarkly/node-server-sdk/node_modules/@launchdarkly/js-server-sdk-common/dist/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -19527,7 +19529,7 @@ var require_NodeInfo = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var os = __require("os");
     var sdkName = "@launchdarkly/node-server-sdk";
-    var sdkVersion = "9.11.2";
+    var sdkVersion = "9.11.3";
     function processPlatformName(name) {
       switch (name) {
         case "darwin":
@@ -21551,6 +21553,9 @@ var require_NodeRequests = __commonJS({
           }
           req.on("error", (err) => {
             reject(err);
+          });
+          req.on("timeout", () => {
+            req.destroy(new Error("Request timed out"));
           });
           req.end();
         });
@@ -33372,6 +33377,7 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate)
       prompt: buildPrompt(inboundHandoff !== void 0, ctx),
       ...cfg.instructions ? { instructions: cfg.instructions } : {},
       ...cfg.model?.name ? { model: cfg.model.name } : {},
+      ...cfg.model?.parameters ? { modelParameters: cfg.model.parameters } : {},
       tracker: cfg.createTracker(),
       ...maxTurns !== void 0 ? { maxTurns } : {},
       ...requestType ? { requestType } : {},
@@ -35672,6 +35678,22 @@ function initAi(ldClient) {
 }
 
 // ../shared/dist/ldSdk.js
+async function observabilityPlugins() {
+  if (process.env.DISABLE_LD_OBSERVABILITY === "true")
+    return [];
+  try {
+    const { Observability } = await import("@launchdarkly/observability-node");
+    const plugin = new Observability({
+      serviceName: process.env.LD_OBSERVABILITY_SERVICE ?? "auto-factory-phase1",
+      serviceVersion: process.env.GITHUB_SHA ?? "dev",
+      environment: "production"
+    });
+    return [plugin];
+  } catch (e) {
+    console.warn(`[observability] LLM observability unavailable (${e instanceof Error ? e.message : e}); continuing without it.`);
+    return [];
+  }
+}
 var cached = null;
 async function getLdSdk() {
   if (cached)
@@ -35681,7 +35703,7 @@ async function getLdSdk() {
   if (!sdkKey) {
     throw new Error("LD_SDK_KEY not set \u2014 the server SDK key for flag evaluation and AI config/graph resolution");
   }
-  const ldClient = (0, import_node_server_sdk.init)(sdkKey);
+  const ldClient = (0, import_node_server_sdk.init)(sdkKey, { plugins: await observabilityPlugins() });
   await ldClient.waitForInitialization({ timeout: 15 });
   const aiClient = initAi(ldClient);
   cached = { ldClient, aiClient };
@@ -35690,6 +35712,11 @@ async function getLdSdk() {
 async function closeLdSdk() {
   if (!cached)
     return;
+  try {
+    const { LDObserve } = await import("@launchdarkly/observability-node");
+    await LDObserve.flush();
+  } catch {
+  }
   try {
     await cached.ldClient.flush();
   } catch {
@@ -35726,9 +35753,10 @@ var VegaAgentRunner = class {
 // ../shared/dist/providerFlag.js
 var PROVIDER_FLAG_KEY = "auto-factory-ai-provider";
 var DEFAULT_PROVIDER = "anthropic";
+var KNOWN_PROVIDERS = /* @__PURE__ */ new Set(["anthropic", "vega", "cursor"]);
 async function resolveAiProvider(ldClient, context, flagKey = PROVIDER_FLAG_KEY) {
   const value = await ldClient.variation(flagKey, context, DEFAULT_PROVIDER);
-  return value === "vega" || value === "anthropic" ? value : DEFAULT_PROVIDER;
+  return KNOWN_PROVIDERS.has(value) ? value : DEFAULT_PROVIDER;
 }
 
 // ../shared/dist/anthropic/sandboxTools.js
@@ -36257,6 +36285,54 @@ var LdResourceWriter = class {
 
 // ../shared/dist/anthropic/anthropicAgentRunner.js
 init_sdk();
+
+// ../shared/dist/observability.js
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+var TRACER_NAME = "launchdarkly-auto-factory";
+var MAX_CONTENT = 8e3;
+function aiTracer() {
+  return trace.getTracer(TRACER_NAME);
+}
+function truncate(s) {
+  return s.length > MAX_CONTENT ? `${s.slice(0, MAX_CONTENT)}\u2026[truncated]` : s;
+}
+function setGenAiAttributes(span, d) {
+  try {
+    const attrs = {
+      "gen_ai.operation.name": "chat",
+      "gen_ai.system": d.provider,
+      "gen_ai.provider": d.provider,
+      "gen_ai.request.model": d.requestModel,
+      "gen_ai.model": d.requestModel
+    };
+    if (d.usage) {
+      attrs["gen_ai.usage.input_tokens"] = d.usage.input;
+      attrs["gen_ai.usage.output_tokens"] = d.usage.output;
+      attrs["gen_ai.usage.total_tokens"] = d.usage.total;
+      attrs["gen_ai.usage.prompt_tokens"] = d.usage.input;
+      attrs["gen_ai.usage.completion_tokens"] = d.usage.output;
+    }
+    if (d.prompt)
+      attrs["gen_ai.input"] = truncate(d.prompt);
+    if (d.output)
+      attrs["gen_ai.output"] = truncate(d.output);
+    const td = d.tracker?.getTrackData?.();
+    if (td) {
+      attrs["launchdarkly.ai.config.key"] = td.configKey;
+      attrs["launchdarkly.ai.config.variation"] = td.variationKey;
+      attrs["launchdarkly.ai.config.version"] = td.version;
+      attrs["launchdarkly.ai.config.model"] = td.modelName;
+      attrs["launchdarkly.ai.provider"] = td.providerName;
+      attrs["launchdarkly.ai.run.id"] = td.runId;
+      if (td.graphKey)
+        attrs["launchdarkly.ai.graph.key"] = td.graphKey;
+    }
+    span.setAttributes(attrs);
+  } catch {
+  }
+}
+
+// ../shared/dist/anthropic/anthropicAgentRunner.js
 var TAGGING_NOTE = `
 
 You MUST call \`tag_conversation\` with the routing tag(s) your instructions specify
@@ -36349,6 +36425,7 @@ var AnthropicAgentRunner = class {
     let inputTokens = 0;
     let outputTokens = 0;
     const started = Date.now();
+    const span = aiTracer().startSpan(`chat ${req.configKey}`, { kind: SpanKind.CLIENT });
     try {
       for (let turn = 0; turn < maxTurns; turn++) {
         const resp = await this.client.messages.create({
@@ -36408,11 +36485,23 @@ var AnthropicAgentRunner = class {
       status = "failed";
       finalText = e instanceof Error ? e.message : String(e);
       req.tracker?.trackError();
+      if (e instanceof Error)
+        span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
       if (inputTokens || outputTokens) {
         req.tracker?.trackTokens({ input: inputTokens, output: outputTokens, total: inputTokens + outputTokens });
       }
+      setGenAiAttributes(span, {
+        provider: "anthropic",
+        requestModel: model,
+        ...req.tracker ? { tracker: req.tracker } : {},
+        prompt: req.prompt,
+        output: finalText,
+        ...inputTokens || outputTokens ? { usage: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens } } : {}
+      });
+      span.setStatus({ code: status === "completed" ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+      span.end();
     }
     return {
       status,
@@ -36430,6 +36519,226 @@ function anthropicModelId(name) {
   const id = name.trim().replace(/^[a-z]{2}\./i, "").replace(/^anthropic\./i, "");
   return id.trim() || DEFAULT_MODEL;
 }
+
+// ../shared/dist/cursor/cursorModel.js
+function normalizeModelName(name) {
+  return name.trim().toLowerCase().replace(/^[a-z]{2}\./, "").replace(/^(anthropic|bedrock|openai|google)\./, "").replace(/[-_]v\d+(:\d+)?$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function mapToCursorModel(ldModelName, catalog, fallback) {
+  if (!ldModelName) {
+    return { id: fallback, matched: false, reason: `no LD model configured \u2192 fallback '${fallback}'` };
+  }
+  const want = normalizeModelName(ldModelName);
+  for (const m of catalog) {
+    const ids = [m.id, ...m.aliases ?? []].map(normalizeModelName);
+    if (ids.includes(want))
+      return { id: m.id, matched: true, reason: `exact match on '${m.id}'` };
+  }
+  for (const m of catalog) {
+    const candidates = [m.id, ...m.aliases ?? [], m.displayName ?? ""].map(normalizeModelName).filter(Boolean);
+    if (candidates.some((c) => c.includes(want) || want.includes(c))) {
+      return { id: m.id, matched: true, reason: `fuzzy match '${ldModelName}' \u2192 '${m.id}'` };
+    }
+  }
+  return {
+    id: fallback,
+    matched: false,
+    reason: `no Cursor catalog match for '${ldModelName}' (normalized '${want}') \u2192 fallback '${fallback}'`
+  };
+}
+function mapModelParameters(ldParams, modelDef) {
+  if (!ldParams || Object.keys(ldParams).length === 0)
+    return { params: [], dropped: [] };
+  const defs = modelDef?.parameters ?? [];
+  const byId = new Map(defs.map((d) => [d.id.toLowerCase(), d]));
+  const params = [];
+  const dropped = [];
+  for (const [k, v] of Object.entries(ldParams)) {
+    const def = byId.get(k.toLowerCase());
+    if (!def) {
+      dropped.push(k);
+      continue;
+    }
+    const value = String(v);
+    if (def.values?.length && !def.values.some((x) => x.value === value)) {
+      dropped.push(`${k}=${value} (not an allowed value for '${def.id}')`);
+      continue;
+    }
+    params.push({ id: def.id, value });
+  }
+  return { params, dropped };
+}
+
+// ../shared/dist/cursor/cursorAgentRunner.js
+var DEFAULT_FALLBACK_MODEL = "auto";
+var cursorSdkPromise;
+function loadCursorSdk() {
+  if (!cursorSdkPromise)
+    cursorSdkPromise = import("@cursor/sdk");
+  return cursorSdkPromise;
+}
+function toCursorTools(defs, executor) {
+  const tools = {};
+  for (const d of defs) {
+    tools[d.name] = {
+      description: d.description,
+      inputSchema: d.input_schema,
+      execute: async (args) => {
+        const r = await executor.execute(d.name, args ?? {});
+        return { content: [{ type: "text", text: r.content }], isError: r.isError ?? false };
+      }
+    };
+  }
+  return tools;
+}
+function addUsage(a, b) {
+  if (!a)
+    return b;
+  if (!b)
+    return a;
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
+    cacheWriteTokens: a.cacheWriteTokens + b.cacheWriteTokens,
+    totalTokens: a.totalTokens + b.totalTokens
+  };
+}
+var CursorAgentRunner = class {
+  opts;
+  apiKey;
+  fallbackModel;
+  /** Cursor model catalog, loaded once on first use. */
+  catalog;
+  constructor(opts) {
+    this.opts = opts;
+    this.apiKey = opts.apiKey ?? process.env.CURSOR_API_KEY;
+    this.fallbackModel = opts.model ?? process.env.CURSOR_MODEL ?? DEFAULT_FALLBACK_MODEL;
+  }
+  /** Lazy-load the model catalog; never throws (an empty catalog → fallback model). */
+  async loadCatalog() {
+    if (this.catalog)
+      return this.catalog;
+    try {
+      const { Cursor } = await loadCursorSdk();
+      this.catalog = await Cursor.models.list(this.apiKey ? { apiKey: this.apiKey } : void 0);
+    } catch (e) {
+      console.warn(`[cursor] could not list models (${e instanceof Error ? e.message : e}); using fallback '${this.fallbackModel}'`);
+      this.catalog = [];
+    }
+    return this.catalog;
+  }
+  async runNode(req) {
+    const { grant, source } = resolveGrant(req.configKey, req.capabilities);
+    const caps = {
+      createFlag: grant.createFlag && this.opts.writer !== void 0,
+      createMetric: grant.createMetric && this.opts.writer !== void 0,
+      editFiles: grant.editFiles && this.opts.codeChangesEnabled === true
+    };
+    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
+    const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
+    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push");
+    const customTools = toCursorTools(buildSandboxTools(caps), executor);
+    const catalog = await this.loadCatalog();
+    const match = mapToCursorModel(req.model, catalog, this.fallbackModel);
+    const modelDef = catalog.find((m) => m.id === match.id);
+    const { params, dropped } = mapModelParameters(req.modelParameters, modelDef);
+    const paramSummary = `params: ${params.map((p) => `${p.id}=${p.value}`).join(", ") || "none"}` + (dropped.length ? `; LD params with no Cursor equivalent: ${dropped.join(", ")}` : "");
+    if (req.model && !match.matched) {
+      console.warn(`[node] ${req.configKey} \u26A0 LD-configured model '${req.model}' has no Cursor-catalog match \u2014 falling back to '${match.id}'${match.id === "auto" ? " (Cursor selects the model)" : ""}. Set a Cursor-recognized model on the AI config to pin it. ${paramSummary}`);
+    } else {
+      console.log(`[node] ${req.configKey} cursor model \u2192 '${match.id}' (${match.reason}); ${paramSummary}`);
+    }
+    const preamble = (req.instructions ?? "") + modeNote(caps);
+    const message = `${preamble}
+
+---
+
+${req.prompt}`;
+    let status = "completed";
+    let finalText = "";
+    let usage;
+    let agent;
+    const started = Date.now();
+    const span = aiTracer().startSpan(`chat ${req.configKey}`, { kind: SpanKind.CLIENT });
+    try {
+      const { Agent } = await loadCursorSdk();
+      agent = await Agent.create({
+        ...this.apiKey ? { apiKey: this.apiKey } : {},
+        model: { id: match.id, ...params.length ? { params } : {} },
+        // Local agent: cwd is the repo under review. customTools (LD writes,
+        // tagging, git) are local-only — the reason this provider isn't a cloud agent.
+        //
+        // settingSources: [] makes the run HERMETIC: a Cursor local agent would
+        // otherwise load the analyzed repo's ambient `.cursor/` settings (rules +
+        // mcp.json). That repo may ship its own AutoFactory rule and a LaunchDarkly
+        // MCP server, which would run ALONGSIDE this agent — letting it follow extra
+        // instructions or create flags via MCP, bypassing our idempotent writer and
+        // routing tags. The agent's behavior must come from the LD AI config alone
+        // (parity with the Anthropic path), so we load no ambient settings.
+        local: { cwd: this.opts.sandboxRoot, customTools, settingSources: [] },
+        mode: "agent"
+      });
+      const run = await agent.send(message);
+      const result = await run.wait();
+      finalText = result.result ?? "";
+      usage = result.usage;
+      if (result.status !== "finished")
+        status = result.status === "cancelled" ? "cancelled" : "failed";
+      if (status === "completed") {
+        const missing = missingRequiredTags(req.configKey, executor.tags);
+        if (missing.length > 0) {
+          try {
+            const forcePrompt = `Before finishing you MUST record your routing decision. You have not set the required tag(s): ${missing.join(", ")}. Call \`tag_conversation\` now with a \`tags\` object, choosing the correct value(s) per your instructions.`;
+            const forcedRun = await agent.send(forcePrompt);
+            const forced = await forcedRun.wait();
+            usage = addUsage(usage, forced.usage);
+            const stillMissing = missingRequiredTags(req.configKey, executor.tags);
+            console.log(`[node] ${req.configKey} forced tag_conversation for missing [${missing.join(", ")}] \u2192 now ${stillMissing.length ? `still missing [${stillMissing.join(", ")}]` : "all present"}`);
+          } catch (e) {
+            console.warn(`[node] ${req.configKey} forced tag call failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+          }
+        }
+      }
+      if (status === "completed")
+        req.tracker?.trackSuccess();
+      else
+        req.tracker?.trackError();
+    } catch (e) {
+      status = "failed";
+      finalText = e instanceof Error ? e.message : String(e);
+      req.tracker?.trackError();
+      if (e instanceof Error)
+        span.recordException(e);
+    } finally {
+      req.tracker?.trackDuration(Date.now() - started);
+      if (usage) {
+        req.tracker?.trackTokens({ input: usage.inputTokens, output: usage.outputTokens, total: usage.totalTokens });
+      }
+      setGenAiAttributes(span, {
+        provider: "cursor",
+        requestModel: match.id,
+        ...req.tracker ? { tracker: req.tracker } : {},
+        prompt: message,
+        output: finalText,
+        ...usage ? { usage: { input: usage.inputTokens, output: usage.outputTokens, total: usage.totalTokens } } : {}
+      });
+      span.setStatus({ code: status === "completed" ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+      span.end();
+      if (agent) {
+        try {
+          await agent[Symbol.asyncDispose]();
+        } catch {
+        }
+      }
+    }
+    return {
+      status,
+      messages: [{ role: "assistant", content: finalText, isFinal: true }],
+      tags: { ...executor.tags }
+    };
+  }
+};
 
 // src/checkRun.ts
 var CHECK_NAME = "AutoFactory \u2014 Approval gate";
@@ -36617,13 +36926,23 @@ function createAgentRunner(provider) {
   const codeChangesEnabled = process.env.ENABLE_CODE_CHANGES === "true";
   console.log(`Flag creation: ${writer ? `ENABLED \u2192 app project '${writer.projectKey}'` : "disabled"}.`);
   console.log(`Code changes (edit + commit/push): ${codeChangesEnabled ? "ENABLED" : "disabled"}.`);
-  return new AnthropicAgentRunner({
+  const localOpts = {
     sandboxRoot,
     codeChangesEnabled,
-    ...process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {},
     ...writer ? { writer } : {},
     ...process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {},
     ...process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}
+  };
+  if (provider === "cursor") {
+    return new CursorAgentRunner({
+      ...localOpts,
+      ...process.env.CURSOR_API_KEY ? { apiKey: process.env.CURSOR_API_KEY } : {},
+      ...process.env.CURSOR_MODEL ? { model: process.env.CURSOR_MODEL } : {}
+    });
+  }
+  return new AnthropicAgentRunner({
+    ...localOpts,
+    ...process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}
   });
 }
 function flagCreationWriter() {
@@ -36676,6 +36995,8 @@ function mapActionInputs() {
   };
   set("LD_SDK_KEY", "ld_sdk_key");
   set("ANTHROPIC_API_KEY", "anthropic_api_key");
+  set("CURSOR_API_KEY", "cursor_api_key");
+  set("CURSOR_MODEL", "cursor_model");
   set("LD_API_KEY", "ld_api_key");
   set("LD_BASE_URL", "ld_base_url");
   set("LD_PROJECT_KEY", "ld_project_key");

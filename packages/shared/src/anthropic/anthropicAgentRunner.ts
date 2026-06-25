@@ -20,6 +20,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { AgentNodeRequest, AgentNodeResult, AgentRunner, AgentStatus } from "../agentRunner.js";
+import { SpanKind, SpanStatusCode, aiTracer, setGenAiAttributes } from "../observability.js";
 import type { LdResourceWriter } from "./ldWriter.js";
 import { type GitMode, SandboxToolExecutor, type ToolCapabilities, buildSandboxTools } from "./sandboxTools.js";
 
@@ -30,8 +31,13 @@ You MUST call \`tag_conversation\` with the routing tag(s) your instructions spe
 risk_level). The downstream chain advances on these tags — a step that sets no tags
 stalls the pipeline.`;
 
-/** Build the execution-mode note appended to the agent's instructions, per capabilities. */
-function modeNote(caps: ToolCapabilities): string {
+/**
+ * Build the execution-mode note appended to the agent's instructions, per
+ * capabilities. Exported so every provider (Anthropic, Cursor) appends the SAME
+ * capability + tagging guidance — the agents must behave identically across
+ * providers so only the model brain differs, not the instructions.
+ */
+export function modeNote(caps: ToolCapabilities): string {
   const lines = [
     "\n\n---\n## EXECUTION MODE",
     "You have read-only repo tools (`read_file`, `list_dir`, `grep`).",
@@ -188,6 +194,11 @@ export class AnthropicAgentRunner implements AgentRunner {
     let outputTokens = 0;
     const started = Date.now();
 
+    // Emit a gen_ai span for LD LLM Observability (parity with the Cursor runner),
+    // so every provider's agent runs show up in LLM Observability, not just Cursor.
+    // No-op tracer when observability isn't enabled.
+    const span = aiTracer().startSpan(`chat ${req.configKey}`, { kind: SpanKind.CLIENT });
+
     try {
       for (let turn = 0; turn < maxTurns; turn++) {
         const resp = await this.client.messages.create({
@@ -260,11 +271,25 @@ export class AnthropicAgentRunner implements AgentRunner {
       status = "failed";
       finalText = e instanceof Error ? e.message : String(e);
       req.tracker?.trackError();
+      if (e instanceof Error) span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
       if (inputTokens || outputTokens) {
         req.tracker?.trackTokens({ input: inputTokens, output: outputTokens, total: inputTokens + outputTokens });
       }
+      // Record the gen_ai attributes + status on the observability span, then end it.
+      setGenAiAttributes(span, {
+        provider: "anthropic",
+        requestModel: model,
+        ...(req.tracker ? { tracker: req.tracker } : {}),
+        prompt: req.prompt,
+        output: finalText,
+        ...(inputTokens || outputTokens
+          ? { usage: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens } }
+          : {}),
+      });
+      span.setStatus({ code: status === "completed" ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+      span.end();
     }
 
     return {

@@ -11,6 +11,8 @@ packages build on. If you're looking for the customization points, they're here.
 | `src/anthropic/anthropicAgentRunner.ts` | Default backend: a local Anthropic tool-use loop driving each node |
 | `src/anthropic/sandboxTools.ts` | Capability-gated agent tools (read/list/grep/git_diff; create_flag/edit_file/commit_and_push) — the security boundary for agent file access |
 | `src/anthropic/ldWriter.ts` | Real flag creation against the app project (409 → already-exists) |
+| `src/cursor/cursorAgentRunner.ts` | Cursor backend: runs each node as a Cursor agent via `@cursor/sdk` (lazy-loaded), reusing the sandbox tools as Cursor `customTools` |
+| `src/cursor/cursorModel.ts` | Maps the LD AI config's model name + parameters onto a Cursor model selection (exact → fuzzy → `CURSOR_MODEL` fallback) |
 | `src/vegaAgentRunner.ts` | Alternative backend: thin adapter over the Vega client |
 | `src/vegaClient.ts` / `src/vegaTransport.ts` | Vega dispatch: client polls to terminal; `GraphQLVegaTransport` is the real impl, `StubVegaTransport` the no-config fallback |
 | `src/ldSdk.ts` | Native LaunchDarkly bootstrap: server SDK (flag eval) + AI SDK (configs/graphs/trackers) + the pipeline context |
@@ -24,7 +26,9 @@ packages build on. If you're looking for the customization points, they're here.
 ## Customization seams
 
 - **Add a provider:** implement `AgentRunner` and wire it into the action's
-  `createAgentRunner` (see [ADR 0005](../../docs/adr/0005-provider-seam-local-anthropic-execution.md)).
+  `createAgentRunner` (see [ADR 0005](../../docs/adr/0005-provider-seam-local-anthropic-execution.md)
+  for the seam, and [ADR 0006](../../docs/adr/0006-cursor-sdk-provider.md) for the Cursor backend as
+  a worked example — model mapping, custom-tool reuse, lazy SDK load).
 - **Change agent capabilities:** `sandboxTools.ts` (note the known config-key
   coupling in `anthropicAgentRunner.ts` — CLEANUP #24).
 - **Point at a different LD instance/project:** env vars consumed by `env.ts`.

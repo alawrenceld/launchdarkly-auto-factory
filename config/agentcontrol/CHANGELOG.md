@@ -15,6 +15,48 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-06-25
+
+### ✅ LLM Observability for the Cursor provider
+- **Change:** Registered the LaunchDarkly Observability plugin on the server SDK and
+  emit a `gen_ai.*` OpenTelemetry span per Cursor agent run (model, token usage,
+  prompt/output, status), correlated to the AgentControl config via the tracker's
+  `getTrackData()`. Spans land in the factory project's (`auto-factory-prototype`)
+  LLM Observability, alongside the AI Config metrics.
+- **Why:** the Cursor calls run in Cursor's hosted service (no local LLM SDK to
+  auto-instrument), so manual spans are how those runs become visible in LD. Verified
+  live: traces appear in LaunchDarkly for demo PR #26.
+
+### ✅ Chain model bumped to claude-sonnet-4-6
+- **Change:** Set `modelConfigKey` = `Anthropic.claude-sonnet-4-6` on the served
+  (`default`) variation of all five agent configs (research-planner, flag-implementer,
+  metrics-author, flag-testing, code-reviewer) — previously `Anthropic.claude-sonnet-4-5`.
+- **Note (where the model lives):** the model is configured via the variation's
+  **`modelConfigKey`**, not the inline `model` object (which reads as `{}` in the
+  management API). The AI SDK resolves `cfg.model.name` from that key at runtime —
+  so the model IS derived from LD. The Anthropic runner uses it directly; the new
+  Cursor runner maps it to Cursor's catalog (`cursorModel.ts`); Vega ignores it.
+- **Why:** keep the chain on the current Sonnet; makes "model derived from LD" true
+  for every provider (was effectively a code default before this was understood).
+- Affects Anthropic runs on `main` too (it's the shared factory project), not just
+  the Cursor branch — expected for a model-version bump.
+
+### ✅ `cursor` variation added to `auto-factory-ai-provider`
+- **Change:** Added a third variation, **`cursor`** (value `cursor`, name "Cursor"),
+  to the `auto-factory-ai-provider` multivariate flag — alongside `anthropic`
+  (default, idx 0) and `vega` (idx 1). Flag now at version 2; default unchanged.
+- **What it selects:** the new `CursorAgentRunner` (`packages/shared/src/cursor/`),
+  which runs each graph node as one Cursor agent via `@cursor/sdk`. It reuses the
+  same sandbox tools (registered as Cursor `customTools`) and the same agent graph
+  + AI configs — only the model brain changes. The agent **model + parameters are
+  mapped from the AI config** (`cursorModel.ts`), and per-node metrics (duration,
+  tokens, success/error) are recorded through the AI-config tracker, so Cursor runs
+  show up in the same AI Config monitoring as the other providers.
+- **Caveat (host, not choice):** Cursor inference runs on Cursor's hosted models,
+  not LaunchDarkly's Bedrock instance, even when the mapping pins a Claude model.
+- **Why here:** lets the deterministic GHA path use Cursor agents as the executor
+  (distinct from the non-deterministic Cursor automation front ends). See ADR 0006.
+
 ## 2026-06-23
 
 ### ✅ Per-step approval gates (`auto-factory-approval-gates` flag)

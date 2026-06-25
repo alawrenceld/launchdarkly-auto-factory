@@ -4,7 +4,7 @@ description: >
   PR needs a feature flag, plans the flag + metrics + tests, and reviews — gated
   by an approval mode. Runs natively on the LaunchDarkly SDKs; the
   `auto-factory-ai-provider` flag selects the execution backend (Anthropic API by
-  default, or Vega).
+  default, Cursor agents via the Cursor SDK, or Vega).
 
 author: "LaunchDarkly"
 
@@ -19,6 +19,13 @@ inputs:
   # --- Anthropic execution backend (default provider) ---
   anthropic_api_key:
     description: "Anthropic API key. Required when the auto-factory-ai-provider flag serves 'anthropic' (the default)."
+    required: false
+  # --- Cursor execution backend (only used when the provider flag serves 'cursor') ---
+  cursor_api_key:
+    description: "Cursor API key (@cursor/sdk). Required when the auto-factory-ai-provider flag serves 'cursor'."
+    required: false
+  cursor_model:
+    description: "Fallback Cursor model id (e.g. 'auto', 'composer-2.5') used only when the LD AI config's model has no match in Cursor's catalog. The configured model is otherwise derived from LaunchDarkly."
     required: false
   # --- App / data-plane project (where flags get created) ---
   ld_app_project_key:
@@ -79,6 +86,8 @@ inputs:
     required: false
 
 runs:
-  using: "node20"
+  # node24: the Cursor provider (@cursor/sdk) requires Node >=22.13. node24 is the
+  # newest GitHub Actions JS runtime and satisfies it; Anthropic/Vega are unaffected.
+  using: "node24"
   # Built by `npm run bundle -w @auto-factory/phase1-resource-factory` (esbuild).
   main: "dist/action.bundle.js"

@@ -208,6 +208,7 @@ export async function walkGraph(
       prompt: buildPrompt(inboundHandoff !== undefined, ctx),
       ...(cfg.instructions ? { instructions: cfg.instructions } : {}),
       ...(cfg.model?.name ? { model: cfg.model.name } : {}),
+      ...(cfg.model?.parameters ? { modelParameters: cfg.model.parameters } : {}),
       tracker: cfg.createTracker(),
       ...(maxTurns !== undefined ? { maxTurns } : {}),
       ...(requestType ? { requestType } : {}),
