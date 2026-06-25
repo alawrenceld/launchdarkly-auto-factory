@@ -15,6 +15,7 @@
 
 import type { LDAIConfigTracker } from "@launchdarkly/server-sdk-ai";
 import { type Attributes, type Span, SpanKind, SpanStatusCode, type Tracer, trace } from "@opentelemetry/api";
+import { pipelineRunId } from "./ldSdk.js";
 
 const TRACER_NAME = "launchdarkly-auto-factory";
 /** Cap prompt/completion content recorded on a span so spans stay bounded. */
@@ -76,6 +77,10 @@ export function setGenAiAttributes(span: Span, d: GenAiSpanData): void {
     }
     if (d.prompt) attrs["gen_ai.input"] = truncate(d.prompt);
     if (d.output) attrs["gen_ai.output"] = truncate(d.output);
+
+    // Correlation id shared by every agent span in this pipeline run (the `run`
+    // multi-context key), so the whole chain groups together in observability.
+    attrs["launchdarkly.run.id"] = pipelineRunId();
 
     // Correlate the span to the AgentControl config it ran, so LLM Observability
     // lines up with the same config's AI Config metrics.

@@ -13,6 +13,7 @@
  * holds the AI configs, graph, and operational flags.
  */
 
+import { randomUUID } from "node:crypto";
 import { type LDClient, type LDContext, type LDOptions, init } from "@launchdarkly/node-server-sdk";
 import { type LDAIClient, initAi } from "@launchdarkly/server-sdk-ai";
 import { loadDotEnv } from "./env.js";
@@ -90,15 +91,42 @@ export async function closeLdSdk(): Promise<void> {
 }
 
 /**
- * The LaunchDarkly context for this pipeline run. Used both for flag evaluation
- * and as the targeting context for AI config/graph resolution, so a customer can
- * target rules at specific repos/pipelines later.
+ * The id for THIS pipeline run: the `run` multi-context key (the experiment
+ * randomization unit) AND a correlation id stamped on the LLM-observability spans
+ * so a run's agent spans group together. Set when the run's context is built.
+ */
+let currentRunId: string | undefined;
+
+/** The current pipeline run's id (see pipelineContext). Lazily minted if unset. */
+export function pipelineRunId(): string {
+  if (!currentRunId) currentRunId = randomUUID();
+  return currentRunId;
+}
+
+/**
+ * The LaunchDarkly targeting context for a pipeline run. A MULTI-context:
+ *
+ *  - `service` (static): stable across runs — flag evaluation, env scoping, and
+ *    AI-config/graph resolution target this. The operational flags
+ *    (auto-factory-ai-provider, auto-factory-approval-gates) should keep their
+ *    targeting on `service` so they stay consistent run-to-run.
+ *  - `run` (fresh UUID per run): the per-run randomization unit. Point a coding
+ *    agent's percentage rollout / experiment at the `run` context kind to A/B its
+ *    model (e.g. Composer vs Sonnet) independently per run. Because each AI config
+ *    has its own salt, the agents bucket INDEPENDENTLY off this one key — so the
+ *    per-node A/Bs are decorrelated without needing a per-node key.
+ *
+ * Call once per run (action.ts and the extension do); each call mints a new run id.
  */
 export function pipelineContext(extra: Record<string, unknown> = {}): LDContext {
+  currentRunId = randomUUID();
   return {
-    kind: "service",
-    key: process.env.LD_PIPELINE_CONTEXT_KEY ?? "auto-factory-phase1",
-    name: "AutoFactory Phase 1",
-    ...extra,
+    kind: "multi",
+    service: {
+      key: process.env.LD_PIPELINE_CONTEXT_KEY ?? "auto-factory-phase1",
+      name: "AutoFactory Phase 1",
+      ...extra,
+    },
+    run: { key: currentRunId },
   } as LDContext;
 }

@@ -26604,7 +26604,7 @@ var init_promise = __esm({
 // ../../node_modules/@anthropic-ai/sdk/tools/agent-toolset/fs-util.mjs
 import * as fs from "node:fs/promises";
 import * as path2 from "node:path";
-import { randomUUID as randomUUID2 } from "node:crypto";
+import { randomUUID as randomUUID3 } from "node:crypto";
 async function realpathOrSelf(p) {
   try {
     return await fs.realpath(p);
@@ -26660,7 +26660,7 @@ async function confineToRoot(root, p, opts) {
 }
 async function atomicWriteFile(targetPath, content) {
   const dir = path2.dirname(targetPath);
-  const tempPath = path2.join(dir, `.tmp-${process.pid}-${randomUUID2()}`);
+  const tempPath = path2.join(dir, `.tmp-${process.pid}-${randomUUID3()}`);
   let handle;
   try {
     handle = await fs.open(tempPath, "wx", FILE_CREATE_MODE);
@@ -33616,6 +33616,7 @@ var GraphQLVegaTransport = class {
 
 // ../shared/dist/ldSdk.js
 var import_node_server_sdk = __toESM(require_src2(), 1);
+import { randomUUID as randomUUID2 } from "node:crypto";
 
 // ../../node_modules/mustache/mustache.mjs
 var objectToString = Object.prototype.toString;
@@ -35724,12 +35725,22 @@ async function closeLdSdk() {
   await cached.ldClient.close();
   cached = null;
 }
+var currentRunId;
+function pipelineRunId() {
+  if (!currentRunId)
+    currentRunId = randomUUID2();
+  return currentRunId;
+}
 function pipelineContext(extra = {}) {
+  currentRunId = randomUUID2();
   return {
-    kind: "service",
-    key: process.env.LD_PIPELINE_CONTEXT_KEY ?? "auto-factory-phase1",
-    name: "AutoFactory Phase 1",
-    ...extra
+    kind: "multi",
+    service: {
+      key: process.env.LD_PIPELINE_CONTEXT_KEY ?? "auto-factory-phase1",
+      name: "AutoFactory Phase 1",
+      ...extra
+    },
+    run: { key: currentRunId }
   };
 }
 
@@ -36319,6 +36330,7 @@ function setGenAiAttributes(span, d) {
       attrs["gen_ai.input"] = truncate(d.prompt);
     if (d.output)
       attrs["gen_ai.output"] = truncate(d.output);
+    attrs["launchdarkly.run.id"] = pipelineRunId();
     const td = d.tracker?.getTrackData?.();
     if (td) {
       attrs["launchdarkly.ai.config.key"] = td.configKey;

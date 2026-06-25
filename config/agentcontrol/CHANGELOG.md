@@ -17,6 +17,21 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-06-25
 
+### ✅ Multi-context (`service` + `run`) for per-agent model A/B
+- **Change (code):** the pipeline targeting context is now a multi-context — a
+  static `service` kind (flag eval, AI-config/graph targeting, operational flags)
+  plus a `run` kind with a fresh UUID per run.
+- **How to use (LD-side, per agent):** to A/B an agent's model (e.g. Composer vs
+  Sonnet on a coding agent), add the model variations and set that AI config's
+  **percentage rollout / experiment randomization unit to the `run` context kind**.
+  Each config has its own salt, so the agents bucket INDEPENDENTLY off the one run
+  key — per-node A/Bs are decorrelated, no per-node key needed. A fresh UUID per
+  run means re-runs are independent samples.
+- **Keep on `service`:** `auto-factory-ai-provider` and `auto-factory-approval-gates`
+  targeting must stay on `service` (or fallthrough) so they don't re-randomize.
+- The `run` UUID is also stamped on the LLM-observability spans (`launchdarkly.run.id`)
+  to group a run's agent spans.
+
 ### ✅ LLM Observability for the Cursor provider
 - **Change:** Registered the LaunchDarkly Observability plugin on the server SDK and
   emit a `gen_ai.*` OpenTelemetry span per Cursor agent run (model, token usage,
