@@ -31,7 +31,7 @@ export function normalizeModelName(name: string): string {
     .trim()
     .toLowerCase()
     .replace(/^[a-z]{2}\./, "") // region, e.g. "us."
-    .replace(/^(anthropic|bedrock|openai|google)\./, "") // provider prefix
+    .replace(/^(anthropic|bedrock|openai|google|cursor)\./, "") // provider prefix
     .replace(/[-_]v\d+(:\d+)?$/, "") // bedrock version suffix, e.g. "-v1:0"
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");

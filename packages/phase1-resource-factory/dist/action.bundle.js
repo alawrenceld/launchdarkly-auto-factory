@@ -36525,7 +36525,7 @@ function anthropicModelId(name) {
 
 // ../shared/dist/cursor/cursorModel.js
 function normalizeModelName(name) {
-  return name.trim().toLowerCase().replace(/^[a-z]{2}\./, "").replace(/^(anthropic|bedrock|openai|google)\./, "").replace(/[-_]v\d+(:\d+)?$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return name.trim().toLowerCase().replace(/^[a-z]{2}\./, "").replace(/^(anthropic|bedrock|openai|google|cursor)\./, "").replace(/[-_]v\d+(:\d+)?$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 function mapToCursorModel(ldModelName, catalog, fallback) {
   if (!ldModelName) {
