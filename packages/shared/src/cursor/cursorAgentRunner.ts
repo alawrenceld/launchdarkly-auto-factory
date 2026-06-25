@@ -196,7 +196,15 @@ export class CursorAgentRunner implements AgentRunner {
         model: { id: match.id, ...(params.length ? { params } : {}) },
         // Local agent: cwd is the repo under review. customTools (LD writes,
         // tagging, git) are local-only — the reason this provider isn't a cloud agent.
-        local: { cwd: this.opts.sandboxRoot, customTools },
+        //
+        // settingSources: [] makes the run HERMETIC: a Cursor local agent would
+        // otherwise load the analyzed repo's ambient `.cursor/` settings (rules +
+        // mcp.json). That repo may ship its own AutoFactory rule and a LaunchDarkly
+        // MCP server, which would run ALONGSIDE this agent — letting it follow extra
+        // instructions or create flags via MCP, bypassing our idempotent writer and
+        // routing tags. The agent's behavior must come from the LD AI config alone
+        // (parity with the Anthropic path), so we load no ambient settings.
+        local: { cwd: this.opts.sandboxRoot, customTools, settingSources: [] },
         mode: "agent",
       });
 
