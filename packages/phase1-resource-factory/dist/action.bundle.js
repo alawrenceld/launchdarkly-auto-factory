@@ -36556,7 +36556,12 @@ var CursorAgentRunner = class {
     const match = mapToCursorModel(req.model, catalog, this.fallbackModel);
     const modelDef = catalog.find((m) => m.id === match.id);
     const { params, dropped } = mapModelParameters(req.modelParameters, modelDef);
-    console.log(`[node] ${req.configKey} cursor model \u2192 '${match.id}' (${match.reason}); params: ${params.map((p) => `${p.id}=${p.value}`).join(", ") || "none"}` + (dropped.length ? `; LD params with no Cursor equivalent: ${dropped.join(", ")}` : ""));
+    const paramSummary = `params: ${params.map((p) => `${p.id}=${p.value}`).join(", ") || "none"}` + (dropped.length ? `; LD params with no Cursor equivalent: ${dropped.join(", ")}` : "");
+    if (req.model && !match.matched) {
+      console.warn(`[node] ${req.configKey} \u26A0 LD-configured model '${req.model}' has no Cursor-catalog match \u2014 falling back to '${match.id}'${match.id === "auto" ? " (Cursor selects the model)" : ""}. Set a Cursor-recognized model on the AI config to pin it. ${paramSummary}`);
+    } else {
+      console.log(`[node] ${req.configKey} cursor model \u2192 '${match.id}' (${match.reason}); ${paramSummary}`);
+    }
     const preamble = (req.instructions ?? "") + modeNote(caps);
     const message = `${preamble}
 

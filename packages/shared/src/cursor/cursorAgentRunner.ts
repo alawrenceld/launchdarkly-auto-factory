@@ -161,11 +161,22 @@ export class CursorAgentRunner implements AgentRunner {
     const match = mapToCursorModel(req.model, catalog, this.fallbackModel);
     const modelDef = catalog.find((m) => m.id === match.id);
     const { params, dropped } = mapModelParameters(req.modelParameters, modelDef);
-    console.log(
-      `[node] ${req.configKey} cursor model → '${match.id}' (${match.reason}); ` +
-        `params: ${params.map((p) => `${p.id}=${p.value}`).join(", ") || "none"}` +
-        (dropped.length ? `; LD params with no Cursor equivalent: ${dropped.join(", ")}` : ""),
-    );
+    const paramSummary =
+      `params: ${params.map((p) => `${p.id}=${p.value}`).join(", ") || "none"}` +
+      (dropped.length ? `; LD params with no Cursor equivalent: ${dropped.join(", ")}` : "");
+    // The model SHOULD come from the LD AI config. When one IS configured but has
+    // no Cursor-catalog match, warn loudly (we still proceed on the fallback — by
+    // default 'auto', so Cursor selects the model) rather than silently swapping
+    // the configured model. No configured model → just an info log.
+    if (req.model && !match.matched) {
+      console.warn(
+        `[node] ${req.configKey} ⚠ LD-configured model '${req.model}' has no Cursor-catalog match — ` +
+          `falling back to '${match.id}'${match.id === "auto" ? " (Cursor selects the model)" : ""}. ` +
+          `Set a Cursor-recognized model on the AI config to pin it. ${paramSummary}`,
+      );
+    } else {
+      console.log(`[node] ${req.configKey} cursor model → '${match.id}' (${match.reason}); ${paramSummary}`);
+    }
 
     // No system-prompt param in the SDK → prepend the LD instructions + the
     // shared capability/tagging note, then the run prompt.

@@ -17,6 +17,20 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-06-25
 
+### ✅ Chain model bumped to claude-sonnet-4-6
+- **Change:** Set `modelConfigKey` = `Anthropic.claude-sonnet-4-6` on the served
+  (`default`) variation of all five agent configs (research-planner, flag-implementer,
+  metrics-author, flag-testing, code-reviewer) — previously `Anthropic.claude-sonnet-4-5`.
+- **Note (where the model lives):** the model is configured via the variation's
+  **`modelConfigKey`**, not the inline `model` object (which reads as `{}` in the
+  management API). The AI SDK resolves `cfg.model.name` from that key at runtime —
+  so the model IS derived from LD. The Anthropic runner uses it directly; the new
+  Cursor runner maps it to Cursor's catalog (`cursorModel.ts`); Vega ignores it.
+- **Why:** keep the chain on the current Sonnet; makes "model derived from LD" true
+  for every provider (was effectively a code default before this was understood).
+- Affects Anthropic runs on `main` too (it's the shared factory project), not just
+  the Cursor branch — expected for a model-version bump.
+
 ### ✅ `cursor` variation added to `auto-factory-ai-provider`
 - **Change:** Added a third variation, **`cursor`** (value `cursor`, name "Cursor"),
   to the `auto-factory-ai-provider` multivariate flag — alongside `anthropic`
