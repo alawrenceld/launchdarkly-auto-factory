@@ -26,11 +26,11 @@ permissions:
 jobs:
   auto-factory:
     runs-on: ubuntu-latest
-    # CI-loop guard: the agents commit flag wiring/metrics/tests back to the PR
-    # branch (authored by "LaunchDarkly AutoFactory" via github-actions[bot]). That
-    # push fires another `synchronize`, which GitHub also holds for manual approval.
-    # Skip runs triggered by the bot so the chain only runs on human pushes — no
-    # approval prompts, no re-run loop on the agents' own output.
+    # CI-loop guard (secondary). The primary guard is in the action itself: agent
+    # commits carry `[skip ci]`, so the agents' pushes don't create a workflow run
+    # at all (a job-level `if:` can't help — GitHub gates bot-triggered PR runs for
+    # approval at the RUN level, before job conditions evaluate). This `if` is just
+    # belt-and-suspenders in case a bot-triggered run is ever created and approved.
     if: github.actor != 'github-actions[bot]'
     steps:
       - uses: actions/checkout@v4

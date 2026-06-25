@@ -36193,7 +36193,10 @@ ${t.out}`), isError: t.code !== 0 };
       const staged = this.runGit(["diff", "--cached", "--name-only"]).trim();
       if (!staged)
         return { content: "commit_and_push: no changes to commit" };
-      this.runGit(["commit", "-m", message]);
+      const ciSafeMessage = /\[(skip ci|ci skip)\]/i.test(message) ? message : `${message}
+
+[skip ci]`;
+      this.runGit(["commit", "-m", ciSafeMessage]);
       const branch = this.prBranch ?? process.env.PR_BRANCH;
       this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
       return { content: `Committed and pushed (${staged.split("\n").length} file(s)): ${message}` };

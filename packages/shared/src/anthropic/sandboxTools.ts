@@ -504,7 +504,16 @@ export class SandboxToolExecutor {
       // Nothing staged → report rather than fail the node.
       const staged = this.runGit(["diff", "--cached", "--name-only"]).trim();
       if (!staged) return { content: "commit_and_push: no changes to commit" };
-      this.runGit(["commit", "-m", message]);
+      // CI-LOOP GUARD: append [skip ci] so the agents' own push does NOT trigger a
+      // new workflow run. This is the only reliable guard — a job-level `if:` can't
+      // help because GitHub gates bot-triggered PR runs for approval at the run
+      // level, BEFORE job conditions evaluate, so each agent commit would otherwise
+      // sit waiting for manual approval (and risk a re-run loop). Tradeoff: this
+      // skips ALL workflows on the agent commit, not just AutoFactory — acceptable
+      // because the agents already run tests in-chain and the human's own pushes
+      // (and the post-merge deploy) still trigger CI normally.
+      const ciSafeMessage = /\[(skip ci|ci skip)\]/i.test(message) ? message : `${message}\n\n[skip ci]`;
+      this.runGit(["commit", "-m", ciSafeMessage]);
       const branch = this.prBranch ?? process.env.PR_BRANCH;
       this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
       return { content: `Committed and pushed (${staged.split("\n").length} file(s)): ${message}` };
