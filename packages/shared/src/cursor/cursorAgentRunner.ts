@@ -40,6 +40,7 @@ import {
   type ToolCapabilities,
   buildSandboxTools,
 } from "../anthropic/sandboxTools.js";
+import { SpanKind, SpanStatusCode, aiTracer, setGenAiAttributes } from "../observability.js";
 import { mapModelParameters, mapToCursorModel } from "./cursorModel.js";
 
 /** Cursor model used when the LD-configured model can't be mapped to the catalog. */
@@ -189,6 +190,11 @@ export class CursorAgentRunner implements AgentRunner {
     let agent: SDKAgent | undefined;
     const started = Date.now();
 
+    // Emit a gen_ai span for LD LLM Observability. Cursor runs inference in its
+    // hosted service, so this is a manual span — set its attributes from the run
+    // result below. No-op tracer when observability isn't enabled.
+    const span = aiTracer().startSpan(`chat ${req.configKey}`, { kind: SpanKind.CLIENT });
+
     try {
       const { Agent } = await loadCursorSdk();
       agent = await Agent.create({
@@ -246,11 +252,23 @@ export class CursorAgentRunner implements AgentRunner {
       status = "failed";
       finalText = e instanceof Error ? e.message : String(e);
       req.tracker?.trackError();
+      if (e instanceof Error) span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
       if (usage) {
         req.tracker?.trackTokens({ input: usage.inputTokens, output: usage.outputTokens, total: usage.totalTokens });
       }
+      // Record the gen_ai attributes + status on the observability span, then end it.
+      setGenAiAttributes(span, {
+        provider: "cursor",
+        requestModel: match.id,
+        ...(req.tracker ? { tracker: req.tracker } : {}),
+        prompt: message,
+        output: finalText,
+        ...(usage ? { usage: { input: usage.inputTokens, output: usage.outputTokens, total: usage.totalTokens } } : {}),
+      });
+      span.setStatus({ code: status === "completed" ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+      span.end();
       if (agent) {
         try {
           await agent[Symbol.asyncDispose]();
