@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 import {
   type AgentRunner,
   AnthropicAgentRunner,
+  CursorAgentRunner,
   GraphQLVegaTransport,
   LdClient,
   LdResourceWriter,
@@ -66,8 +67,9 @@ function createVegaClient(): VegaClient {
 
 /**
  * Build the agent runner for the provider the LaunchDarkly flag selects.
- * The Vega path dispatches to LaunchDarkly's hosted runtime; the Anthropic path
- * runs the graph locally with sandbox tools (see shared/anthropic/).
+ * The Vega path dispatches to LaunchDarkly's hosted runtime; the Anthropic and
+ * Cursor paths run the deterministic graph locally with the SAME sandbox tools
+ * (see shared/anthropic/ and shared/cursor/) — only the model brain differs.
  *
  * Flag creation is enabled (real `create_flag` against the app project) when
  * ENABLE_FLAG_CREATION=true and an api- key is present; otherwise read-only.
@@ -76,20 +78,38 @@ function createAgentRunner(provider: string): AgentRunner {
   if (provider === "vega") {
     return new VegaAgentRunner(createVegaClient());
   }
-  // Anthropic (default): sandbox root is the repo the agents inspect. Locally this
-  // is the bundled demo app; in CI it defaults to the checked-out workspace.
+
+  // Local-execution providers (Anthropic default, or Cursor): sandbox root is the
+  // repo the agents inspect. Locally this is the bundled demo app; in CI it
+  // defaults to the checked-out workspace. Both share these options.
   const sandboxRoot = resolve(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const writer = flagCreationWriter();
   const codeChangesEnabled = process.env.ENABLE_CODE_CHANGES === "true";
   console.log(`Flag creation: ${writer ? `ENABLED → app project '${writer.projectKey}'` : "disabled"}.`);
   console.log(`Code changes (edit + commit/push): ${codeChangesEnabled ? "ENABLED" : "disabled"}.`);
-  return new AnthropicAgentRunner({
+  const localOpts = {
     sandboxRoot,
     codeChangesEnabled,
-    ...(process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}),
     ...(writer ? { writer } : {}),
     ...(process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {}),
     ...(process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}),
+  };
+
+  if (provider === "cursor") {
+    // Cursor agents via @cursor/sdk. Model + parameters are mapped from the LD AI
+    // config (see shared/cursor/cursorModel.ts); inference runs on Cursor's hosted
+    // models. CURSOR_MODEL is the fallback when an LD model has no Cursor match.
+    return new CursorAgentRunner({
+      ...localOpts,
+      ...(process.env.CURSOR_API_KEY ? { apiKey: process.env.CURSOR_API_KEY } : {}),
+      ...(process.env.CURSOR_MODEL ? { model: process.env.CURSOR_MODEL } : {}),
+    });
+  }
+
+  // Anthropic (default).
+  return new AnthropicAgentRunner({
+    ...localOpts,
+    ...(process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}),
   });
 }
 
@@ -169,6 +189,8 @@ function mapActionInputs(): void {
   };
   set("LD_SDK_KEY", "ld_sdk_key");
   set("ANTHROPIC_API_KEY", "anthropic_api_key");
+  set("CURSOR_API_KEY", "cursor_api_key");
+  set("CURSOR_MODEL", "cursor_model");
   set("LD_API_KEY", "ld_api_key");
   set("LD_BASE_URL", "ld_base_url");
   set("LD_PROJECT_KEY", "ld_project_key");

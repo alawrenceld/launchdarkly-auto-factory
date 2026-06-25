@@ -30,8 +30,13 @@ You MUST call \`tag_conversation\` with the routing tag(s) your instructions spe
 risk_level). The downstream chain advances on these tags — a step that sets no tags
 stalls the pipeline.`;
 
-/** Build the execution-mode note appended to the agent's instructions, per capabilities. */
-function modeNote(caps: ToolCapabilities): string {
+/**
+ * Build the execution-mode note appended to the agent's instructions, per
+ * capabilities. Exported so every provider (Anthropic, Cursor) appends the SAME
+ * capability + tagging guidance — the agents must behave identically across
+ * providers so only the model brain differs, not the instructions.
+ */
+export function modeNote(caps: ToolCapabilities): string {
   const lines = [
     "\n\n---\n## EXECUTION MODE",
     "You have read-only repo tools (`read_file`, `list_dir`, `grep`).",

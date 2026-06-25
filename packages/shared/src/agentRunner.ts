@@ -40,6 +40,14 @@ export interface AgentNodeRequest {
   instructions?: string;
   /** Resolved model id from the AI config (Anthropic path). */
   model?: string;
+  /**
+   * Resolved model parameters from the LaunchDarkly AI config (`model.parameters`,
+   * e.g. `{ temperature, maxTokens }`). Carried so a provider can honor the
+   * LD-authored generation settings instead of hardcoding them. The Cursor path
+   * maps these onto the selected Cursor model's parameter ids where they line up;
+   * the Anthropic/Vega paths currently ignore it.
+   */
+  modelParameters?: Record<string, unknown>;
   /** Free-form context vars (PR number/title/body, prior output, …). */
   context?: Record<string, unknown>;
   /** Optional cap on agent turns (from a graph edge handoff). */

@@ -33372,6 +33372,7 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate)
       prompt: buildPrompt(inboundHandoff !== void 0, ctx),
       ...cfg.instructions ? { instructions: cfg.instructions } : {},
       ...cfg.model?.name ? { model: cfg.model.name } : {},
+      ...cfg.model?.parameters ? { modelParameters: cfg.model.parameters } : {},
       tracker: cfg.createTracker(),
       ...maxTurns !== void 0 ? { maxTurns } : {},
       ...requestType ? { requestType } : {},
@@ -35726,9 +35727,10 @@ var VegaAgentRunner = class {
 // ../shared/dist/providerFlag.js
 var PROVIDER_FLAG_KEY = "auto-factory-ai-provider";
 var DEFAULT_PROVIDER = "anthropic";
+var KNOWN_PROVIDERS = /* @__PURE__ */ new Set(["anthropic", "vega", "cursor"]);
 async function resolveAiProvider(ldClient, context, flagKey = PROVIDER_FLAG_KEY) {
   const value = await ldClient.variation(flagKey, context, DEFAULT_PROVIDER);
-  return value === "vega" || value === "anthropic" ? value : DEFAULT_PROVIDER;
+  return KNOWN_PROVIDERS.has(value) ? value : DEFAULT_PROVIDER;
 }
 
 // ../shared/dist/anthropic/sandboxTools.js
@@ -36431,6 +36433,200 @@ function anthropicModelId(name) {
   return id.trim() || DEFAULT_MODEL;
 }
 
+// ../shared/dist/cursor/cursorModel.js
+function normalizeModelName(name) {
+  return name.trim().toLowerCase().replace(/^[a-z]{2}\./, "").replace(/^(anthropic|bedrock|openai|google)\./, "").replace(/[-_]v\d+(:\d+)?$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function mapToCursorModel(ldModelName, catalog, fallback) {
+  if (!ldModelName) {
+    return { id: fallback, matched: false, reason: `no LD model configured \u2192 fallback '${fallback}'` };
+  }
+  const want = normalizeModelName(ldModelName);
+  for (const m of catalog) {
+    const ids = [m.id, ...m.aliases ?? []].map(normalizeModelName);
+    if (ids.includes(want))
+      return { id: m.id, matched: true, reason: `exact match on '${m.id}'` };
+  }
+  for (const m of catalog) {
+    const candidates = [m.id, ...m.aliases ?? [], m.displayName ?? ""].map(normalizeModelName).filter(Boolean);
+    if (candidates.some((c) => c.includes(want) || want.includes(c))) {
+      return { id: m.id, matched: true, reason: `fuzzy match '${ldModelName}' \u2192 '${m.id}'` };
+    }
+  }
+  return {
+    id: fallback,
+    matched: false,
+    reason: `no Cursor catalog match for '${ldModelName}' (normalized '${want}') \u2192 fallback '${fallback}'`
+  };
+}
+function mapModelParameters(ldParams, modelDef) {
+  if (!ldParams || Object.keys(ldParams).length === 0)
+    return { params: [], dropped: [] };
+  const defs = modelDef?.parameters ?? [];
+  const byId = new Map(defs.map((d) => [d.id.toLowerCase(), d]));
+  const params = [];
+  const dropped = [];
+  for (const [k, v] of Object.entries(ldParams)) {
+    const def = byId.get(k.toLowerCase());
+    if (!def) {
+      dropped.push(k);
+      continue;
+    }
+    const value = String(v);
+    if (def.values?.length && !def.values.some((x) => x.value === value)) {
+      dropped.push(`${k}=${value} (not an allowed value for '${def.id}')`);
+      continue;
+    }
+    params.push({ id: def.id, value });
+  }
+  return { params, dropped };
+}
+
+// ../shared/dist/cursor/cursorAgentRunner.js
+var DEFAULT_FALLBACK_MODEL = "auto";
+var cursorSdkPromise;
+function loadCursorSdk() {
+  if (!cursorSdkPromise)
+    cursorSdkPromise = import("@cursor/sdk");
+  return cursorSdkPromise;
+}
+function toCursorTools(defs, executor) {
+  const tools = {};
+  for (const d of defs) {
+    tools[d.name] = {
+      description: d.description,
+      inputSchema: d.input_schema,
+      execute: async (args) => {
+        const r = await executor.execute(d.name, args ?? {});
+        return { content: [{ type: "text", text: r.content }], isError: r.isError ?? false };
+      }
+    };
+  }
+  return tools;
+}
+function addUsage(a, b) {
+  if (!a)
+    return b;
+  if (!b)
+    return a;
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
+    cacheWriteTokens: a.cacheWriteTokens + b.cacheWriteTokens,
+    totalTokens: a.totalTokens + b.totalTokens
+  };
+}
+var CursorAgentRunner = class {
+  opts;
+  apiKey;
+  fallbackModel;
+  /** Cursor model catalog, loaded once on first use. */
+  catalog;
+  constructor(opts) {
+    this.opts = opts;
+    this.apiKey = opts.apiKey ?? process.env.CURSOR_API_KEY;
+    this.fallbackModel = opts.model ?? process.env.CURSOR_MODEL ?? DEFAULT_FALLBACK_MODEL;
+  }
+  /** Lazy-load the model catalog; never throws (an empty catalog → fallback model). */
+  async loadCatalog() {
+    if (this.catalog)
+      return this.catalog;
+    try {
+      const { Cursor } = await loadCursorSdk();
+      this.catalog = await Cursor.models.list(this.apiKey ? { apiKey: this.apiKey } : void 0);
+    } catch (e) {
+      console.warn(`[cursor] could not list models (${e instanceof Error ? e.message : e}); using fallback '${this.fallbackModel}'`);
+      this.catalog = [];
+    }
+    return this.catalog;
+  }
+  async runNode(req) {
+    const { grant, source } = resolveGrant(req.configKey, req.capabilities);
+    const caps = {
+      createFlag: grant.createFlag && this.opts.writer !== void 0,
+      createMetric: grant.createMetric && this.opts.writer !== void 0,
+      editFiles: grant.editFiles && this.opts.codeChangesEnabled === true
+    };
+    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
+    const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
+    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push");
+    const customTools = toCursorTools(buildSandboxTools(caps), executor);
+    const catalog = await this.loadCatalog();
+    const match = mapToCursorModel(req.model, catalog, this.fallbackModel);
+    const modelDef = catalog.find((m) => m.id === match.id);
+    const { params, dropped } = mapModelParameters(req.modelParameters, modelDef);
+    console.log(`[node] ${req.configKey} cursor model \u2192 '${match.id}' (${match.reason}); params: ${params.map((p) => `${p.id}=${p.value}`).join(", ") || "none"}` + (dropped.length ? `; LD params with no Cursor equivalent: ${dropped.join(", ")}` : ""));
+    const preamble = (req.instructions ?? "") + modeNote(caps);
+    const message = `${preamble}
+
+---
+
+${req.prompt}`;
+    let status = "completed";
+    let finalText = "";
+    let usage;
+    let agent;
+    const started = Date.now();
+    try {
+      const { Agent } = await loadCursorSdk();
+      agent = await Agent.create({
+        ...this.apiKey ? { apiKey: this.apiKey } : {},
+        model: { id: match.id, ...params.length ? { params } : {} },
+        // Local agent: cwd is the repo under review. customTools (LD writes,
+        // tagging, git) are local-only — the reason this provider isn't a cloud agent.
+        local: { cwd: this.opts.sandboxRoot, customTools },
+        mode: "agent"
+      });
+      const run = await agent.send(message);
+      const result = await run.wait();
+      finalText = result.result ?? "";
+      usage = result.usage;
+      if (result.status !== "finished")
+        status = result.status === "cancelled" ? "cancelled" : "failed";
+      if (status === "completed") {
+        const missing = missingRequiredTags(req.configKey, executor.tags);
+        if (missing.length > 0) {
+          try {
+            const forcePrompt = `Before finishing you MUST record your routing decision. You have not set the required tag(s): ${missing.join(", ")}. Call \`tag_conversation\` now with a \`tags\` object, choosing the correct value(s) per your instructions.`;
+            const forcedRun = await agent.send(forcePrompt);
+            const forced = await forcedRun.wait();
+            usage = addUsage(usage, forced.usage);
+            const stillMissing = missingRequiredTags(req.configKey, executor.tags);
+            console.log(`[node] ${req.configKey} forced tag_conversation for missing [${missing.join(", ")}] \u2192 now ${stillMissing.length ? `still missing [${stillMissing.join(", ")}]` : "all present"}`);
+          } catch (e) {
+            console.warn(`[node] ${req.configKey} forced tag call failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+          }
+        }
+      }
+      if (status === "completed")
+        req.tracker?.trackSuccess();
+      else
+        req.tracker?.trackError();
+    } catch (e) {
+      status = "failed";
+      finalText = e instanceof Error ? e.message : String(e);
+      req.tracker?.trackError();
+    } finally {
+      req.tracker?.trackDuration(Date.now() - started);
+      if (usage) {
+        req.tracker?.trackTokens({ input: usage.inputTokens, output: usage.outputTokens, total: usage.totalTokens });
+      }
+      if (agent) {
+        try {
+          await agent[Symbol.asyncDispose]();
+        } catch {
+        }
+      }
+    }
+    return {
+      status,
+      messages: [{ role: "assistant", content: finalText, isFinal: true }],
+      tags: { ...executor.tags }
+    };
+  }
+};
+
 // src/checkRun.ts
 var CHECK_NAME = "AutoFactory \u2014 Approval gate";
 async function postCheckRun(opts) {
@@ -36617,13 +36813,23 @@ function createAgentRunner(provider) {
   const codeChangesEnabled = process.env.ENABLE_CODE_CHANGES === "true";
   console.log(`Flag creation: ${writer ? `ENABLED \u2192 app project '${writer.projectKey}'` : "disabled"}.`);
   console.log(`Code changes (edit + commit/push): ${codeChangesEnabled ? "ENABLED" : "disabled"}.`);
-  return new AnthropicAgentRunner({
+  const localOpts = {
     sandboxRoot,
     codeChangesEnabled,
-    ...process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {},
     ...writer ? { writer } : {},
     ...process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {},
     ...process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}
+  };
+  if (provider === "cursor") {
+    return new CursorAgentRunner({
+      ...localOpts,
+      ...process.env.CURSOR_API_KEY ? { apiKey: process.env.CURSOR_API_KEY } : {},
+      ...process.env.CURSOR_MODEL ? { model: process.env.CURSOR_MODEL } : {}
+    });
+  }
+  return new AnthropicAgentRunner({
+    ...localOpts,
+    ...process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}
   });
 }
 function flagCreationWriter() {
@@ -36676,6 +36882,8 @@ function mapActionInputs() {
   };
   set("LD_SDK_KEY", "ld_sdk_key");
   set("ANTHROPIC_API_KEY", "anthropic_api_key");
+  set("CURSOR_API_KEY", "cursor_api_key");
+  set("CURSOR_MODEL", "cursor_model");
   set("LD_API_KEY", "ld_api_key");
   set("LD_BASE_URL", "ld_base_url");
   set("LD_PROJECT_KEY", "ld_project_key");

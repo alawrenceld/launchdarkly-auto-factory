@@ -31,3 +31,5 @@ export * from "./providerFlag.js";
 export * from "./anthropic/sandboxTools.js";
 export * from "./anthropic/ldWriter.js";
 export * from "./anthropic/anthropicAgentRunner.js";
+export * from "./cursor/cursorModel.js";
+export * from "./cursor/cursorAgentRunner.js";

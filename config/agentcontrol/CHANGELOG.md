@@ -15,6 +15,24 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-06-25
+
+### ✅ `cursor` variation added to `auto-factory-ai-provider`
+- **Change:** Added a third variation, **`cursor`** (value `cursor`, name "Cursor"),
+  to the `auto-factory-ai-provider` multivariate flag — alongside `anthropic`
+  (default, idx 0) and `vega` (idx 1). Flag now at version 2; default unchanged.
+- **What it selects:** the new `CursorAgentRunner` (`packages/shared/src/cursor/`),
+  which runs each graph node as one Cursor agent via `@cursor/sdk`. It reuses the
+  same sandbox tools (registered as Cursor `customTools`) and the same agent graph
+  + AI configs — only the model brain changes. The agent **model + parameters are
+  mapped from the AI config** (`cursorModel.ts`), and per-node metrics (duration,
+  tokens, success/error) are recorded through the AI-config tracker, so Cursor runs
+  show up in the same AI Config monitoring as the other providers.
+- **Caveat (host, not choice):** Cursor inference runs on Cursor's hosted models,
+  not LaunchDarkly's Bedrock instance, even when the mapping pins a Claude model.
+- **Why here:** lets the deterministic GHA path use Cursor agents as the executor
+  (distinct from the non-deterministic Cursor automation front ends). See ADR 0006.
+
 ## 2026-06-23
 
 ### ✅ Per-step approval gates (`auto-factory-approval-gates` flag)
