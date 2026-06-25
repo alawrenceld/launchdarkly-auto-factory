@@ -63,15 +63,6 @@
   .node .model.reason { color: var(--reason); border-color: #1f6feb55; }
   .node .model.ab { color: var(--cursor); border-color: #6e40c955; }
 
-  /* Provider / model-routing strip */
-  .providers { max-width: 1200px; margin: 0 auto 2.25rem; background: var(--panel);
-               border: 1px solid var(--node-border); border-radius: 12px; padding: 1.1rem 1.5rem 1.3rem; }
-  .providers h2 { margin: 0 0 .15rem; font-size: 1.05rem; color: var(--cursor); letter-spacing: .02em; }
-  .providers .sub { color: var(--muted); font-size: .85rem; margin: 0 0 .9rem; }
-  .providers ul { margin: 0; padding-left: 1.1rem; }
-  .providers li { margin: .25rem 0; font-size: .85rem; }
-  .providers .k { color: var(--cursor); font-family: ui-monospace, monospace; font-size: .8rem; }
-
   .arrow { align-self: center; color: var(--muted); font-size: 1.1rem; padding: 0 .1rem; user-select: none; }
 
   /* Tooltips */
@@ -107,21 +98,8 @@
   <h1>AutoFactory pipeline</h1>
   <p>Phase 1 runs in CI on each pull request and creates the release resources
      (flag, metrics, tests, review verdict). Phase 2 receives deploy notifications
-     and runs the release using those resources. The agents run through a selectable
-     execution provider — including <strong>Cursor agents</strong> — with per-agent
-     model routing. Hover a node for the mechanics.</p>
+     and runs the release using those resources. Hover a node for the mechanics.</p>
 </header>
-
-<section class="providers">
-  <h2>Execution providers &amp; model routing</h2>
-  <p class="sub">The agent graph is fixed; which model brain runs each node is config. A LaunchDarkly flag picks the provider, and per-agent AI Config variations pick the model.</p>
-  <ul>
-    <li><strong>Provider</strong> — the <span class="k">auto-factory-ai-provider</span> flag selects the backend per run: <span class="k">anthropic</span> (local tool-use loop), <span class="k">vega</span> (LaunchDarkly-hosted), or <span class="k">cursor</span> (Cursor agents via <span class="k">@cursor/sdk</span>). Same graph, same tools, same LaunchDarkly-authored instructions — only the brain changes.</li>
-    <li><strong>Model, derived from LaunchDarkly</strong> — each agent's model comes from its AI Config (<span class="k">modelConfigKey</span>), mapped to the provider's catalog at run time. Coding agents run <strong>Cursor Composer</strong>; reasoning agents run <strong>Sonnet</strong>.</li>
-    <li><strong>Per-agent A/B</strong> — a multi-context (<span class="k">service</span> static + <span class="k">run</span> = fresh UUID per run) lets each coding agent's rollout split Composer vs Sonnet independently, bucketed by the <span class="k">run</span> kind. Re-runs are independent samples; per-config salts decorrelate the agents.</li>
-    <li><strong>Measurement</strong> — every node records duration, tokens, and success/error to AI Config monitoring, and emits a <span class="k">gen_ai</span> OpenTelemetry span to LLM Observability (cost from each model config's token pricing), so Composer-vs-Sonnet performance and cost are comparable per agent.</li>
-  </ul>
-</section>
 
 <section class="phase p1">
   <h2>Phase 1: PR &rarr; release resources</h2>
