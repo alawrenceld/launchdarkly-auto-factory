@@ -16,6 +16,8 @@
     --text: #e6edf3;
     --muted: #8b949e;
     --tip-bg: #21262d;
+    --reason: #79c0ff;    /* Sonnet — reasoning/judgment agents */
+    --cursor: #bc8cff;    /* Cursor Composer — coding agents (A/B vs Sonnet) */
   }
   * { box-sizing: border-box; }
   body {
@@ -53,6 +55,22 @@
   .node .step { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
   .node .title { font-weight: 600; font-size: .92rem; margin-top: .1rem; }
   .node .hint { font-size: .78rem; color: var(--muted); margin-top: .25rem; }
+  .node .model {
+    display: inline-block; margin-top: .5rem; font-size: .68rem; font-weight: 600;
+    padding: .1rem .5rem; border-radius: 99px; border: 1px solid var(--node-border);
+    font-family: ui-monospace, monospace;
+  }
+  .node .model.reason { color: var(--reason); border-color: #1f6feb55; }
+  .node .model.ab { color: var(--cursor); border-color: #6e40c955; }
+
+  /* Provider / model-routing strip */
+  .providers { max-width: 1200px; margin: 0 auto 2.25rem; background: var(--panel);
+               border: 1px solid var(--node-border); border-radius: 12px; padding: 1.1rem 1.5rem 1.3rem; }
+  .providers h2 { margin: 0 0 .15rem; font-size: 1.05rem; color: var(--cursor); letter-spacing: .02em; }
+  .providers .sub { color: var(--muted); font-size: .85rem; margin: 0 0 .9rem; }
+  .providers ul { margin: 0; padding-left: 1.1rem; }
+  .providers li { margin: .25rem 0; font-size: .85rem; }
+  .providers .k { color: var(--cursor); font-family: ui-monospace, monospace; font-size: .8rem; }
 
   .arrow { align-self: center; color: var(--muted); font-size: 1.1rem; padding: 0 .1rem; user-select: none; }
 
@@ -89,8 +107,21 @@
   <h1>AutoFactory pipeline</h1>
   <p>Phase 1 runs in CI on each pull request and creates the release resources
      (flag, metrics, tests, review verdict). Phase 2 receives deploy notifications
-     and runs the release using those resources. Hover a node for the mechanics.</p>
+     and runs the release using those resources. The agents run through a selectable
+     execution provider — including <strong>Cursor agents</strong> — with per-agent
+     model routing. Hover a node for the mechanics.</p>
 </header>
+
+<section class="providers">
+  <h2>Execution providers &amp; model routing</h2>
+  <p class="sub">The agent graph is fixed; which model brain runs each node is config. A LaunchDarkly flag picks the provider, and per-agent AI Config variations pick the model.</p>
+  <ul>
+    <li><strong>Provider</strong> — the <span class="k">auto-factory-ai-provider</span> flag selects the backend per run: <span class="k">anthropic</span> (local tool-use loop), <span class="k">vega</span> (LaunchDarkly-hosted), or <span class="k">cursor</span> (Cursor agents via <span class="k">@cursor/sdk</span>). Same graph, same tools, same LaunchDarkly-authored instructions — only the brain changes.</li>
+    <li><strong>Model, derived from LaunchDarkly</strong> — each agent's model comes from its AI Config (<span class="k">modelConfigKey</span>), mapped to the provider's catalog at run time. Coding agents run <strong>Cursor Composer</strong>; reasoning agents run <strong>Sonnet</strong>.</li>
+    <li><strong>Per-agent A/B</strong> — a multi-context (<span class="k">service</span> static + <span class="k">run</span> = fresh UUID per run) lets each coding agent's rollout split Composer vs Sonnet independently, bucketed by the <span class="k">run</span> kind. Re-runs are independent samples; per-config salts decorrelate the agents.</li>
+    <li><strong>Measurement</strong> — every node records duration, tokens, and success/error to AI Config monitoring, and emits a <span class="k">gen_ai</span> OpenTelemetry span to LLM Observability (cost from each model config's token pricing), so Composer-vs-Sonnet performance and cost are comparable per agent.</li>
+  </ul>
+</section>
 
 <section class="phase p1">
   <h2>Phase 1: PR &rarr; release resources</h2>
@@ -115,7 +146,8 @@
         The PR branch checkout is the agents' working directory.
         <ul>
           <li>The agent graph and each agent's instructions are resolved from LaunchDarkly AI Configs at run time. Prompts are config, not code.</li>
-          <li>A multivariate provider flag selects the execution backend (Anthropic API or an internal agent runtime) per run.</li>
+          <li>The <span class="k">auto-factory-ai-provider</span> flag selects the backend per run: <span class="k">anthropic</span>, <span class="k">vega</span>, or <span class="k">cursor</span> (Cursor agents). Each agent's model is resolved from its AI Config and mapped to the provider's catalog.</li>
+          <li>The targeting context is a multi-context (<span class="k">service</span> static + <span class="k">run</span> = fresh UUID), so coding agents can A/B their model (Composer vs Sonnet) independently per run.</li>
           <li>Per-agent write permissions (<span class="k">create_flag</span>, <span class="k">create_metric</span>, <span class="k">edit_files</span>) are declared on the graph's edges.</li>
         </ul></div>
     </div>
@@ -125,6 +157,7 @@
       <div class="step">Step 3</div>
       <div class="title">Research &amp; Planner</div>
       <div class="hint">read-only analysis</div>
+      <div class="model reason">Sonnet — reasoning</div>
       <div class="tip">Tools: <span class="k">git_diff</span>, file reads, grep. No write access.
         <ul>
           <li>Classifies <span class="k">pr_type</span>, <span class="k">risk_level</span>, <span class="k">change_scope</span>, <span class="k">change_patterns</span>, user-facing impact.</li>
@@ -138,6 +171,7 @@
       <div class="step">Step 4</div>
       <div class="title">Flag Implementer</div>
       <div class="hint">creates the flag, wires the code</div>
+      <div class="model ab">Composer ⇄ Sonnet (A/B)</div>
       <div class="tip">
         <ul>
           <li>Creates a boolean flag via the API with targeting off in all environments.</li>
@@ -152,6 +186,7 @@
       <div class="step">Step 5</div>
       <div class="title">Metrics Author</div>
       <div class="hint">creates guarded-release metrics</div>
+      <div class="model ab">Composer ⇄ Sonnet (A/B)</div>
       <div class="tip">
         <ul>
           <li>Metric categories: error (occurrence, lower is better), latency (numeric ms, lower is better), business (occurrence, higher is better).</li>
@@ -167,6 +202,7 @@
       <div class="step">Step 6</div>
       <div class="title">Flag Testing</div>
       <div class="hint">flag-on and flag-off tests</div>
+      <div class="model ab">Composer ⇄ Sonnet (A/B)</div>
       <div class="tip">
         <ul>
           <li>Writes paired tests per flagged path: flag on asserts the new behavior, flag off asserts the prior behavior.</li>
@@ -180,6 +216,7 @@
       <div class="step">Step 7</div>
       <div class="title">Code Reviewer</div>
       <div class="hint">APPROVE / REJECT + risk_level</div>
+      <div class="model reason">Sonnet — reasoning</div>
       <div class="tip">Read-only review of the full diff, including the agents' commits.
         <ul>
           <li>Checks logic, error handling, control-path preservation, and test quality.</li>
@@ -317,6 +354,8 @@
   <span><span class="dot" style="background:var(--accent1)"></span>Phase 1: CI agent chain</span>
   <span><span class="dot" style="background:var(--accent2)"></span>Phase 2: Beacon release orchestration</span>
   <span><span class="dot" style="background:var(--rollback)"></span>automated rollback path</span>
+  <span><span class="dot" style="background:var(--reason)"></span>Sonnet — reasoning agents</span>
+  <span><span class="dot" style="background:var(--cursor)"></span>Composer ⇄ Sonnet A/B — coding agents</span>
 </div>
 
 </body>
