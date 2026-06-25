@@ -29,10 +29,18 @@ Three SDK realities shaped the design:
   parameters are applied only where an LD param id lines up with a parameter the chosen Cursor model
   accepts. So model selection is **derived from LD**, not hardcoded — same as the Anthropic path.
 
-**Measurement.** Per-node generation metrics — duration, token usage (`RunResult.usage` →
-`trackTokens`), and success/error — are recorded through the AI-config `tracker`, exactly as the
-Anthropic runner does, so Cursor runs appear in the same AI Config monitoring dashboards as the
-other providers (graph-correlated via the graph tracker).
+**Measurement.** Two layers, both correlated to the AgentControl config:
+- *AI Config metrics* — per-node duration, token usage (`RunResult.usage` → `trackTokens`), and
+  success/error via the AI-config `tracker`, exactly as the Anthropic runner does, so Cursor runs
+  appear in the same AI Config monitoring dashboards (graph-correlated via the graph tracker).
+- *LLM Observability* — the `Observability` plugin (`@launchdarkly/observability-node`) is registered
+  on the server SDK (ldSdk.ts), and each Cursor run emits a manual `gen_ai.*` OpenTelemetry span
+  (observability.ts): model, token usage, prompt/output, status, plus AI-config correlation from the
+  tracker's `getTrackData()`. Cursor runs inference in its hosted service, so there's no local LLM
+  SDK to auto-instrument — the span is built from `RunResult`. Spans are flushed on SDK close so the
+  short-lived CI process exports them. The plugin load is lazy + defensive (opt out with
+  `DISABLE_LD_OBSERVABILITY`); `@launchdarkly/observability-node` + `@opentelemetry/api` are marked
+  external in the bundle (heavy / the OTel global must be a single shared instance).
 
 **Consequences.**
 - **Inference host differs.** Even when the mapping pins a Claude model, *all Cursor inference runs

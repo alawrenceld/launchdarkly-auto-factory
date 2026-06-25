@@ -17,6 +17,16 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-06-25
 
+### ✅ LLM Observability for the Cursor provider
+- **Change:** Registered the LaunchDarkly Observability plugin on the server SDK and
+  emit a `gen_ai.*` OpenTelemetry span per Cursor agent run (model, token usage,
+  prompt/output, status), correlated to the AgentControl config via the tracker's
+  `getTrackData()`. Spans land in the factory project's (`auto-factory-prototype`)
+  LLM Observability, alongside the AI Config metrics.
+- **Why:** the Cursor calls run in Cursor's hosted service (no local LLM SDK to
+  auto-instrument), so manual spans are how those runs become visible in LD. Verified
+  live: traces appear in LaunchDarkly for demo PR #26.
+
 ### ✅ Chain model bumped to claude-sonnet-4-6
 - **Change:** Set `modelConfigKey` = `Anthropic.claude-sonnet-4-6` on the served
   (`default`) variation of all five agent configs (research-planner, flag-implementer,
