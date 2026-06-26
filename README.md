@@ -29,7 +29,7 @@ Design history: [docs/adr/](docs/adr/).
 
 | Path | What it is |
 |------|------------|
-| `packages/shared/` | LD clients (REST + native SDK), the `AgentRunner` provider seam, the Anthropic runner and agent tools, the release adapter, and the provider-agnostic Phase 1 orchestration (graph walk + approval) |
+| `packages/shared/` | LD clients (REST + native SDK), the `AgentRunner` provider seam, the Anthropic / Vega / Cursor runners and agent tools, LLM-observability spans, the release adapter, and the provider-agnostic Phase 1 orchestration (graph walk + approval) |
 | `packages/phase1-resource-factory/` | Phase 1 front end #1 (GitHub Action): code; its drop-in workflow lives in `bootstrap/github-action-template/` |
 | `packages/phase1-cursor-extension/` | Phase 1 front end #2 (Cursor/VS Code extension): working-tree edits from the editor, calls Anthropic directly |
 | `bootstrap/cursor-automation/` | Phase 1 front end #3 (native Cursor automation): a drop-in `.cursor/` rule + command + MCP config; runs in Cursor's own agent (local prototype) |
@@ -49,7 +49,7 @@ same release manifest — they differ only in trigger, output, and which models 
 
 | Front end | Trigger | Output | Models | Status |
 |-----------|---------|--------|--------|--------|
-| **GitHub Action** — [`packages/phase1-resource-factory`](packages/phase1-resource-factory/), template in [`bootstrap/github-action-template/`](bootstrap/github-action-template/) | a pull request, in CI | commits to the PR branch | Anthropic API | primary, verified path |
+| **GitHub Action** — [`packages/phase1-resource-factory`](packages/phase1-resource-factory/), template in [`bootstrap/github-action-template/`](bootstrap/github-action-template/) | a pull request, in CI | commits to the PR branch | Anthropic / Vega / Cursor (flag-selected; model per agent from the AI config) | primary, verified path |
 | **Cursor/VS Code extension** — [`packages/phase1-cursor-extension`](packages/phase1-cursor-extension/) | a button or a new commit, in the editor | edits left in your working tree | Anthropic API (Cursor can't expose its models to extensions) | working |
 | **Native Cursor automation** — [`bootstrap/cursor-automation`](bootstrap/cursor-automation/) | the `/autofactory` command in Cursor | edits left in your working tree | Cursor's own models (no API key) | local prototype; cloud (auto, PR-based) is a later phase |
 
@@ -59,13 +59,13 @@ Setup for the GitHub Action is below; the extension and the automation each have
 
 ### Prerequisites
 
-- Node 20+
+- Node 20+ for local tooling (the GitHub Action itself runs on Node 24; the Cursor provider requires Node ≥22.13)
 - A LaunchDarkly account with **two projects**:
   - a **factory** project, which holds the agent configs and graph (the pipeline reads from it)
   - an **app** project, where the agents create flags and metrics (the pipeline writes to it)
 - A LaunchDarkly server SDK key for the factory project's environment, and an API access
   token with write access to both projects
-- An Anthropic API key (the default agent execution backend)
+- An Anthropic API key (the default agent execution backend), or a Cursor API key to run on the Cursor provider
 - A GitHub repository for your application
 
 ### 1. Provision the agent configs, graph, and operational flags
@@ -74,7 +74,7 @@ Setup for the GitHub Action is below; the extension and the automation each have
 git clone <this repo> && cd launchdarkly-auto-factory
 npm install
 cp .env.example .env    # fill in LD_SDK_KEY, LD_API_KEY, LD_PROJECT_KEY, LD_APP_PROJECT_KEY, ANTHROPIC_API_KEY
-npm run bootstrap
+npm run bootstrap       # prompts for the execution provider (anthropic or cursor)
 ```
 
 Bootstrap runs preflight checks, then creates, in your factory project from the committed
@@ -103,6 +103,11 @@ repo. Then set, in the app repo:
 `contents: write`, `pull-requests: write`, and `checks: write` (the last for the
 approval-gate check run; all already set in the template).
 
+To run on the **Cursor** provider instead, copy `bootstrap/github-action-template/auto-factory-cursor.yml`
+(it checks the tool out and `npm ci`s it, because the Cursor SDK can't run via the bare
+`uses:` form), set a `CURSOR_API_KEY` secret in place of `ANTHROPIC_API_KEY`, and serve
+`cursor` from the provider flag (below).
+
 ### 3. Open a pull request
 
 Write the change normally, with no flag. The chain runs on every PR
@@ -127,9 +132,20 @@ config changes) short-circuit after the first agent.
 | `approval_mode` | `yolo` | `yolo` (report verdict), `middle` (gate high risk), `manual` (always gate) |
 | `graph_key` | `gha-auto-factory` | which agent graph to walk |
 
-The `auto-factory-ai-provider` flag (factory project, string variations `anthropic`/`vega`)
-selects the execution backend per run. Bootstrap provisions it **off** (serves `anthropic`);
-flip it on to serve `vega`. (If the flag is ever absent, the runtime defaults to `anthropic`.)
+The `auto-factory-ai-provider` flag (factory project, string variations
+`anthropic`/`vega`/`cursor`) selects the execution backend per run. Bootstrap provisions it
+**off** (serves `anthropic`); flip it to serve `vega` or `cursor`. (If the flag is ever
+absent, the runtime defaults to `anthropic`.) The graph, instructions, and per-agent model are
+the same across providers — only the model brain changes. The model for each agent is read
+from its AI config, so reasoning agents (research, review) and coding agents can run different
+models and be compared per agent.
+
+### Observability
+
+Every agent run records duration, tokens, and success/error to LaunchDarkly **AI Config
+monitoring**, and emits a `gen_ai` OpenTelemetry span to **LLM Observability** (cost derived
+from each model's configured token pricing). On by default; set `DISABLE_LD_OBSERVABILITY=true`
+to opt out. Spans and metrics are correlated to the AgentControl config and to a per-run id.
 
 ### Per-step approval gates
 
@@ -178,6 +194,7 @@ npm run build        # tsc project build
 npm test             # unit + integration tests
 npm run typecheck    # build + tests typecheck
 npm run check:public # guard against committing internal material
+npm run check:configs # validate agent configs/graph consistency (tags, routing, README)
 ```
 
 Changes to the agent configs, the graph, or operational flags are logged in
