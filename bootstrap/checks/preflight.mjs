@@ -44,6 +44,12 @@ export async function preflight() {
   if (process.env.ANTHROPIC_API_KEY) ok.push("ANTHROPIC_API_KEY present");
   else notes.push("ANTHROPIC_API_KEY not set (required when the auto-factory-ai-provider flag serves 'anthropic' — the default)");
 
+  // CURSOR_API_KEY is only needed when the provider flag serves 'cursor' (Cursor
+  // agents). That path also needs the checkout+npm-ci workflow, not the plain
+  // drop-in template, and Node >= 22.13 in the action runtime.
+  if (process.env.CURSOR_API_KEY) ok.push("CURSOR_API_KEY present");
+  else notes.push("CURSOR_API_KEY not set (only needed when the auto-factory-ai-provider flag serves 'cursor')");
+
   for (const k of ["GITHUB_TOKEN", "BEACON_WEBHOOK_SECRET"]) {
     if (!process.env[k]) notes.push(`${k} not set (needed for Phase 2)`);
   }

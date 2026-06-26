@@ -60,7 +60,13 @@ Next steps:
      Add repo variable:   LD_APP_PROJECT_KEY  (e.g. autofactory-demo)
      (GITHUB_TOKEN is provided automatically by GitHub Actions. For Phase 2, also
       add BEACON_WEBHOOK_SECRET.)
-  3. Open a PR. Phase 1 runs automatically.
+  3. Open a PR. Phase 1 runs automatically (on the Anthropic provider by default;
+     LLM Observability is on automatically — see DISABLE_LD_OBSERVABILITY to opt out).
+  4. (Optional) To run on the 'cursor' provider instead: serve 'cursor' from the
+     auto-factory-ai-provider flag, add the CURSOR_API_KEY secret, and use the
+     checkout+npm-ci workflow variant (the plain drop-in template can't run it —
+     @cursor/sdk needs node_modules). The Composer model + 'run' context kind are
+     LaunchDarkly-side setup; see config/agentcontrol/CHANGELOG.md.
 ${
   hasSource
     ? ""
