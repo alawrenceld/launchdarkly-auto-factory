@@ -21,9 +21,11 @@ canonical public copies of the five agents:
 | `autofactory-flag-testing.json` | 4 | flag-on/flag-off tests, run to green |
 | `autofactory-code-reviewer.json` | 5 | independent verdict + risk level |
 
-Only the `default` variation (the Anthropic tool-use surface) is committed.
-The live prototype project also carries per-provider variations (e.g. a Vega
-runtime variant per config); those are not committed here.
+Only the `default` variation (the Anthropic tool-use surface, on
+`claude-sonnet-4-6`) is committed. The live prototype project also carries
+per-provider/per-model variations (e.g. a Vega runtime variant, and a Composer
+variation on the coding agents for the Cursor A/B); those are not committed here —
+the Composer variation waits on Composer becoming a built-in LD model.
 
 Two-way convention: after provisioning, instructions are editable in the
 LaunchDarkly UI and take effect on the next run. If you change them in LD,

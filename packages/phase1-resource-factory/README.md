@@ -4,12 +4,15 @@ The Phase 1 GitHub Action. On a pull request it resolves the agent graph from
 LaunchDarkly, walks it through the selected provider, and applies an approval
 decision — posting a summary comment back to the PR.
 
-Execution is provider-agnostic (see [ADR 0005](../../docs/adr/0005-provider-seam-local-anthropic-execution.md)):
-the `auto-factory-ai-provider` LaunchDarkly flag selects the backend. The
-**default is a local Anthropic tool-use loop** (`@auto-factory/shared`'s
-`AnthropicAgentRunner` + sandbox tools); LaunchDarkly-hosted **Vega** is the
-alternative. Either way the LD AI SDK resolves the configs/graph and records
-metrics natively.
+Execution is provider-agnostic (see [ADR 0005](../../docs/adr/0005-provider-seam-local-anthropic-execution.md)
+and [ADR 0006](../../docs/adr/0006-cursor-sdk-provider.md)): the
+`auto-factory-ai-provider` LaunchDarkly flag selects the backend. The **default is a
+local Anthropic tool-use loop** (`@auto-factory/shared`'s `AnthropicAgentRunner` +
+sandbox tools); the alternatives are LaunchDarkly-hosted **Vega** and **Cursor**
+agents (`CursorAgentRunner` via `@cursor/sdk`; needs `CURSOR_API_KEY` and the
+checkout+`npm ci` workflow variant, not the bare `uses:` form). Either way the LD AI
+SDK resolves the configs/graph, the per-agent model is read from the AI config, and
+generation metrics + a `gen_ai` LLM-observability span are recorded natively.
 
 ## Layout
 
