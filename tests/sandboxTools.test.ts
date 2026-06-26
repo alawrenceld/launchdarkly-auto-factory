@@ -254,3 +254,39 @@ describe("SandboxToolExecutor — create_metric", () => {
     assert.equal(calls.length, 0);
   });
 });
+
+describe("SandboxToolExecutor — tag_conversation tool-owned tags", () => {
+  it("records decision tags the agent sets", async () => {
+    const exec = new SandboxToolExecutor(root);
+    await exec.execute("tag_conversation", { tags: { flag_worthy: "true", risk_level: "low" } });
+    assert.equal(exec.tags.flag_worthy, "true");
+    assert.equal(exec.tags.risk_level, "low");
+  });
+
+  it("ignores agent-set side-effect tags (can't fake flag_created/metrics_created)", async () => {
+    const exec = new SandboxToolExecutor(root);
+    const r = await exec.execute("tag_conversation", {
+      tags: { flag_created: "true", flag_key: "enable-x", metrics_created: "true", metric_keys: "x-error", needs_tests: "true" },
+    });
+    // Side-effect tags stripped; only the decision tag survives.
+    assert.equal(exec.tags.flag_created, undefined);
+    assert.equal(exec.tags.flag_key, undefined);
+    assert.equal(exec.tags.metrics_created, undefined);
+    assert.equal(exec.tags.metric_keys, undefined);
+    assert.equal(exec.tags.needs_tests, "true");
+    assert.match(r.content, /Ignored \[/);
+  });
+
+  it("still lets the create_flag tool set flag_created on a real success", async () => {
+    const writer = {
+      projectKey: "app",
+      async createBooleanFlag(args: CreateFlagArgs): Promise<LdWriteResult> {
+        return { created: true, alreadyExists: false, key: args.key, detail: "created" };
+      },
+    } as unknown as LdResourceWriter;
+    const exec = new SandboxToolExecutor(root, writer);
+    await exec.execute("create_flag", { key: "enable-x" });
+    assert.equal(exec.tags.flag_created, "true");
+    assert.equal(exec.tags.flag_key, "enable-x");
+  });
+});

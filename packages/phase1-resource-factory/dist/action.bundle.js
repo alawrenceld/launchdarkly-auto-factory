@@ -35916,6 +35916,12 @@ function buildSandboxTools(caps) {
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "__pycache__", ".venv"]);
 var MAX_GREP_MATCHES = 80;
 var MAX_FILE_BYTES = 2e5;
+var TOOL_OWNED_TAGS = /* @__PURE__ */ new Set([
+  "flag_created",
+  "flag_key",
+  "metrics_created",
+  "metric_keys"
+]);
 var SandboxToolExecutor = class {
   root;
   writer;
@@ -36026,11 +36032,20 @@ var SandboxToolExecutor = class {
     if (!raw || typeof raw !== "object")
       return "tag_conversation: expected a `tags` object";
     const recorded = [];
+    const ignored = [];
     for (const [k, v] of Object.entries(raw)) {
+      if (TOOL_OWNED_TAGS.has(k)) {
+        ignored.push(k);
+        continue;
+      }
       this.tags[k] = String(v);
       recorded.push(`${k}=${String(v)}`);
     }
-    return recorded.length ? `Recorded tags: ${recorded.join(", ")}` : "No tags provided";
+    let msg = recorded.length ? `Recorded tags: ${recorded.join(", ")}` : "No tags recorded";
+    if (ignored.length) {
+      msg += `. Ignored [${ignored.join(", ")}]: these are set only by their tool (create_flag / create_metric) on success and cannot be set via tag_conversation. If creation failed, do not claim it succeeded.`;
+    }
+    return msg;
   }
   async createFlag(input) {
     if (!this.writer)

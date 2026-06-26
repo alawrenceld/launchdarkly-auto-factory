@@ -207,6 +207,23 @@ export interface ToolExecResult {
 export type GitMode = "push" | "workingTree";
 
 /**
+ * Routing tags that assert a SIDE EFFECT actually happened. These are set ONLY by
+ * their tool on a real success (create_flag → flag_created/flag_key; create_metric
+ * → metrics_created/metric_keys) and are stripped from any agent-supplied
+ * `tag_conversation` call. Otherwise an agent could fake e.g. `flag_created=true`
+ * after the tool failed (a 401 on flag creation), advancing the chain — and
+ * yielding a green run with no flag. Decision tags (flag_worthy, skip_flagging,
+ * review_approved, risk_level, needs_tests) are the agent's judgment and stay
+ * agent-settable.
+ */
+export const TOOL_OWNED_TAGS: ReadonlySet<string> = new Set([
+  "flag_created",
+  "flag_key",
+  "metrics_created",
+  "metric_keys",
+]);
+
+/**
  * Executes tool calls against a fixed root directory, accumulating routing tags.
  * One instance per node run. `writer` enables `create_flag` / `create_metric`;
  * `allowEdits` enables the file-mutation + git tools.
@@ -325,11 +342,22 @@ export class SandboxToolExecutor {
   private tag(raw: unknown): string {
     if (!raw || typeof raw !== "object") return "tag_conversation: expected a `tags` object";
     const recorded: string[] = [];
+    const ignored: string[] = [];
     for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      // Side-effect tags can't be set by the agent — only by their tool on a real
+      // success. Stripping them here makes a faked `flag_created=true` impossible.
+      if (TOOL_OWNED_TAGS.has(k)) {
+        ignored.push(k);
+        continue;
+      }
       this.tags[k] = String(v);
       recorded.push(`${k}=${String(v)}`);
     }
-    return recorded.length ? `Recorded tags: ${recorded.join(", ")}` : "No tags provided";
+    let msg = recorded.length ? `Recorded tags: ${recorded.join(", ")}` : "No tags recorded";
+    if (ignored.length) {
+      msg += `. Ignored [${ignored.join(", ")}]: these are set only by their tool (create_flag / create_metric) on success and cannot be set via tag_conversation. If creation failed, do not claim it succeeded.`;
+    }
+    return msg;
   }
 
   private async createFlag(input: Record<string, unknown>): Promise<ToolExecResult> {

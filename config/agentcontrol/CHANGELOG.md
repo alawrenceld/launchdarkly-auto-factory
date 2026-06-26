@@ -15,6 +15,23 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-06-26
+
+### ✅ Prevent false `flag_created=true` (tool-owned tags + F19)
+- **Why:** a LaunchDarkly API 401 on `create_flag` produced GREEN runs because the
+  agent set `flag_created=true` via `tag_conversation` despite the tool failing —
+  a passing pipeline with no flag (verified: 5/5 demo flags were 404 while 2 runs
+  reported success). The honest failures correctly stalled at the metrics edge.
+- **Code fix (shared, both providers):** `flag_created` / `flag_key` /
+  `metrics_created` / `metric_keys` are now **tool-owned** — set only by
+  `create_flag` / `create_metric` on a real success and stripped from any
+  agent-supplied `tag_conversation` call. The agent literally cannot fake them.
+- **Config fix:** added **F19** to the flag-implementer instructions on BOTH the
+  `Sonnet 4.6` (v7) and `Composer 2.5` (v2) variations — only HTTP 409 (exists) is
+  success-via-reuse; any other `create_flag` error is a hard failure (tag
+  `flag_created=false`, don't wire/manifest/claim success, stop). Reinforces the
+  code fix so the agent's downstream behavior stays honest too.
+
 ## 2026-06-25
 
 ### ✅ Multi-context (`service` + `run`) for per-agent model A/B
