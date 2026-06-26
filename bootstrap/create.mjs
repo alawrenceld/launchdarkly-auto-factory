@@ -12,8 +12,33 @@
 
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { stdin, stdout } from "node:process";
+
+/**
+ * Pick the Phase 1 execution provider. Non-interactive override:
+ * `--provider cursor` / `--provider=cursor` or AUTOFACTORY_PROVIDER=cursor.
+ * Interactive (TTY): prompt. Default: anthropic.
+ */
+async function chooseProvider() {
+  const i = process.argv.indexOf("--provider");
+  const fromArg =
+    process.argv.find((a) => a.startsWith("--provider="))?.split("=")[1] ??
+    (i !== -1 ? process.argv[i + 1] : undefined);
+  const want = (fromArg ?? process.env.AUTOFACTORY_PROVIDER ?? "").trim().toLowerCase();
+  if (want === "anthropic" || want === "cursor") return want;
+  if (!stdin.isTTY) return "anthropic"; // non-interactive default
+  const { createInterface } = await import("node:readline/promises");
+  const rl = createInterface({ input: stdin, output: stdout });
+  const ans = (await rl.question("Phase 1 execution provider — [a]nthropic direct (default) or [c]ursor? "))
+    .trim()
+    .toLowerCase();
+  rl.close();
+  return ans.startsWith("c") ? "cursor" : "anthropic";
+}
 
 console.log("LaunchDarkly Auto-Factory bootstrap\n");
+const provider = await chooseProvider();
+console.log(`Provider: ${provider}${provider === "anthropic" ? " (direct Anthropic API)" : " (Cursor agents via @cursor/sdk)"}\n`);
 
 // 1. Ensure build output exists before importing built packages.
 if (!existsSync("packages/config-bridge/dist/cli.js") || !existsSync("packages/shared/dist/index.js")) {
@@ -51,27 +76,38 @@ if (hasSource) {
   execSync("node packages/config-bridge/dist/cli.js provision", { stdio: "inherit" });
 }
 
-// 4. Remaining manual steps.
-console.log(`
-Next steps:
+// 4. Remaining manual steps (tailored to the chosen provider).
+const steps =
+  provider === "cursor"
+    ? `
+Next steps (provider: cursor):
+  1. Copy bootstrap/github-action-template/auto-factory-cursor.yml → .github/workflows/ in your
+     app repo (set <owner>). It checks the tool out + runs \`npm ci\`, because the Cursor SDK
+     can't run via the bare \`uses:\` form.
+  2. Serve 'cursor' from the auto-factory-ai-provider flag in your factory project.
+  3. Add repo secrets:    LD_SDK_KEY, CURSOR_API_KEY, LD_API_KEY
+     Add repo variable:   LD_APP_PROJECT_KEY  (e.g. autofactory-demo)
+     (GITHUB_TOKEN is provided automatically. For Phase 2, also add BEACON_WEBHOOK_SECRET.)
+  4. Open a PR. Phase 1 runs automatically (LLM Observability is on — DISABLE_LD_OBSERVABILITY to opt out).
+  Optional A/B: to split Composer vs Sonnet per coding agent, add a Composer model + a 'run'
+  context kind in LaunchDarkly and bucket those agents' rollouts by 'run' (see
+  config/agentcontrol/CHANGELOG.md).`
+    : `
+Next steps (provider: anthropic):
   1. Copy bootstrap/github-action-template/auto-factory.yml → .github/workflows/ in your app repo
      (set <owner> to the repo hosting this action).
   2. Add repo secrets:    LD_SDK_KEY, ANTHROPIC_API_KEY, LD_API_KEY
      Add repo variable:   LD_APP_PROJECT_KEY  (e.g. autofactory-demo)
-     (GITHUB_TOKEN is provided automatically by GitHub Actions. For Phase 2, also
-      add BEACON_WEBHOOK_SECRET.)
-  3. Open a PR. Phase 1 runs automatically (on the Anthropic provider by default;
-     LLM Observability is on automatically — see DISABLE_LD_OBSERVABILITY to opt out).
-  4. (Optional) To run on the 'cursor' provider instead: serve 'cursor' from the
-     auto-factory-ai-provider flag, add the CURSOR_API_KEY secret, and use the
-     checkout+npm-ci workflow variant (the plain drop-in template can't run it —
-     @cursor/sdk needs node_modules). The Composer model + 'run' context kind are
-     LaunchDarkly-side setup; see config/agentcontrol/CHANGELOG.md.
-${
-  hasSource
-    ? ""
-    : `
+     (GITHUB_TOKEN is provided automatically. For Phase 2, also add BEACON_WEBHOOK_SECRET.)
+  3. Open a PR. Phase 1 runs automatically (LLM Observability is on — DISABLE_LD_OBSERVABILITY to opt out).`;
+
+console.log(
+  steps +
+    (hasSource
+      ? ""
+      : `
+
 Provisioned from the committed definitions in config/agentcontrol/ (the canonical
 public copies). The agent instructions are editable in the LaunchDarkly UI afterward;
-the pipeline reads them at run time.`
-}`);
+the pipeline reads them at run time.`),
+);
