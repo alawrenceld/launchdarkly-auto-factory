@@ -20,6 +20,7 @@
 
 import type { AgentGraphDefinition, AgentGraphNode, LDGraphTracker } from "@launchdarkly/server-sdk-ai";
 import type { AgentNodeResult, AgentRunner } from "./agentRunner.js";
+import type { JudgeHook } from "./judges.js";
 
 export interface NodeRun {
   configKey: string;
@@ -171,6 +172,12 @@ export async function walkGraph(
   graphTracker?: LDGraphTracker,
   onEvent?: (event: WalkEvent) => void,
   gate?: GateController,
+  /**
+   * Optional judge hook (see judges.ts): after each node completes, runs any
+   * judges attached to that node's AI config in LaunchDarkly and records their
+   * scores on the node's tracker. Judge failures never fail the walk.
+   */
+  judgeHook?: JudgeHook,
 ): Promise<WalkResult> {
   const runs: NodeRun[] = [];
   const accumulatedTags: Record<string, string> = {};
@@ -203,13 +210,17 @@ export async function walkGraph(
     const requestType = handoffString(inboundHandoff, "request_type");
     const capabilities = handoffStringArray(inboundHandoff, "capabilities");
     onEvent?.({ type: "node-start", configKey: key, index: runs.length });
+    // One tracker per node run, shared between the runner (generation metrics)
+    // and the judge hook (evaluation scores) so both land on the same AI run.
+    const tracker = cfg.createTracker();
+    const prompt = buildPrompt(inboundHandoff !== undefined, ctx);
     const result = await runner.runNode({
       configKey: key,
-      prompt: buildPrompt(inboundHandoff !== undefined, ctx),
+      prompt,
       ...(cfg.instructions ? { instructions: cfg.instructions } : {}),
       ...(cfg.model?.name ? { model: cfg.model.name } : {}),
       ...(cfg.model?.parameters ? { modelParameters: cfg.model.parameters } : {}),
-      tracker: cfg.createTracker(),
+      tracker,
       ...(maxTurns !== undefined ? { maxTurns } : {}),
       ...(requestType ? { requestType } : {}),
       ...(capabilities ? { capabilities } : {}),
@@ -221,6 +232,16 @@ export async function walkGraph(
     const run: NodeRun = { configKey: key, status: result.status, output, tags: result.tags };
     runs.push(run);
     onEvent?.({ type: "node-complete", configKey: key, index: runs.length - 1, run });
+
+    // Judges attached to this node's config (if any) score the output now, on
+    // the same tracker. Defensive: a judge problem must never break the walk.
+    if (judgeHook) {
+      try {
+        await judgeHook({ configKey: key, cfg, input: prompt, output, tracker });
+      } catch (e) {
+        console.warn(`[judge] hook failed for '${key}' (non-fatal): ${e instanceof Error ? e.message : e}`);
+      }
+    }
 
     // Pick the next edge whose handoff conditions pass.
     let next: string | null = null;

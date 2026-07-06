@@ -15,6 +15,25 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-07-06
+
+### ✅ Judges attached to the coding agents (quality layer for the model A/B)
+- **New judge AI configs** (mode `judge`, factory project, model Sonnet 4.6):
+  `autofactory-judge-implementation-quality` and `autofactory-judge-metrics-quality`.
+  Each scores its agent's output 0..1 with reasoning (criteria: honesty/consistency
+  first, then safety, correctness, release wiring, completeness), recording against
+  the auto-generated `$ld:ai:judge:<key>` metric.
+- **Attached** (samplingRate 1 = every run) to BOTH the `Sonnet 4.6` and
+  `Composer 2.5` variations of `autofactory-flag-implementer` (v8/v3) and
+  `autofactory-metrics-author` (v8/v2) — scores land per-variation, giving the
+  Composer-vs-Sonnet A/B its missing quality dimension (Monitoring tab → the
+  judge metric; Metrics → Judge metrics).
+- **Execution** is in the runtime (ADR 0007): the SDK's `Judge` class over our
+  provider seam (Anthropic forced-tool-use / Cursor hermetic one-shot; Vega skips).
+  The code reviewer remains the gate — judges are sampled, non-blocking evaluators.
+- **⚠ Comparability:** judge instructions are part of the measurement instrument.
+  Any edit to them resets cross-time comparability — log edits here.
+
 ## 2026-06-26
 
 ### ✅ Prevent false `flag_created=true` (tool-owned tags + F19)

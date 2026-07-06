@@ -13,6 +13,10 @@ import {
   AnthropicAgentRunner,
   CursorAgentRunner,
   GraphQLVegaTransport,
+  type JudgeCompletion,
+  createAnthropicJudgeCompletion,
+  createCursorJudgeCompletion,
+  createJudgeHook,
   LdClient,
   LdResourceWriter,
   type StallInfo,
@@ -111,6 +115,25 @@ function createAgentRunner(provider: string): AgentRunner {
     ...localOpts,
     ...(process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}),
   });
+}
+
+/**
+ * The provider-matched completion that executes attached LaunchDarkly judges
+ * (see shared/judges.ts). Vega has no local judge execution — judges are skipped
+ * there with a log note.
+ */
+function createJudgeCompletion(provider: string): JudgeCompletion | undefined {
+  if (provider === "cursor") {
+    return createCursorJudgeCompletion({
+      ...(process.env.CURSOR_API_KEY ? { apiKey: process.env.CURSOR_API_KEY } : {}),
+      ...(process.env.CURSOR_MODEL ? { model: process.env.CURSOR_MODEL } : {}),
+    });
+  }
+  if (provider === "anthropic") {
+    return createAnthropicJudgeCompletion(process.env.ANTHROPIC_API_KEY);
+  }
+  console.log(`Judges: no local judge execution on provider '${provider}' — attached judges are skipped.`);
+  return undefined;
 }
 
 /** A writer for real flag creation in the app project, or undefined for read-only. */
@@ -243,7 +266,15 @@ async function main(): Promise<void> {
     console.log(`Approval gates: [${gatedSteps.join(", ")}]; approved: [${[...approvedSteps].join(", ") || "none"}]`);
   }
 
-  const walk = await walkGraph(graphDef, runner, context, graphTracker, undefined, gate);
+  // Judges attached to agent configs in LaunchDarkly (e.g. implementation- and
+  // metrics-quality judges) score node outputs 0..1; scores record per-variation
+  // in AI Config monitoring — the quality dimension of the model A/B.
+  const judgeCompletion = createJudgeCompletion(provider);
+  const judgeHook = judgeCompletion
+    ? createJudgeHook({ aiClient, ldContext, variables: buildVariables(context), completion: judgeCompletion })
+    : undefined;
+
+  const walk = await walkGraph(graphDef, runner, context, graphTracker, undefined, gate, judgeHook);
 
   // Per-node visibility: dump each agent's terminal status, routing tags, and final output.
   for (const r of walk.runs) {

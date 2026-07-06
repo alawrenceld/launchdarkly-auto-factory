@@ -33349,7 +33349,7 @@ function allNodeKeys(graphDef) {
   }
   return [...keys];
 }
-async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate) {
+async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate, judgeHook) {
   const runs = [];
   const accumulatedTags = {};
   const ctx = { ...context };
@@ -33372,13 +33372,15 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate)
     const requestType = handoffString(inboundHandoff, "request_type");
     const capabilities = handoffStringArray(inboundHandoff, "capabilities");
     onEvent?.({ type: "node-start", configKey: key, index: runs.length });
+    const tracker = cfg.createTracker();
+    const prompt = buildPrompt(inboundHandoff !== void 0, ctx);
     const result = await runner.runNode({
       configKey: key,
-      prompt: buildPrompt(inboundHandoff !== void 0, ctx),
+      prompt,
       ...cfg.instructions ? { instructions: cfg.instructions } : {},
       ...cfg.model?.name ? { model: cfg.model.name } : {},
       ...cfg.model?.parameters ? { modelParameters: cfg.model.parameters } : {},
-      tracker: cfg.createTracker(),
+      tracker,
       ...maxTurns !== void 0 ? { maxTurns } : {},
       ...requestType ? { requestType } : {},
       ...capabilities ? { capabilities } : {}
@@ -33389,6 +33391,13 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate)
     const run = { configKey: key, status: result.status, output, tags: result.tags };
     runs.push(run);
     onEvent?.({ type: "node-complete", configKey: key, index: runs.length - 1, run });
+    if (judgeHook) {
+      try {
+        await judgeHook({ configKey: key, cfg, input: prompt, output, tracker });
+      } catch (e) {
+        console.warn(`[judge] hook failed for '${key}' (non-fatal): ${e instanceof Error ? e.message : e}`);
+      }
+    }
     let next = null;
     let nextHandoff;
     for (const edge of node.getEdges()) {
@@ -36770,6 +36779,168 @@ ${req.prompt}`;
   }
 };
 
+// ../shared/dist/judges.js
+var CompletionJudgeRunner = class {
+  judgeCfg;
+  completion;
+  constructor(judgeCfg, completion) {
+    this.judgeCfg = judgeCfg;
+    this.completion = completion;
+  }
+  async run(input, outputType) {
+    const system = (this.judgeCfg.messages ?? []).map((m) => m.content).join("\n\n");
+    const r = await this.completion({
+      ...this.judgeCfg.model?.name ? { model: this.judgeCfg.model.name } : {},
+      system,
+      input,
+      schema: outputType ?? {}
+    });
+    return {
+      content: r.content,
+      ...r.parsed ? { parsed: r.parsed } : {},
+      metrics: { success: r.success, ...r.tokens ? { tokens: r.tokens } : {} }
+    };
+  }
+};
+function judgeKeyOf(j) {
+  const k = j.key ?? j.judgeConfigKey;
+  return typeof k === "string" && k ? k : void 0;
+}
+function samplingRateOf(j) {
+  const raw = typeof j.samplingRate === "number" ? j.samplingRate : 1;
+  return raw > 1 ? raw / 100 : raw;
+}
+function createJudgeHook(opts) {
+  return async ({ configKey, cfg, input, output, tracker }) => {
+    const attachments = cfg.judgeConfiguration?.judges ?? [];
+    const results = [];
+    for (const attachment of attachments) {
+      const judgeKey = judgeKeyOf(attachment);
+      if (!judgeKey) {
+        console.warn(`[judge] ${configKey}: attachment missing a judge config key \u2014 skipped`);
+        continue;
+      }
+      try {
+        const judgeCfg = await opts.aiClient.judgeConfig(judgeKey, opts.ldContext, void 0, opts.variables);
+        if (!judgeCfg.enabled) {
+          console.log(`[judge] ${configKey}: judge '${judgeKey}' is disabled \u2014 skipped`);
+          continue;
+        }
+        const rate = samplingRateOf(attachment);
+        const judge = new Judge(judgeCfg, new CompletionJudgeRunner(judgeCfg, opts.completion), rate);
+        const result = await judge.evaluate(input, output);
+        results.push(result);
+        if (result.sampled) {
+          tracker.trackJudgeResult(result);
+          const score = result.score !== void 0 ? result.score.toFixed(2) : "n/a";
+          console.log(`[judge] ${configKey} \u2190 '${judgeKey}' score=${score}` + (result.success ? "" : ` (eval FAILED: ${result.errorMessage ?? "unknown"})`) + (result.reasoning ? ` \u2014 ${result.reasoning.slice(0, 160)}` : ""));
+        } else {
+          console.log(`[judge] ${configKey}: judge '${judgeKey}' not sampled this run (rate ${rate})`);
+        }
+      } catch (e) {
+        console.warn(`[judge] ${configKey}: judge '${judgeKey}' errored (non-fatal): ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    return results;
+  };
+}
+
+// ../shared/dist/anthropic/judgeCompletion.js
+init_sdk();
+var MAX_TOKENS2 = 1024;
+function createAnthropicJudgeCompletion(apiKey) {
+  const client = new Anthropic(apiKey ? { apiKey } : {});
+  return async (req) => {
+    const resp = await client.messages.create({
+      model: anthropicModelId(req.model),
+      max_tokens: MAX_TOKENS2,
+      system: req.system,
+      messages: [{ role: "user", content: req.input }],
+      tools: [
+        {
+          name: "record_evaluation",
+          description: "Record the evaluation result for the response under review.",
+          input_schema: req.schema
+        }
+      ],
+      tool_choice: { type: "tool", name: "record_evaluation" }
+    });
+    const toolUse = resp.content.find((b) => b.type === "tool_use");
+    return {
+      ...toolUse ? { parsed: toolUse.input } : {},
+      content: JSON.stringify(toolUse?.input ?? null),
+      success: toolUse !== void 0,
+      tokens: {
+        input: resp.usage.input_tokens,
+        output: resp.usage.output_tokens,
+        total: resp.usage.input_tokens + resp.usage.output_tokens
+      }
+    };
+  };
+}
+
+// ../shared/dist/cursor/judgeCompletion.js
+var DEFAULT_FALLBACK_MODEL2 = "auto";
+var sdkPromise;
+function loadSdk() {
+  if (!sdkPromise)
+    sdkPromise = import("@cursor/sdk");
+  return sdkPromise;
+}
+function extractJsonObject(text) {
+  const cleaned = text.replace(/```(?:json)?/gi, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end <= start)
+    return void 0;
+  try {
+    const parsed = JSON.parse(cleaned.slice(start, end + 1));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function createCursorJudgeCompletion(opts = {}) {
+  const apiKey = opts.apiKey ?? process.env.CURSOR_API_KEY;
+  const fallbackModel = opts.model ?? process.env.CURSOR_MODEL ?? DEFAULT_FALLBACK_MODEL2;
+  let catalog;
+  return async (req) => {
+    const { Agent, Cursor } = await loadSdk();
+    if (!catalog) {
+      try {
+        catalog = await Cursor.models.list(apiKey ? { apiKey } : void 0);
+      } catch {
+        catalog = [];
+      }
+    }
+    const match = mapToCursorModel(req.model, catalog, fallbackModel);
+    const message = `${req.system}
+
+---
+
+${req.input}
+
+---
+Respond with ONLY a single JSON object matching this schema (no prose, no code fences):
+` + JSON.stringify(req.schema);
+    const result = await Agent.prompt(message, {
+      ...apiKey ? { apiKey } : {},
+      model: { id: match.id },
+      // Hermetic + toolless-by-intent: judges only read the prompt.
+      local: { cwd: opts.cwd ?? process.cwd(), settingSources: [] },
+      mode: "agent"
+    });
+    const text = result.result ?? "";
+    const parsed = extractJsonObject(text);
+    return {
+      ...parsed ? { parsed } : {},
+      content: text,
+      success: result.status === "finished" && parsed !== void 0,
+      ...result.usage ? { tokens: { input: result.usage.inputTokens, output: result.usage.outputTokens, total: result.usage.totalTokens } } : {}
+    };
+  };
+}
+
 // src/checkRun.ts
 var CHECK_NAME = "AutoFactory \u2014 Approval gate";
 async function postCheckRun(opts) {
@@ -36975,6 +37146,19 @@ function createAgentRunner(provider) {
     ...process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}
   });
 }
+function createJudgeCompletion(provider) {
+  if (provider === "cursor") {
+    return createCursorJudgeCompletion({
+      ...process.env.CURSOR_API_KEY ? { apiKey: process.env.CURSOR_API_KEY } : {},
+      ...process.env.CURSOR_MODEL ? { model: process.env.CURSOR_MODEL } : {}
+    });
+  }
+  if (provider === "anthropic") {
+    return createAnthropicJudgeCompletion(process.env.ANTHROPIC_API_KEY);
+  }
+  console.log(`Judges: no local judge execution on provider '${provider}' \u2014 attached judges are skipped.`);
+  return void 0;
+}
 function flagCreationWriter() {
   if (process.env.ENABLE_FLAG_CREATION !== "true") return void 0;
   if (!process.env.LD_API_KEY) {
@@ -37067,7 +37251,9 @@ async function main() {
     gate = { steps: gatedSteps, resolve: (node) => approvedSteps.has(node) };
     console.log(`Approval gates: [${gatedSteps.join(", ")}]; approved: [${[...approvedSteps].join(", ") || "none"}]`);
   }
-  const walk2 = await walkGraph(graphDef, runner, context, graphTracker, void 0, gate);
+  const judgeCompletion = createJudgeCompletion(provider);
+  const judgeHook = judgeCompletion ? createJudgeHook({ aiClient, ldContext, variables: buildVariables(context), completion: judgeCompletion }) : void 0;
+  const walk2 = await walkGraph(graphDef, runner, context, graphTracker, void 0, gate, judgeHook);
   for (const r of walk2.runs) {
     console.log(`
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 ${r.configKey} [${r.status}] \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550`);
