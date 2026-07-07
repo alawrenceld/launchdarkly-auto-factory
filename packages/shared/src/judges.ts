@@ -103,6 +103,13 @@ export interface CreateJudgeHookOptions {
   variables?: Record<string, unknown>;
   /** Provider-specific structured completion that executes the judge model. */
   completion: JudgeCompletion;
+  /**
+   * Optional ground-truth gatherer (see judgeEvidence.ts). When set, its output
+   * is appended to the judge's input as a VERIFIED EVIDENCE section — the
+   * agent's actual commits/diff — so judges verify the agent's report instead
+   * of taking it at its word. Gathered once per judged node.
+   */
+  evidence?: (nodeKey: string) => Promise<string | undefined>;
 }
 
 /**
@@ -129,6 +136,24 @@ export function createJudgeHook(opts: CreateJudgeHookOptions): JudgeHook {
   return async ({ configKey, cfg, input, output, tracker }) => {
     const attachments = cfg.judgeConfiguration?.judges ?? [];
     const results: LDJudgeResult[] = [];
+    if (attachments.length === 0) return results;
+
+    // Ground truth for the judges (the agent's actual commits/diff). Appended to
+    // the judge input — it lands inside the MESSAGE HISTORY block the SDK Judge
+    // builds, clearly delimited as pipeline-gathered rather than agent-claimed.
+    let judgeInput = input;
+    if (opts.evidence) {
+      try {
+        const evidence = await opts.evidence(configKey);
+        if (evidence) {
+          judgeInput =
+            `${input}\n\n--- VERIFIED EVIDENCE (gathered by the pipeline, NOT claimed by the agent) ---\n${evidence}`;
+        }
+      } catch (e) {
+        console.warn(`[judge] ${configKey}: evidence gathering failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+      }
+    }
+
     for (const attachment of attachments) {
       const judgeKey = judgeKeyOf(attachment as unknown as Record<string, unknown>);
       if (!judgeKey) {
@@ -143,7 +168,7 @@ export function createJudgeHook(opts: CreateJudgeHookOptions): JudgeHook {
         }
         const rate = samplingRateOf(attachment as unknown as Record<string, unknown>);
         const judge = new Judge(judgeCfg, new CompletionJudgeRunner(judgeCfg, opts.completion), rate);
-        const result = await judge.evaluate(input, output);
+        const result = await judge.evaluate(judgeInput, output);
         results.push(result);
         if (result.sampled) {
           // Record on the EVALUATED node's tracker so the score lands on that

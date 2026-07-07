@@ -34,7 +34,8 @@ export * from "./anthropic/anthropicAgentRunner.js";
 export * from "./cursor/cursorModel.js";
 export * from "./cursor/cursorAgentRunner.js";
 export * from "./observability.js";
-// Judges: provider-agnostic hook + per-provider judge completions.
+// Judges: provider-agnostic hook + per-provider judge completions + evidence.
 export * from "./judges.js";
+export * from "./judgeEvidence.js";
 export * from "./anthropic/judgeCompletion.js";
 export * from "./cursor/judgeCompletion.js";

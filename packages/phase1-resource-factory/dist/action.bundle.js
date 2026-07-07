@@ -36814,6 +36814,22 @@ function createJudgeHook(opts) {
   return async ({ configKey, cfg, input, output, tracker }) => {
     const attachments = cfg.judgeConfiguration?.judges ?? [];
     const results = [];
+    if (attachments.length === 0)
+      return results;
+    let judgeInput = input;
+    if (opts.evidence) {
+      try {
+        const evidence = await opts.evidence(configKey);
+        if (evidence) {
+          judgeInput = `${input}
+
+--- VERIFIED EVIDENCE (gathered by the pipeline, NOT claimed by the agent) ---
+${evidence}`;
+        }
+      } catch (e) {
+        console.warn(`[judge] ${configKey}: evidence gathering failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+      }
+    }
     for (const attachment of attachments) {
       const judgeKey = judgeKeyOf(attachment);
       if (!judgeKey) {
@@ -36828,7 +36844,7 @@ function createJudgeHook(opts) {
         }
         const rate = samplingRateOf(attachment);
         const judge = new Judge(judgeCfg, new CompletionJudgeRunner(judgeCfg, opts.completion), rate);
-        const result = await judge.evaluate(input, output);
+        const result = await judge.evaluate(judgeInput, output);
         results.push(result);
         if (result.sampled) {
           tracker.trackJudgeResult(result);
@@ -36842,6 +36858,53 @@ function createJudgeHook(opts) {
       }
     }
     return results;
+  };
+}
+
+// ../shared/dist/judgeEvidence.js
+import { execFileSync as execFileSync2 } from "node:child_process";
+var MAX_EVIDENCE_CHARS = 24e3;
+function git(cwd, args) {
+  return execFileSync2("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+}
+function truncate2(s) {
+  return s.length > MAX_EVIDENCE_CHARS ? `${s.slice(0, MAX_EVIDENCE_CHARS)}
+\u2026[evidence truncated]` : s;
+}
+function createGitDiffEvidence(cwd) {
+  let lastSeenHead;
+  try {
+    lastSeenHead = git(cwd, ["rev-parse", "HEAD"]);
+  } catch {
+    console.warn(`[judge] evidence disabled: '${cwd}' is not a git checkout`);
+    return async () => void 0;
+  }
+  return async (nodeKey) => {
+    try {
+      const prev = lastSeenHead;
+      if (!prev)
+        return void 0;
+      const head = git(cwd, ["rev-parse", "HEAD"]);
+      if (head === prev) {
+        return `The agent landed NO new commits during this step (repository HEAD unchanged at ${head.slice(0, 12)}).`;
+      }
+      const range = `${prev}..${head}`;
+      const log = git(cwd, ["log", "--format=%h %an: %s", range]);
+      const stat2 = git(cwd, ["diff", "--stat", prev, head]);
+      const patch = git(cwd, ["diff", prev, head]);
+      lastSeenHead = head;
+      return truncate2(`Commits landed by this step (${range}):
+${log}
+
+Files changed:
+${stat2}
+
+Full diff:
+${patch}`);
+    } catch (e) {
+      console.warn(`[judge] evidence collection failed for '${nodeKey}' (non-fatal): ${e instanceof Error ? e.message : e}`);
+      return void 0;
+    }
   };
 }
 
@@ -37252,7 +37315,13 @@ async function main() {
     console.log(`Approval gates: [${gatedSteps.join(", ")}]; approved: [${[...approvedSteps].join(", ") || "none"}]`);
   }
   const judgeCompletion = createJudgeCompletion(provider);
-  const judgeHook = judgeCompletion ? createJudgeHook({ aiClient, ldContext, variables: buildVariables(context), completion: judgeCompletion }) : void 0;
+  const judgeHook = judgeCompletion ? createJudgeHook({
+    aiClient,
+    ldContext,
+    variables: buildVariables(context),
+    completion: judgeCompletion,
+    evidence: createGitDiffEvidence(resolve6(process.env.SANDBOX_ROOT ?? "examples/demo-app"))
+  }) : void 0;
   const walk2 = await walkGraph(graphDef, runner, context, graphTracker, void 0, gate, judgeHook);
   for (const r of walk2.runs) {
     console.log(`

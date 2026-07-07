@@ -189,3 +189,91 @@ describe("extractJsonObject (cursor judge parsing)", () => {
     assert.equal(extractJsonObject("no json here"), undefined);
   });
 });
+
+describe("judge evidence", () => {
+  it("appends evidence to the judge input when the collector yields", async () => {
+    const requests: JudgeCompletionRequest[] = [];
+    const completion: JudgeCompletion = async (req) => {
+      requests.push(req);
+      return { parsed: { score: 0.9, reasoning: "verified" }, content: "{}", success: true };
+    };
+    const hook = createJudgeHook({
+      aiClient: { judgeConfig: async () => stubJudgeConfig() } as never,
+      ldContext: { kind: "service", key: "test" },
+      completion,
+      evidence: async () => "Commits landed by this step: abc123 wire the flag",
+    });
+    const { tracker, tracked } = captureTracker();
+    await hook({
+      configKey: "autofactory-flag-implementer",
+      cfg: stubAgentConfig([{ key: "j", samplingRate: 1 }]),
+      input: "the brief",
+      output: "the report",
+      tracker,
+    });
+    assert.equal(tracked.length, 1);
+    assert.match(requests[0]?.input ?? "", /VERIFIED EVIDENCE \(gathered by the pipeline, NOT claimed by the agent\)/);
+    assert.match(requests[0]?.input ?? "", /Commits landed by this step: abc123/);
+    // Evidence goes into the judge INPUT, never into the artifact being scored.
+    assert.match(requests[0]?.input ?? "", /RESPONSE TO EVALUATE:\nthe report$/);
+  });
+
+  it("a failing evidence collector never blocks the evaluation", async () => {
+    const hook = makeHook({});
+    const failing = createJudgeHook({
+      aiClient: { judgeConfig: async () => stubJudgeConfig() } as never,
+      ldContext: { kind: "service", key: "test" },
+      completion: async () => ({ parsed: { score: 0.5, reasoning: "r" }, content: "{}", success: true }),
+      evidence: async () => {
+        throw new Error("git exploded");
+      },
+    });
+    const { tracker, tracked } = captureTracker();
+    const results = await failing({
+      configKey: "k",
+      cfg: stubAgentConfig([{ key: "j", samplingRate: 1 }]),
+      input: "p",
+      output: "o",
+      tracker,
+    });
+    assert.equal(results.length, 1);
+    assert.equal(tracked.length, 1);
+    void hook;
+  });
+
+  it("createGitDiffEvidence: node-scoped diffs + no-commit detection", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { execFileSync } = await import("node:child_process");
+    const repo = mkdtempSync(join(tmpdir(), "evidence-test-"));
+    const g = (...args: string[]) => execFileSync("git", args, { cwd: repo, stdio: "pipe" });
+    try {
+      g("init", "-q");
+      g("config", "user.email", "t@t");
+      g("config", "user.name", "t");
+      writeFileSync(join(repo, "a.txt"), "one\n");
+      g("add", "-A");
+      g("commit", "-qm", "base");
+
+      const { createGitDiffEvidence } = await import("@auto-factory/shared");
+      const collect = createGitDiffEvidence(repo);
+
+      // No commits since creation → explicit no-commit evidence.
+      assert.match((await collect("node-a")) ?? "", /NO new commits/);
+
+      // Agent commit → node-scoped diff.
+      writeFileSync(join(repo, "a.txt"), "one\ntwo\n");
+      g("add", "-A");
+      g("commit", "-qm", "wire flag");
+      const ev = (await collect("node-b")) ?? "";
+      assert.match(ev, /wire flag/);
+      assert.match(ev, /\+two/);
+
+      // Next call is scoped to NEW commits only.
+      assert.match((await collect("node-c")) ?? "", /NO new commits/);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});

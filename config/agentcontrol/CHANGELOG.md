@@ -15,6 +15,24 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-07-07
+
+### ✅ Judges verify evidence, not just the agent's self-report
+- **Runtime:** the judge hook now appends a **VERIFIED EVIDENCE** section to the
+  judge input — a node-scoped `git diff` of exactly the commits the judged agent
+  landed (`shared/judgeEvidence.ts`; HEAD snapshot advanced per judged node;
+  "no new commits" is itself evidence). Judges verify the report against the
+  actual diff instead of taking the narrative at its word.
+- **Judge instructions (both → variation v2):** added a "What you receive, and
+  how to verify" section — claims contradicted by evidence score ≤0.2;
+  material claims unverifiable from evidence cap the score at 0.6.
+- **⚠ Comparability reset:** this is the one-time instruction edit anticipated in
+  ADR 0007 — scores from before 2026-07-07 (~2 data points) are not comparable
+  with scores after. Do not edit judge instructions again without logging here.
+- Note: judge instructions deliberately contain NO `{{message_history}}`-style
+  template variables — that's the legacy judge format (the SDK strips such
+  messages). History + evidence arrive in the judge's user message at run time.
+
 ## 2026-07-06
 
 ### ✅ Judges attached to the coding agents (quality layer for the model A/B)

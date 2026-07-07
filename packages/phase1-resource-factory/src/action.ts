@@ -16,6 +16,7 @@ import {
   type JudgeCompletion,
   createAnthropicJudgeCompletion,
   createCursorJudgeCompletion,
+  createGitDiffEvidence,
   createJudgeHook,
   LdClient,
   LdResourceWriter,
@@ -268,10 +269,18 @@ async function main(): Promise<void> {
 
   // Judges attached to agent configs in LaunchDarkly (e.g. implementation- and
   // metrics-quality judges) score node outputs 0..1; scores record per-variation
-  // in AI Config monitoring — the quality dimension of the model A/B.
+  // in AI Config monitoring — the quality dimension of the model A/B. Evidence:
+  // each judged node's ACTUAL commits (node-scoped git diff of the checkout the
+  // agents push to) so judges verify the agent's report rather than trust it.
   const judgeCompletion = createJudgeCompletion(provider);
   const judgeHook = judgeCompletion
-    ? createJudgeHook({ aiClient, ldContext, variables: buildVariables(context), completion: judgeCompletion })
+    ? createJudgeHook({
+        aiClient,
+        ldContext,
+        variables: buildVariables(context),
+        completion: judgeCompletion,
+        evidence: createGitDiffEvidence(resolve(process.env.SANDBOX_ROOT ?? "examples/demo-app")),
+      })
     : undefined;
 
   const walk = await walkGraph(graphDef, runner, context, graphTracker, undefined, gate, judgeHook);
