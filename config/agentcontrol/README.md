@@ -27,6 +27,11 @@ per-provider/per-model variations (e.g. a Vega runtime variant, and a Composer
 variation on the coding agents for the Cursor A/B); those are not committed here —
 the Composer variation waits on Composer becoming a built-in LD model.
 
+Also live-only: the two **judge** configs (`autofactory-judge-implementation-quality`,
+`autofactory-judge-metrics-quality`, mode `judge`) and their `judgeConfiguration`
+attachments on the flag-implementer / metrics-author variations (ADR 0007).
+Judge-instruction edits reset score comparability — log them in the CHANGELOG.
+
 Two-way convention: after provisioning, instructions are editable in the
 LaunchDarkly UI and take effect on the next run. If you change them in LD,
 re-export to these files so the repo stays canonical, and log the change in

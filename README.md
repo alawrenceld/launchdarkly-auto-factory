@@ -13,7 +13,10 @@ end-to-end against a live demo repo. Not a product.
   and walk the chain: research and classify the change, create a feature flag (targeting
   off), wire the new behavior behind it, create guarded-release metrics and instrument their
   events, write flag-on/flag-off tests, and produce a review verdict. A release manifest
-  (`.release-flags/…json`) records the flag, metrics, and rollout parameters. Phase 1 has three
+  (`.release-flags/…json`) records the flag, metrics, and rollout parameters. LaunchDarkly
+  **judges** attached to the coding agents score each output 0..1 against the agent's actual
+  git diff — a sampled, non-blocking evaluation layer (the reviewer remains the gate; see
+  [ADR 0007](docs/adr/0007-judges-for-coding-agents.md)). Phase 1 has three
   interchangeable front ends over one shared core (see [Phase 1 front ends](#phase-1-front-ends)):
   a **GitHub Action**, a **Cursor/VS Code extension**, and a **native Cursor automation**.
 - **Phase 2 (after deploy):** Beacon, a small HTTP service, receives deploy webhooks,
@@ -146,6 +149,14 @@ Every agent run records duration, tokens, and success/error to LaunchDarkly **AI
 monitoring**, and emits a `gen_ai` OpenTelemetry span to **LLM Observability** (cost derived
 from each model's configured token pricing). On by default; set `DISABLE_LD_OBSERVABILITY=true`
 to opt out. Spans and metrics are correlated to the AgentControl config and to a per-run id.
+
+**Judges** add the quality dimension: LaunchDarkly judge configs attached to the
+flag-implementer and metrics-author variations score each run 0..1 (with reasoning) against
+**verified evidence** — the node-scoped git diff of what the agent actually committed, gathered
+by the pipeline rather than claimed by the agent. Scores record per-variation under the judge's
+`$ld:ai:judge:…` metric (each config's Monitoring tab, or Metrics → Judge metrics), which is
+what makes the per-agent model A/B a cost-vs-quality comparison. Judges run on the Anthropic
+and Cursor providers; Vega skips them.
 
 ### Per-step approval gates
 

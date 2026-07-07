@@ -14,6 +14,11 @@ checkout+`npm ci` workflow variant, not the bare `uses:` form). Either way the L
 SDK resolves the configs/graph, the per-agent model is read from the AI config, and
 generation metrics + a `gen_ai` LLM-observability span are recorded natively.
 
+Judges attached to an agent's AI config in LaunchDarkly (see
+[ADR 0007](../../docs/adr/0007-judges-for-coding-agents.md)) are executed by the
+action after that node completes — scored against the agent's actual git diff —
+on the Anthropic and Cursor providers; Vega skips them with a log note.
+
 ## Layout
 
 This package is flat — `src/` + `action.yml`:

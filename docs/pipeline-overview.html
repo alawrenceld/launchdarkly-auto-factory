@@ -18,6 +18,7 @@
     --tip-bg: #21262d;
     --reason: #79c0ff;    /* Sonnet — reasoning/judgment agents */
     --cursor: #bc8cff;    /* Cursor Composer — coding agents (A/B vs Sonnet) */
+    --judge: #d29922;     /* LaunchDarkly judges — sampled quality evaluation */
   }
   * { box-sizing: border-box; }
   body {
@@ -62,6 +63,7 @@
   }
   .node .model.reason { color: var(--reason); border-color: #1f6feb55; }
   .node .model.ab { color: var(--cursor); border-color: #6e40c955; }
+  .node .model.judged { color: var(--judge); border-color: #bb800955; margin-left: .3rem; }
 
   .arrow { align-self: center; color: var(--muted); font-size: 1.1rem; padding: 0 .1rem; user-select: none; }
 
@@ -149,13 +151,14 @@
       <div class="step">Step 4</div>
       <div class="title">Flag Implementer</div>
       <div class="hint">creates the flag, wires the code</div>
-      <div class="model ab">Composer ⇄ Sonnet (A/B)</div>
+      <div class="model ab">Composer ⇄ Sonnet (A/B)</div><div class="model judged">⚖ judged</div>
       <div class="tip">
         <ul>
           <li>Creates a boolean flag via the API with targeting off in all environments.</li>
           <li>Wraps the new behavior in flag evaluation. The control path (flag off) keeps prior behavior.</li>
           <li>Writes the release manifest <span class="k">.release-flags/pr-N.json</span>, which Phase 2 reads.</li>
           <li>Commits to the PR branch. Re-runs are idempotent: flag creation returns 409 and the existing flag is reused.</li>
+          <li>An attached LaunchDarkly judge (<span class="k">implementation-quality</span>) then scores the output 0..1 against the agent's actual git diff (pipeline-gathered evidence, not the agent's claims). Non-blocking; scores record per-variation for the model A/B.</li>
         </ul></div>
     </div>
     <div class="arrow">→</div>
@@ -164,7 +167,7 @@
       <div class="step">Step 5</div>
       <div class="title">Metrics Author</div>
       <div class="hint">creates guarded-release metrics</div>
-      <div class="model ab">Composer ⇄ Sonnet (A/B)</div>
+      <div class="model ab">Composer ⇄ Sonnet (A/B)</div><div class="model judged">⚖ judged</div>
       <div class="tip">
         <ul>
           <li>Metric categories: error (occurrence, lower is better), latency (numeric ms, lower is better), business (occurrence, higher is better).</li>
@@ -172,6 +175,7 @@
           <li>Creates each metric with <span class="k">eventKey</span> equal to the tracked event name. Metric key convention: <span class="k">&lt;flag&gt;-&lt;category&gt;</span>.</li>
           <li>The metric randomization unit must equal the flag rollout unit (default <span class="k">user</span>).</li>
           <li>Classifies metrics killswitch / pause / monitoring and writes <span class="k">metricKeys</span> + <span class="k">randomizationUnit</span> into the manifest.</li>
+          <li>An attached LaunchDarkly judge (<span class="k">metrics-quality</span>) then scores the output 0..1 against the agent's actual git diff (instrumentation + manifest edits). Non-blocking; scores record per-variation for the model A/B.</li>
         </ul></div>
     </div>
     <div class="arrow">→</div>
@@ -334,6 +338,7 @@
   <span><span class="dot" style="background:var(--rollback)"></span>automated rollback path</span>
   <span><span class="dot" style="background:var(--reason)"></span>Sonnet — reasoning agents</span>
   <span><span class="dot" style="background:var(--cursor)"></span>Composer ⇄ Sonnet A/B — coding agents</span>
+  <span><span class="dot" style="background:var(--judge)"></span>⚖ judged — a LaunchDarkly judge scores the output against the agent's actual diff (non-blocking; the reviewer remains the gate)</span>
 </div>
 
 </body>
