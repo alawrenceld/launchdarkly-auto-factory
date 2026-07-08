@@ -24,7 +24,9 @@ export interface CheckRunTarget {
 }
 
 export interface CheckRunOptions extends CheckRunTarget {
-  conclusion: "action_required" | "success" | "neutral";
+  /** Check-run name; defaults to the approval-gate check. */
+  name?: string;
+  conclusion: "action_required" | "success" | "neutral" | "failure";
   title: string;
   summary: string;
 }
@@ -49,7 +51,7 @@ export async function postCheckRun(opts: CheckRunOptions): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: CHECK_NAME,
+        name: opts.name ?? CHECK_NAME,
         head_sha: headSha,
         status: "completed",
         conclusion: opts.conclusion,
@@ -57,7 +59,7 @@ export async function postCheckRun(opts: CheckRunOptions): Promise<void> {
       }),
     });
     if (res.ok) {
-      console.log(`Posted check run '${CHECK_NAME}' [${opts.conclusion}].`);
+      console.log(`Posted check run '${opts.name ?? CHECK_NAME}' [${opts.conclusion}].`);
     } else if (res.status === 403) {
       console.log(
         `Check run failed: HTTP 403 — the workflow token likely lacks 'permissions: checks: write'.`,

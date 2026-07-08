@@ -401,6 +401,27 @@ export class SandboxToolExecutor {
 
   private writeFile(rel: string, content: string): ToolExecResult {
     if (!this.allowEdits) return { content: "write_file is not available", isError: true };
+    // An empty write is never intentional in this pipeline and has silently
+    // produced a 0-byte release manifest (Phase 2's input) that the agent then
+    // reported as written. Refuse it so the agent sees the problem and retries.
+    if (!content.trim()) {
+      return {
+        content: `write_file: refusing to write empty content to ${rel} — pass the full file contents in the \`content\` argument`,
+        isError: true,
+      };
+    }
+    // JSON files (e.g. the .release-flags/ manifest) are machine-read downstream;
+    // reject content that does not parse rather than committing garbage.
+    if (rel.endsWith(".json")) {
+      try {
+        JSON.parse(content);
+      } catch (e) {
+        return {
+          content: `write_file: ${rel} is a .json file but the content is not valid JSON (${e instanceof Error ? e.message : e}) — fix the JSON and retry`,
+          isError: true,
+        };
+      }
+    }
     const abs = this.safeResolve(rel);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content, "utf8");

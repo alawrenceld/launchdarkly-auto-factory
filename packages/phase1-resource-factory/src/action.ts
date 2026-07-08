@@ -7,6 +7,7 @@
  * locally, or Vega), then applies the approval decision.
  */
 
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
   type AgentRunner,
@@ -14,6 +15,7 @@ import {
   CursorAgentRunner,
   GraphQLVegaTransport,
   type JudgeCompletion,
+  type JudgeHook,
   createAnthropicJudgeCompletion,
   createCursorJudgeCompletion,
   createGitDiffEvidence,
@@ -154,6 +156,20 @@ function flagCreationWriter(): LdResourceWriter | undefined {
 }
 
 /**
+ * HEAD of the checkout after the chain ran. The agents push commits with
+ * [skip ci], which moves the PR head PAST the workflow's own check — so the
+ * final verdict check run must attach to this SHA to be visible on the PR's
+ * latest commit. Falls back to undefined (caller uses the event's head SHA).
+ */
+function checkoutHeadSha(root: string): string | undefined {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Human-readable description of a chain stall (unmet handoff) for logs, the GH
  * annotation, and the PR comment.
  */
@@ -246,7 +262,12 @@ async function main(): Promise<void> {
   const graphKey = process.env.GRAPH_KEY ?? "gha-auto-factory";
   const graphDef = await aiClient.agentGraph(graphKey, ldContext, buildVariables(context));
   if (!graphDef.enabled) {
-    throw new Error(`Agent graph '${graphKey}' is disabled or unavailable in LaunchDarkly`);
+    throw new Error(
+      `Agent graph '${graphKey}' is disabled or unavailable in LaunchDarkly. ` +
+        `Most common cause: LD_SDK_KEY is not the FACTORY project's server SDK key — it must be for ` +
+        `the project holding the AI configs, agent graph, and operational flags (LD_PROJECT_KEY='${process.env.LD_PROJECT_KEY ?? "?"}'), ` +
+        `NOT the app project where flags get created. Also check GRAPH_KEY and that the graph is enabled in this environment.`,
+    );
   }
   const graphTracker = graphDef.createTracker();
 
@@ -272,15 +293,27 @@ async function main(): Promise<void> {
   // in AI Config monitoring — the quality dimension of the model A/B. Evidence:
   // each judged node's ACTUAL commits (node-scoped git diff of the checkout the
   // agents push to) so judges verify the agent's report rather than trust it.
+  const sandboxRoot = resolve(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const judgeCompletion = createJudgeCompletion(provider);
-  const judgeHook = judgeCompletion
+  const baseJudgeHook = judgeCompletion
     ? createJudgeHook({
         aiClient,
         ldContext,
         variables: buildVariables(context),
         completion: judgeCompletion,
-        evidence: createGitDiffEvidence(resolve(process.env.SANDBOX_ROOT ?? "examples/demo-app")),
+        evidence: createGitDiffEvidence(sandboxRoot),
       })
+    : undefined;
+  // Capture judge scores per node for the PR summary table.
+  const judgeScores = new Map<string, number>();
+  const judgeHook: JudgeHook | undefined = baseJudgeHook
+    ? async (args) => {
+        const results = await baseJudgeHook(args);
+        for (const r of results) {
+          if (r.sampled && typeof r.score === "number") judgeScores.set(args.configKey, r.score);
+        }
+        return results;
+      }
     : undefined;
 
   const walk = await walkGraph(graphDef, runner, context, graphTracker, undefined, gate, judgeHook);
@@ -355,18 +388,44 @@ async function main(): Promise<void> {
     console.log("✗ Not applied — code review REJECTED.");
   }
 
+  // Per-agent results table: status, routing tags, and judge score (when a
+  // LaunchDarkly judge evaluated the node). This is the at-a-glance record the
+  // PR reader gets without opening the Actions log.
+  const agentRows = walk.runs.map((r) => {
+    const judge = judgeScores.get(r.configKey);
+    const tags =
+      Object.entries(r.tags)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ")
+        .slice(0, 140) || "—";
+    return `| \`${r.configKey}\` | ${r.status} | ${judge !== undefined ? judge.toFixed(2) : "—"} | ${tags} |`;
+  });
   const summary = [
     "### LaunchDarkly Auto-Factory — Phase 1",
     "",
-    `**Agents:** ${walk.runs.map((r) => r.configKey).join(" → ") || "(none ran)"}`,
+    `**Approval (${mode}):** ${decision.reason}`,
     walk.skipped.length ? `**Skipped:** ${walk.skipped.join(", ")}` : "",
     stallText ? `**⚠ Stalled:** ${stallText}` : "",
     "",
-    `**Approval (${mode}):** ${decision.reason}`,
+    "| Agent | Status | Judge | Tags |",
+    "|---|---|---|---|",
+    ...(agentRows.length ? agentRows : ["| (none ran) | — | — | — |"]),
   ]
     .filter(Boolean)
     .join("\n");
   await postPrComment(summary, { prNumber: context.PR_NUMBER, repo: context.REPO });
+
+  // Always post the verdict as a named check run, attached to the POST-chain
+  // HEAD: the agents' [skip ci] commits move the PR head past the workflow's own
+  // check, so without this the PR's latest commit shows no AutoFactory status.
+  await postCheckRun({
+    name: "AutoFactory — Phase 1",
+    repo: context.REPO,
+    headSha: checkoutHeadSha(sandboxRoot) ?? context.HEAD_SHA,
+    conclusion: decision.apply || decision.noop ? "success" : decision.requiresHuman ? "action_required" : "failure",
+    title: decision.reason,
+    summary,
+  });
 
   // Non-zero exit fails the PR check. Green: applied, human-approval pause, or a
   // no-op (no flag needed). Red: a genuine rejection OR an incomplete run (the

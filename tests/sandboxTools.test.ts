@@ -290,3 +290,29 @@ describe("SandboxToolExecutor — tag_conversation tool-owned tags", () => {
     assert.equal(exec.tags.flag_key, "enable-x");
   });
 });
+
+describe("SandboxToolExecutor — write_file content guards", () => {
+  it("refuses empty content (the 0-byte release-manifest bug)", async () => {
+    const exec = new SandboxToolExecutor(root, undefined, true);
+    for (const content of ["", "   \n"]) {
+      const r = await exec.execute("write_file", { path: ".release-flags/pr-1.json", content });
+      assert.equal(r.isError, true);
+      assert.match(r.content, /refusing to write empty content/);
+    }
+  });
+
+  it("rejects invalid JSON written to a .json path", async () => {
+    const exec = new SandboxToolExecutor(root, undefined, true);
+    const r = await exec.execute("write_file", { path: ".release-flags/pr-1.json", content: "{not json" });
+    assert.equal(r.isError, true);
+    assert.match(r.content, /not valid JSON/);
+  });
+
+  it("accepts valid JSON and non-JSON files as before", async () => {
+    const exec = new SandboxToolExecutor(root, undefined, true);
+    const ok = await exec.execute("write_file", { path: ".release-flags/pr-1.json", content: '{"flagKey":"x"}' });
+    assert.equal(ok.isError, undefined);
+    const txt = await exec.execute("write_file", { path: "notes.txt", content: "not json, fine here" });
+    assert.equal(txt.isError, undefined);
+  });
+});

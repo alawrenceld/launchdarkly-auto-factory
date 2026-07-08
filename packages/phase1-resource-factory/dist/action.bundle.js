@@ -33121,6 +33121,7 @@ var init_sdk = __esm({
 });
 
 // src/action.ts
+import { execFileSync as execFileSync3 } from "node:child_process";
 import { resolve as resolve6 } from "node:path";
 
 // ../shared/dist/env.js
@@ -36105,6 +36106,22 @@ var SandboxToolExecutor = class {
   writeFile(rel, content) {
     if (!this.allowEdits)
       return { content: "write_file is not available", isError: true };
+    if (!content.trim()) {
+      return {
+        content: `write_file: refusing to write empty content to ${rel} \u2014 pass the full file contents in the \`content\` argument`,
+        isError: true
+      };
+    }
+    if (rel.endsWith(".json")) {
+      try {
+        JSON.parse(content);
+      } catch (e) {
+        return {
+          content: `write_file: ${rel} is a .json file but the content is not valid JSON (${e instanceof Error ? e.message : e}) \u2014 fix the JSON and retry`,
+          isError: true
+        };
+      }
+    }
     const abs = this.safeResolve(rel);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content, "utf8");
@@ -37033,7 +37050,7 @@ async function postCheckRun(opts) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        name: CHECK_NAME,
+        name: opts.name ?? CHECK_NAME,
         head_sha: headSha,
         status: "completed",
         conclusion: opts.conclusion,
@@ -37041,7 +37058,7 @@ async function postCheckRun(opts) {
       })
     });
     if (res.ok) {
-      console.log(`Posted check run '${CHECK_NAME}' [${opts.conclusion}].`);
+      console.log(`Posted check run '${opts.name ?? CHECK_NAME}' [${opts.conclusion}].`);
     } else if (res.status === 403) {
       console.log(
         `Check run failed: HTTP 403 \u2014 the workflow token likely lacks 'permissions: checks: write'.`
@@ -37243,6 +37260,13 @@ function flagCreationWriter() {
   }
   return new LdResourceWriter(new LdClient(appConnection()));
 }
+function checkoutHeadSha(root) {
+  try {
+    return execFileSync3("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  } catch {
+    return void 0;
+  }
+}
 function describeStall(stall) {
   const edges = stall.unmet.map((u) => `edge \u2192 ${u.target} requires ${Object.entries(u.requireMissing).map(([k, v]) => `${k}=${v}`).join(", ")} (never produced)`).join("; ");
   return `chain stalled at '${stall.node}'; ${edges}. Downstream agents did not run.`;
@@ -37310,7 +37334,9 @@ async function main() {
   const graphKey = process.env.GRAPH_KEY ?? "gha-auto-factory";
   const graphDef = await aiClient.agentGraph(graphKey, ldContext, buildVariables(context));
   if (!graphDef.enabled) {
-    throw new Error(`Agent graph '${graphKey}' is disabled or unavailable in LaunchDarkly`);
+    throw new Error(
+      `Agent graph '${graphKey}' is disabled or unavailable in LaunchDarkly. Most common cause: LD_SDK_KEY is not the FACTORY project's server SDK key \u2014 it must be for the project holding the AI configs, agent graph, and operational flags (LD_PROJECT_KEY='${process.env.LD_PROJECT_KEY ?? "?"}'), NOT the app project where flags get created. Also check GRAPH_KEY and that the graph is enabled in this environment.`
+    );
   }
   const graphTracker = graphDef.createTracker();
   console.log(`Phase 1: PR #${context.PR_NUMBER ?? "?"} \u2192 graph '${graphKey}' [provider: ${provider}]`);
@@ -37323,14 +37349,23 @@ async function main() {
     gate = { steps: gatedSteps, resolve: (node) => approvedSteps.has(node) };
     console.log(`Approval gates: [${gatedSteps.join(", ")}]; approved: [${[...approvedSteps].join(", ") || "none"}]`);
   }
+  const sandboxRoot = resolve6(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const judgeCompletion = createJudgeCompletion(provider);
-  const judgeHook = judgeCompletion ? createJudgeHook({
+  const baseJudgeHook = judgeCompletion ? createJudgeHook({
     aiClient,
     ldContext,
     variables: buildVariables(context),
     completion: judgeCompletion,
-    evidence: createGitDiffEvidence(resolve6(process.env.SANDBOX_ROOT ?? "examples/demo-app"))
+    evidence: createGitDiffEvidence(sandboxRoot)
   }) : void 0;
+  const judgeScores = /* @__PURE__ */ new Map();
+  const judgeHook = baseJudgeHook ? async (args) => {
+    const results = await baseJudgeHook(args);
+    for (const r of results) {
+      if (r.sampled && typeof r.score === "number") judgeScores.set(args.configKey, r.score);
+    }
+    return results;
+  } : void 0;
   const walk2 = await walkGraph(graphDef, runner, context, graphTracker, void 0, gate, judgeHook);
   for (const r of walk2.runs) {
     console.log(`
@@ -37383,16 +37418,31 @@ async function main() {
   } else {
     console.log("\u2717 Not applied \u2014 code review REJECTED.");
   }
+  const agentRows = walk2.runs.map((r) => {
+    const judge = judgeScores.get(r.configKey);
+    const tags = Object.entries(r.tags).map(([k, v]) => `${k}=${v}`).join(", ").slice(0, 140) || "\u2014";
+    return `| \`${r.configKey}\` | ${r.status} | ${judge !== void 0 ? judge.toFixed(2) : "\u2014"} | ${tags} |`;
+  });
   const summary = [
     "### LaunchDarkly Auto-Factory \u2014 Phase 1",
     "",
-    `**Agents:** ${walk2.runs.map((r) => r.configKey).join(" \u2192 ") || "(none ran)"}`,
+    `**Approval (${mode}):** ${decision.reason}`,
     walk2.skipped.length ? `**Skipped:** ${walk2.skipped.join(", ")}` : "",
     stallText ? `**\u26A0 Stalled:** ${stallText}` : "",
     "",
-    `**Approval (${mode}):** ${decision.reason}`
+    "| Agent | Status | Judge | Tags |",
+    "|---|---|---|---|",
+    ...agentRows.length ? agentRows : ["| (none ran) | \u2014 | \u2014 | \u2014 |"]
   ].filter(Boolean).join("\n");
   await postPrComment(summary, { prNumber: context.PR_NUMBER, repo: context.REPO });
+  await postCheckRun({
+    name: "AutoFactory \u2014 Phase 1",
+    repo: context.REPO,
+    headSha: checkoutHeadSha(sandboxRoot) ?? context.HEAD_SHA,
+    conclusion: decision.apply || decision.noop ? "success" : decision.requiresHuman ? "action_required" : "failure",
+    title: decision.reason,
+    summary
+  });
   if (!decision.apply && !decision.requiresHuman && !decision.noop) process.exitCode = 1;
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
