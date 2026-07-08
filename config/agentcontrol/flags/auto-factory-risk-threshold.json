@@ -1,0 +1,30 @@
+{
+  "key": "auto-factory-risk-threshold",
+  "name": "AutoFactory risk threshold",
+  "description": "Sensitivity dial (0-1) for risk-threshold approval mode: steps gate when the research agent's risk_score >= this value. Lower = more approvals. Tune up/down based on what you see run; per-step overrides live in the gates flag's {step, threshold} entries.",
+  "kind": "multivariate",
+  "temporary": false,
+  "tags": [
+    "auto-factory"
+  ],
+  "variations": [
+    {
+      "value": 0.6,
+      "name": "Balanced (0.6)"
+    },
+    {
+      "value": 0.3,
+      "name": "Strict (0.3)",
+      "description": "Most changes require approval."
+    },
+    {
+      "value": 0.9,
+      "name": "Permissive (0.9)",
+      "description": "Only the riskiest changes require approval."
+    }
+  ],
+  "defaults": {
+    "onVariation": 0,
+    "offVariation": 0
+  }
+}

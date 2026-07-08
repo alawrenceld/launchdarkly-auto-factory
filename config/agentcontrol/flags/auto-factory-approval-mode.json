@@ -1,0 +1,31 @@
+{
+  "key": "auto-factory-approval-mode",
+  "name": "AutoFactory approval mode",
+  "description": "WHETHER human approvals gate the chain. yolo = no gates, runs unattended (default). risk-threshold = gate the configured steps only when the research agent's risk_score meets the auto-factory-risk-threshold flag. always = gate the configured steps on every run. Compiled with auto-factory-approval-gates (where) and auto-factory-risk-threshold (sensitivity).",
+  "kind": "multivariate",
+  "temporary": false,
+  "tags": [
+    "auto-factory"
+  ],
+  "variations": [
+    {
+      "value": "yolo",
+      "name": "Yolo",
+      "description": "No gates; the chain runs unattended."
+    },
+    {
+      "value": "risk-threshold",
+      "name": "Risk threshold",
+      "description": "Gate the configured steps when risk_score >= the threshold flag (fail-closed on unknown risk)."
+    },
+    {
+      "value": "always",
+      "name": "Always",
+      "description": "Gate the configured steps on every run."
+    }
+  ],
+  "defaults": {
+    "onVariation": 1,
+    "offVariation": 0
+  }
+}

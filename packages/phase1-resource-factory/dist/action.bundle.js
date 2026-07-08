@@ -33371,7 +33371,7 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate,
   let pendingApproval;
   while (node && !visited.has(node.getKey())) {
     const key = node.getKey();
-    if (gate && gatedSteps.has(key) && !await gate.resolve(key)) {
+    if (gate && gatedSteps.has(key) && !await gate.resolve(key, accumulatedTags)) {
       pendingApproval = { node: key };
       onEvent?.({ type: "awaiting-approval", node: key });
       break;
@@ -33462,12 +33462,8 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate,
 }
 
 // ../shared/dist/approval.js
-function getApprovalMode() {
-  const m = (process.env.APPROVAL_MODE || "yolo").toLowerCase();
-  return m === "manual" || m === "middle" ? m : "yolo";
-}
-function decideApproval(mode, verdict) {
-  const base = { apply: false, requiresHuman: false, noop: false, incomplete: false };
+function decideApproval(verdict) {
+  const base = { apply: false, noop: false, incomplete: false };
   if (verdict.skipFlagging) {
     return { ...base, noop: true, reason: "no flag needed \u2014 nothing to review" };
   }
@@ -33477,17 +33473,7 @@ function decideApproval(mode, verdict) {
   if (!verdict.reviewApproved) {
     return { ...base, reason: "code review REJECTED" };
   }
-  switch (mode) {
-    case "yolo":
-      return { ...base, apply: true, reason: "yolo: auto-apply on approval" };
-    case "manual":
-      return { ...base, requiresHuman: true, reason: "manual: awaiting human approval" };
-    case "middle":
-      if (verdict.risk === "high") {
-        return { ...base, requiresHuman: true, reason: "middle: high risk \u2192 human approval" };
-      }
-      return { ...base, apply: true, reason: `middle: ${verdict.risk ?? "unknown"} risk \u2192 auto-apply` };
-  }
+  return { ...base, apply: true, reason: "code review APPROVED" };
 }
 function interpretWalk(tags) {
   const rawDecision = (tags.review_approved ?? // canonical
@@ -33507,23 +33493,93 @@ function interpretWalk(tags) {
 
 // ../shared/dist/approvalGates.js
 var APPROVAL_GATES_FLAG_KEY = "auto-factory-approval-gates";
-function toSteps(value) {
+function parseGateSteps(value) {
   if (!Array.isArray(value))
     return [];
-  return value.filter((v) => typeof v === "string" && v.length > 0);
+  const steps = [];
+  for (const v of value) {
+    if (typeof v === "string" && v.length > 0) {
+      steps.push({ step: v });
+    } else if (v && typeof v === "object" && typeof v.step === "string") {
+      const o = v;
+      const t = typeof o.threshold === "number" && o.threshold >= 0 && o.threshold <= 1 ? o.threshold : void 0;
+      steps.push({ step: o.step, ...t !== void 0 ? { threshold: t } : {} });
+    }
+  }
+  return steps;
 }
 async function resolveApprovalGates(ldClient, context, flagKey = APPROVAL_GATES_FLAG_KEY) {
   loadDotEnv();
   const env = process.env.APPROVAL_GATES?.trim();
   if (env) {
     try {
-      return toSteps(JSON.parse(env));
+      return parseGateSteps(JSON.parse(env));
     } catch {
-      return toSteps(env.split(",").map((s) => s.trim()));
+      return parseGateSteps(env.split(",").map((s) => s.trim()));
     }
   }
   const value = await ldClient.variation(flagKey, context, []);
-  return toSteps(value);
+  return parseGateSteps(value);
+}
+
+// ../shared/dist/approvalPolicy.js
+var APPROVAL_MODE_FLAG_KEY = "auto-factory-approval-mode";
+var RISK_THRESHOLD_FLAG_KEY = "auto-factory-risk-threshold";
+var DEFAULT_MODE = "yolo";
+var DEFAULT_THRESHOLD = 0.6;
+var DEFAULT_GATED_STEPS = ["autofactory-flag-implementer"];
+function normalizeApprovalMode(raw) {
+  const m = String(raw ?? "").toLowerCase().trim();
+  if (m === "risk-threshold" || m === "middle")
+    return "risk-threshold";
+  if (m === "always" || m === "manual")
+    return "always";
+  return DEFAULT_MODE;
+}
+function riskScoreOf(tags) {
+  const raw = Number.parseFloat(tags.risk_score ?? "");
+  if (Number.isFinite(raw) && raw >= 0 && raw <= 1)
+    return raw;
+  const level = (tags.risk_level ?? "").toLowerCase();
+  if (level === "low")
+    return 0.25;
+  if (level === "medium")
+    return 0.5;
+  if (level === "high")
+    return 0.75;
+  return void 0;
+}
+async function resolveApprovalPolicy(ldClient, context) {
+  loadDotEnv();
+  const mode = process.env.APPROVAL_MODE ? normalizeApprovalMode(process.env.APPROVAL_MODE) : normalizeApprovalMode(await ldClient.variation(APPROVAL_MODE_FLAG_KEY, context, DEFAULT_MODE));
+  const rawThreshold = process.env.RISK_THRESHOLD ? Number.parseFloat(process.env.RISK_THRESHOLD) : Number(await ldClient.variation(RISK_THRESHOLD_FLAG_KEY, context, DEFAULT_THRESHOLD));
+  const threshold = Number.isFinite(rawThreshold) ? Math.min(1, Math.max(0, rawThreshold)) : DEFAULT_THRESHOLD;
+  let steps = await resolveApprovalGates(ldClient, context);
+  if (steps.length === 0 && mode !== "yolo") {
+    console.log(`[approval] mode '${mode}' with no gated steps configured \u2014 defaulting to [${DEFAULT_GATED_STEPS.join(", ")}]`);
+    steps = DEFAULT_GATED_STEPS.map((step) => ({ step }));
+  }
+  return { mode, threshold, steps };
+}
+function createPolicyGate(policy, approve) {
+  if (policy.mode === "yolo" || policy.steps.length === 0)
+    return void 0;
+  const byStep = new Map(policy.steps.map((s) => [s.step, s]));
+  return {
+    steps: policy.steps.map((s) => s.step),
+    async resolve(nodeKey, tags) {
+      if (policy.mode === "risk-threshold") {
+        const risk = riskScoreOf(tags);
+        const effective = byStep.get(nodeKey)?.threshold ?? policy.threshold;
+        if (risk !== void 0 && risk < effective) {
+          console.log(`[approval] '${nodeKey}' below risk threshold (risk ${risk.toFixed(2)} < ${effective.toFixed(2)}) \u2014 no approval needed`);
+          return true;
+        }
+        console.log(`[approval] '${nodeKey}' requires approval: risk ${risk === void 0 ? "UNKNOWN (fail-closed)" : risk.toFixed(2)} \u2265 threshold ${effective.toFixed(2)}`);
+      }
+      return approve(nodeKey);
+    }
+  };
 }
 
 // ../shared/dist/vegaClient.js
@@ -36434,8 +36490,9 @@ var NODE_CAPABILITIES = {
   "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true }
 };
 var NODE_REQUIRED_TAGS = {
-  "autofactory-research-planner": ["flag_worthy"],
-  // always decides flag-worthiness
+  // Always decides flag-worthiness AND a numeric risk score — risk-threshold
+  // gates fail closed when risk_score is missing, so force it.
+  "autofactory-research-planner": ["flag_worthy", "risk_score"],
   "autofactory-metrics-author": ["needs_tests"],
   // always hands off to testing
   "autofactory-code-reviewer": ["review_approved"]
@@ -37319,6 +37376,7 @@ function mapActionInputs() {
   set("PR_BRANCH", "pr_branch");
   set("PR_BASE_REF", "pr_base");
   set("APPROVAL_MODE", "approval_mode");
+  set("RISK_THRESHOLD", "risk_threshold");
   set("GITHUB_TOKEN", "github_token");
   set("VEGA_ENDPOINT", "vega_endpoint");
   set("VEGA_TOKEN", "vega_token");
@@ -37341,14 +37399,16 @@ async function main() {
   const graphTracker = graphDef.createTracker();
   console.log(`Phase 1: PR #${context.PR_NUMBER ?? "?"} \u2192 graph '${graphKey}' [provider: ${provider}]`);
   const runner = createAgentRunner(provider);
-  const gatedSteps = await resolveApprovalGates(ldClient, ldContext);
+  const policy = await resolveApprovalPolicy(ldClient, ldContext);
   let approvedSteps = /* @__PURE__ */ new Set();
-  let gate;
-  if (gatedSteps.length) {
+  if (policy.mode !== "yolo") {
     approvedSteps = await fetchApprovedSteps(context.REPO, context.PR_NUMBER, process.env.GITHUB_TOKEN);
-    gate = { steps: gatedSteps, resolve: (node) => approvedSteps.has(node) };
-    console.log(`Approval gates: [${gatedSteps.join(", ")}]; approved: [${[...approvedSteps].join(", ") || "none"}]`);
   }
+  const gate = createPolicyGate(policy, (node) => approvedSteps.has(node));
+  const stepsDesc = policy.steps.map((s) => s.step + (s.threshold !== void 0 ? `@${s.threshold}` : "")).join(", ");
+  console.log(
+    `Approval policy: mode=${policy.mode}` + (policy.mode === "risk-threshold" ? ` threshold=${policy.threshold}` : "") + (gate ? ` steps=[${stepsDesc}]; approved: [${[...approvedSteps].join(", ") || "none"}]` : " (no gates)")
+  );
   const sandboxRoot = resolve6(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const judgeCompletion = createJudgeCompletion(provider);
   const baseJudgeHook = judgeCompletion ? createJudgeHook({
@@ -37383,7 +37443,7 @@ async function main() {
     const label = approveLabel(node);
     await ensureLabel(context.REPO, label, process.env.GITHUB_TOKEN);
     console.log(`::warning::AutoFactory: awaiting approval before '${node}'. Add the PR label '${label}' to proceed.`);
-    const summary2 = buildGateComment(gatedSteps, approvedSteps, node);
+    const summary2 = buildGateComment(policy.steps.map((s) => s.step), approvedSteps, node);
     await postPrComment(summary2, { prNumber: context.PR_NUMBER, repo: context.REPO });
     await postCheckRun({
       repo: context.REPO,
@@ -37394,7 +37454,7 @@ async function main() {
     });
     return;
   }
-  if (gatedSteps.length) {
+  if (gate) {
     await postCheckRun({
       repo: context.REPO,
       headSha: context.HEAD_SHA,
@@ -37404,12 +37464,9 @@ async function main() {
     });
   }
   const verdict = interpretWalk(walk2.tags);
-  const mode = getApprovalMode();
-  const decision = decideApproval(mode, verdict);
-  console.log(`Approval [${mode}] \u2192 ${decision.reason}`);
-  if (decision.requiresHuman) {
-    console.log("\u23F8 Human approval required \u2014 not auto-applied.");
-  } else if (decision.apply) {
+  const decision = decideApproval(verdict);
+  console.log(`Verdict \u2192 ${decision.reason}`);
+  if (decision.apply) {
     console.log("\u2713 Changes approved and applied by the agents.");
   } else if (decision.noop) {
     console.log("\u2022 No flag needed \u2014 nothing to apply.");
@@ -37426,7 +37483,7 @@ async function main() {
   const summary = [
     "### LaunchDarkly Auto-Factory \u2014 Phase 1",
     "",
-    `**Approval (${mode}):** ${decision.reason}`,
+    `**Verdict:** ${decision.reason}` + (policy.mode !== "yolo" ? ` _(approval mode: ${policy.mode}${policy.mode === "risk-threshold" ? ` @ ${policy.threshold}` : ""})_` : ""),
     walk2.skipped.length ? `**Skipped:** ${walk2.skipped.join(", ")}` : "",
     stallText ? `**\u26A0 Stalled:** ${stallText}` : "",
     "",
@@ -37439,11 +37496,11 @@ async function main() {
     name: "AutoFactory \u2014 Phase 1",
     repo: context.REPO,
     headSha: checkoutHeadSha(sandboxRoot) ?? context.HEAD_SHA,
-    conclusion: decision.apply || decision.noop ? "success" : decision.requiresHuman ? "action_required" : "failure",
+    conclusion: decision.apply || decision.noop ? "success" : "failure",
     title: decision.reason,
     summary
   });
-  if (!decision.apply && !decision.requiresHuman && !decision.noop) process.exitCode = 1;
+  if (!decision.apply && !decision.noop) process.exitCode = 1;
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((e) => {

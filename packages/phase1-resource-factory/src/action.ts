@@ -3,8 +3,9 @@
  * Phase 1 GitHub Action entrypoint. Triggered on PR open/synchronize (no label
  * gate). Built natively on LaunchDarkly: the server SDK evaluates the AI-provider
  * flag, and the AI SDK resolves the agent graph + per-node agent configs. It
- * assembles PR context, walks the graph through the selected provider (Anthropic
- * locally, or Vega), then applies the approval decision.
+ * assembles PR context, compiles the approval policy (mode/threshold/gates
+ * flags) into pre-execution gates, walks the graph through the selected
+ * provider, and reports the reviewer's verdict.
  */
 
 import { execFileSync } from "node:child_process";
@@ -29,14 +30,13 @@ import {
   type VegaTransport,
   appConnection,
   closeLdSdk,
+  createPolicyGate,
   decideApproval,
-  type GateController,
-  getApprovalMode,
   getLdSdk,
   interpretWalk,
   pipelineContext,
   resolveAiProvider,
-  resolveApprovalGates,
+  resolveApprovalPolicy,
   walkGraph,
 } from "@auto-factory/shared";
 import { postCheckRun } from "./checkRun.js";
@@ -243,6 +243,7 @@ function mapActionInputs(): void {
   set("PR_BRANCH", "pr_branch");
   set("PR_BASE_REF", "pr_base");
   set("APPROVAL_MODE", "approval_mode");
+  set("RISK_THRESHOLD", "risk_threshold");
   set("GITHUB_TOKEN", "github_token");
   set("VEGA_ENDPOINT", "vega_endpoint");
   set("VEGA_TOKEN", "vega_token");
@@ -275,18 +276,23 @@ async function main(): Promise<void> {
 
   const runner = createAgentRunner(provider);
 
-  // Per-step approval gates (independent of APPROVAL_MODE). Gated agent node
-  // keys come from the auto-factory-approval-gates flag; a gate is satisfied by
-  // a PR label `af-approve:<nodeKey>`. The chain halts before a gated node until
-  // its label is present (a re-run after the label is added proceeds).
-  const gatedSteps = await resolveApprovalGates(ldClient, ldContext);
+  // The approval policy: mode (yolo / risk-threshold / always) + risk threshold
+  // + gated steps, all from LaunchDarkly flags, COMPILED into pre-execution
+  // gates (see approvalPolicy.ts). A gate is satisfied by a PR label
+  // `af-approve:<nodeKey>`; the chain halts before a gated node until its label
+  // is present (a re-run after the label is added proceeds past it).
+  const policy = await resolveApprovalPolicy(ldClient, ldContext);
   let approvedSteps = new Set<string>();
-  let gate: GateController | undefined;
-  if (gatedSteps.length) {
+  if (policy.mode !== "yolo") {
     approvedSteps = await fetchApprovedSteps(context.REPO, context.PR_NUMBER, process.env.GITHUB_TOKEN);
-    gate = { steps: gatedSteps, resolve: (node) => approvedSteps.has(node) };
-    console.log(`Approval gates: [${gatedSteps.join(", ")}]; approved: [${[...approvedSteps].join(", ") || "none"}]`);
   }
+  const gate = createPolicyGate(policy, (node) => approvedSteps.has(node));
+  const stepsDesc = policy.steps.map((s) => s.step + (s.threshold !== undefined ? `@${s.threshold}` : "")).join(", ");
+  console.log(
+    `Approval policy: mode=${policy.mode}` +
+      (policy.mode === "risk-threshold" ? ` threshold=${policy.threshold}` : "") +
+      (gate ? ` steps=[${stepsDesc}]; approved: [${[...approvedSteps].join(", ") || "none"}]` : " (no gates)"),
+  );
 
   // Judges attached to agent configs in LaunchDarkly (e.g. implementation- and
   // metrics-quality judges) score node outputs 0..1; scores record per-variation
@@ -344,7 +350,7 @@ async function main(): Promise<void> {
     const label = approveLabel(node);
     await ensureLabel(context.REPO, label, process.env.GITHUB_TOKEN);
     console.log(`::warning::AutoFactory: awaiting approval before '${node}'. Add the PR label '${label}' to proceed.`);
-    const summary = buildGateComment(gatedSteps, approvedSteps, node);
+    const summary = buildGateComment(policy.steps.map((s) => s.step), approvedSteps, node);
     await postPrComment(summary, { prNumber: context.PR_NUMBER, repo: context.REPO });
     // Carry the pause as a distinct `action_required` check run rather than a red
     // failure, so it doesn't read as a pipeline error or a reviewer rejection
@@ -359,9 +365,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Gates were configured and all cleared: post a `success` check under the same
+  // Gates were active and all cleared: post a `success` check under the same
   // name so it supersedes any earlier `action_required` on this head SHA.
-  if (gatedSteps.length) {
+  if (gate) {
     await postCheckRun({
       repo: context.REPO,
       headSha: context.HEAD_SHA,
@@ -372,13 +378,10 @@ async function main(): Promise<void> {
   }
 
   const verdict = interpretWalk(walk.tags);
-  const mode = getApprovalMode();
-  const decision = decideApproval(mode, verdict);
+  const decision = decideApproval(verdict);
 
-  console.log(`Approval [${mode}] → ${decision.reason}`);
-  if (decision.requiresHuman) {
-    console.log("⏸ Human approval required — not auto-applied.");
-  } else if (decision.apply) {
+  console.log(`Verdict → ${decision.reason}`);
+  if (decision.apply) {
     console.log("✓ Changes approved and applied by the agents.");
   } else if (decision.noop) {
     console.log("• No flag needed — nothing to apply.");
@@ -403,7 +406,8 @@ async function main(): Promise<void> {
   const summary = [
     "### LaunchDarkly Auto-Factory — Phase 1",
     "",
-    `**Approval (${mode}):** ${decision.reason}`,
+    `**Verdict:** ${decision.reason}` +
+      (policy.mode !== "yolo" ? ` _(approval mode: ${policy.mode}${policy.mode === "risk-threshold" ? ` @ ${policy.threshold}` : ""})_` : ""),
     walk.skipped.length ? `**Skipped:** ${walk.skipped.join(", ")}` : "",
     stallText ? `**⚠ Stalled:** ${stallText}` : "",
     "",
@@ -422,7 +426,7 @@ async function main(): Promise<void> {
     name: "AutoFactory — Phase 1",
     repo: context.REPO,
     headSha: checkoutHeadSha(sandboxRoot) ?? context.HEAD_SHA,
-    conclusion: decision.apply || decision.noop ? "success" : decision.requiresHuman ? "action_required" : "failure",
+    conclusion: decision.apply || decision.noop ? "success" : "failure",
     title: decision.reason,
     summary,
   });
@@ -431,7 +435,7 @@ async function main(): Promise<void> {
   // no-op (no flag needed). Red: a genuine rejection OR an incomplete run (the
   // chain stalled / never reviewed) — both warrant attention, but they now carry
   // distinct messages above rather than both reading "REJECTED".
-  if (!decision.apply && !decision.requiresHuman && !decision.noop) process.exitCode = 1;
+  if (!decision.apply && !decision.noop) process.exitCode = 1;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

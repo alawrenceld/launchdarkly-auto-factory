@@ -58,5 +58,6 @@ jobs:
           pr_branch: ${{ github.event.pull_request.head.ref }}
           pr_base: ${{ github.event.pull_request.base.ref }}
           graph_key: gha-auto-factory
-          approval_mode: yolo
+          # Approvals are controlled by the auto-factory-approval-mode /
+          # -risk-threshold / -approval-gates flags in the factory project.
           github_token: ${{ secrets.GITHUB_TOKEN }}

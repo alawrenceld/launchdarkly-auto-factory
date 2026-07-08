@@ -177,9 +177,7 @@ async function runOnce(context: vscode.ExtensionContext, reason: string): Promis
 
         const verb = result.pendingApproval
           ? `⏸ stopped before ${nodeTitle(result.pendingApproval.node)} (approval declined)`
-          : result.decision.requiresHuman
-            ? "⏸ review required"
-            : result.decision.apply
+          : result.decision.apply
               ? "✓ approved"
               : result.decision.noop
                 ? "• no flag needed"

@@ -65,7 +65,8 @@ jobs:
           GRAPH_KEY:            gha-auto-factory
           ENABLE_FLAG_CREATION: "true"   # create real flags/metrics in the app project
           ENABLE_CODE_CHANGES:  "true"   # commit wiring + tests to the PR branch
-          APPROVAL_MODE:        "yolo"
+          # Approvals: controlled by the auto-factory-approval-mode / -risk-threshold
+          # / -approval-gates flags in the factory project (APPROVAL_MODE env overrides).
           SANDBOX_ROOT:         "."
           PR_BRANCH:            ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF:          ${{ github.event.pull_request.base.ref }}

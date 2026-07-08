@@ -89,7 +89,6 @@ export class AutoFactoryViewProvider implements vscode.WebviewViewProvider {
         ? "approval gate — the gated step was not run (approval declined)"
         : result.decision.reason,
       apply: result.decision.apply,
-      requiresHuman: result.decision.requiresHuman,
       noop: result.decision.noop,
       incomplete: result.decision.incomplete,
       pending: !!result.pendingApproval,

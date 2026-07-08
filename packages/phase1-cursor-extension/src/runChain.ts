@@ -13,17 +13,16 @@
 
 import {
   AnthropicAgentRunner,
-  type GateController,
   LdClient,
   LdResourceWriter,
   appConnection,
+  createPolicyGate,
   decideApproval,
-  getApprovalMode,
   getLdSdk,
   interpretWalk,
   pipelineContext,
   resolveAiProvider,
-  resolveApprovalGates,
+  resolveApprovalPolicy,
   walkGraph,
 } from "@auto-factory/shared";
 import type { CursorContext } from "./cursorContext.js";
@@ -90,13 +89,11 @@ export async function runPhase1(opts: RunOptions): Promise<RunResult> {
     ...(process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}),
   });
 
-  // Per-step approval gates: gated agent node keys come from the
-  // auto-factory-approval-gates flag; the extension answers each gate with an
-  // interactive modal (opts.confirmGate). No gates → unchanged behavior.
-  const gatedSteps = await resolveApprovalGates(ldClient, ldContext);
-  const gate: GateController | undefined = gatedSteps.length
-    ? { steps: gatedSteps, resolve: (node) => opts.confirmGate?.(node) ?? false }
-    : undefined;
+  // The approval policy (mode/threshold/gates flags) compiles into
+  // pre-execution gates; the extension answers each gate with an interactive
+  // modal (opts.confirmGate). Yolo mode → no gates → unchanged behavior.
+  const policy = await resolveApprovalPolicy(ldClient, ldContext);
+  const gate = createPolicyGate(policy, (node) => opts.confirmGate?.(node) ?? false);
 
   const walk = await walkGraph(
     graphDef,
@@ -119,8 +116,7 @@ export async function runPhase1(opts: RunOptions): Promise<RunResult> {
   );
 
   const verdict = interpretWalk(walk.tags);
-  const mode = getApprovalMode();
-  const decision = decideApproval(mode, verdict);
+  const decision = decideApproval(verdict);
 
   const result: RunResult = {
     runs: walk.runs,
@@ -128,7 +124,7 @@ export async function runPhase1(opts: RunOptions): Promise<RunResult> {
     tags: walk.tags,
     decision,
     ...(walk.pendingApproval ? { pendingApproval: walk.pendingApproval } : {}),
-    mode,
+    mode: policy.mode,
     provider,
   };
   reporter.done(result);

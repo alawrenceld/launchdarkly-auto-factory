@@ -1,12 +1,20 @@
 {
-  "$comment": "Source of truth for AutoFactory Phase 1 routing tags (issue #9 item #5). Each agent emits tags via tag_conversation (or a write tool sets them); the graph edges and the approval gate route on them. This registry is validated by `npm run check:configs` against the graph (config/agentcontrol/graphs/), the agent instructions (config/agentcontrol/ai-configs/), and the README table — so a renamed/removed/unconsumed tag fails the build instead of silently stalling the chain. Agents may emit additional INFORMATIONAL tags not listed here (e.g. tests_generated); only tags the system routes/decides on belong in this registry.",
+  "$comment": "Source of truth for AutoFactory Phase 1 routing tags (issue #9 item #5). Each agent emits tags via tag_conversation (or a write tool sets them); the graph edges and the approval gate route on them. This registry is validated by `npm run check:configs` against the graph (config/agentcontrol/graphs/), the agent instructions (config/agentcontrol/ai-configs/), and the README table \u2014 so a renamed/removed/unconsumed tag fails the build instead of silently stalling the chain. Agents may emit additional INFORMATIONAL tags not listed here (e.g. tests_generated); only tags the system routes/decides on belong in this registry.",
   "tags": {
     "skip_flagging": {
       "producedBy": "autofactory-research-planner",
       "production": "llm",
       "role": "routing",
-      "edges": [{ "from": "autofactory-research-planner", "to": "autofactory-flag-implementer", "kind": "skip_if_tags" }],
-      "readBy": ["approval"],
+      "edges": [
+        {
+          "from": "autofactory-research-planner",
+          "to": "autofactory-flag-implementer",
+          "kind": "skip_if_tags"
+        }
+      ],
+      "readBy": [
+        "approval"
+      ],
       "description": "true when the PR needs no flag (Rule F11: infra/docs/chore). Short-circuits the chain at research; approval treats it as a successful no-op, not a rejection."
     },
     "flag_worthy": {
@@ -21,7 +29,13 @@
       "producedBy": "autofactory-flag-implementer",
       "production": "tool",
       "role": "routing",
-      "edges": [{ "from": "autofactory-flag-implementer", "to": "autofactory-metrics-author", "kind": "require_tags" }],
+      "edges": [
+        {
+          "from": "autofactory-flag-implementer",
+          "to": "autofactory-metrics-author",
+          "kind": "require_tags"
+        }
+      ],
       "readBy": [],
       "description": "true when a flag was created. Set automatically by the create_flag tool. Gates the hand-off to the metrics author."
     },
@@ -30,14 +44,22 @@
       "production": "tool",
       "role": "informational",
       "edges": [],
-      "readBy": ["manifest"],
+      "readBy": [
+        "manifest"
+      ],
       "description": "The created flag's key. Set automatically by create_flag. Used for the release manifest and the editor's LaunchDarkly links."
     },
     "needs_tests": {
       "producedBy": "autofactory-metrics-author",
       "production": "llm",
       "role": "routing",
-      "edges": [{ "from": "autofactory-metrics-author", "to": "autofactory-flag-testing", "kind": "require_tags" }],
+      "edges": [
+        {
+          "from": "autofactory-metrics-author",
+          "to": "autofactory-flag-testing",
+          "kind": "require_tags"
+        }
+      ],
       "readBy": [],
       "description": "true to route to the testing agent. Forced by NODE_REQUIRED_TAGS so the metrics author always hands off."
     },
@@ -54,7 +76,9 @@
       "production": "tool",
       "role": "informational",
       "edges": [],
-      "readBy": ["manifest"],
+      "readBy": [
+        "manifest"
+      ],
       "description": "Comma-separated metric keys attached. Set automatically by create_metric. Written into the release manifest and the editor's links."
     },
     "review_approved": {
@@ -62,7 +86,9 @@
       "production": "llm",
       "role": "verdict",
       "edges": [],
-      "readBy": ["approval"],
+      "readBy": [
+        "approval"
+      ],
       "description": "The reviewer's verdict (approve/approved/true vs reject/rejected/false). Read by the approval gate. Forced by NODE_REQUIRED_TAGS so the reviewer always records a verdict; absence means the reviewer never ran (INCOMPLETE), not a rejection."
     },
     "risk_level": {
@@ -70,8 +96,20 @@
       "production": "llm",
       "role": "verdict",
       "edges": [],
-      "readBy": ["approval"],
-      "description": "low / medium / high. Read by the approval gate; gates the `middle` mode (high risk requires a human)."
+      "readBy": [
+        "approval"
+      ],
+      "description": "low / medium / high \u2014 the categorical companion to risk_score, for humans and as the fallback mapping (low=.25 / medium=.5 / high=.75) when the numeric score is missing."
+    },
+    "risk_score": {
+      "producedBy": "autofactory-research-planner",
+      "production": "llm",
+      "role": "verdict",
+      "edges": [],
+      "readBy": [
+        "approval"
+      ],
+      "description": "Numeric change risk 0.0-1.0 from the research planner. Read by the approval policy: in risk-threshold mode, steps gate when risk_score >= the auto-factory-risk-threshold flag (fail-closed when absent). Forced by NODE_REQUIRED_TAGS."
     }
   }
 }

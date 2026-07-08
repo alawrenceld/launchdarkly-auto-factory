@@ -76,21 +76,23 @@ export interface WalkResult {
 }
 
 /**
- * Controls per-step approval gates. `steps` are the agent node keys that
- * require approval before they run (from the `auto-factory-approval-gates`
- * flag). Before running a gated node the walker calls `resolve(nodeKey)`:
- *  - true  → approved; run the node and continue.
- *  - false → not approved; HALT before the node (WalkResult.pendingApproval).
+ * Controls per-step approval gates. `steps` are the agent node keys that MAY
+ * require approval before they run (compiled from the approval-mode /
+ * risk-threshold / approval-gates flags — see approvalPolicy.ts). Before
+ * running a gated node the walker calls `resolve(nodeKey, tags)` with the tags
+ * accumulated so far (e.g. the research planner's `risk_score`, so a gate can
+ * be risk-conditional):
+ *  - true  → proceed (approved, or the gate decided no approval is needed).
+ *  - false → HALT before the node (WalkResult.pendingApproval).
  *
- * `resolve` may be async. Each front end answers it differently: the GitHub
- * Action returns a non-blocking PR-label lookup (false → the run ends and a
- * later re-run, after the label is added, proceeds); the Cursor extension
- * shows an interactive prompt that blocks in-process until the human responds.
- * Independent of the post-walk APPROVAL_MODE.
+ * `resolve` may be async. Each front end answers the human part differently:
+ * the GitHub Action returns a non-blocking PR-label lookup (false → the run
+ * ends and a later re-run, after the label is added, proceeds); the Cursor
+ * extension shows an interactive prompt that blocks until the human responds.
  */
 export interface GateController {
   steps: string[];
-  resolve(nodeKey: string): boolean | Promise<boolean>;
+  resolve(nodeKey: string, tags: Record<string, string>): boolean | Promise<boolean>;
 }
 
 /**
@@ -194,10 +196,11 @@ export async function walkGraph(
   while (node && !visited.has(node.getKey())) {
     const key = node.getKey();
 
-    // Approval gate: before running a gated node, ask the front end. If it
-    // isn't approved, halt BEFORE the node runs (so its side effects — flag
-    // creation, commits — don't happen) and report what's pending.
-    if (gate && gatedSteps.has(key) && !(await gate.resolve(key))) {
+    // Approval gate: before running a gated node, ask the controller — passing
+    // the tags accumulated so far, so risk-conditional gates can consult the
+    // planner's risk_score. If not approved, halt BEFORE the node runs (so its
+    // side effects — flag creation, commits — don't happen).
+    if (gate && gatedSteps.has(key) && !(await gate.resolve(key, accumulatedTags))) {
       pendingApproval = { node: key };
       onEvent?.({ type: "awaiting-approval", node: key });
       break;

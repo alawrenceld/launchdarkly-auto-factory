@@ -59,12 +59,19 @@ export interface DiscoveredFlag extends ReleaseFlagFile {
 // ----------------------------------------------------------------------------
 
 /**
- * How the output of the agent chain is applied.
- * Stored in a LaunchDarkly flag (per-repo); defaults to "yolo".
+ * Whether human approvals gate the chain. Stored in the
+ * `auto-factory-approval-mode` LaunchDarkly flag; defaults to "yolo". Modes
+ * COMPILE INTO pre-execution gates (see approvalPolicy.ts) — they are not a
+ * post-hoc decision:
+ *  - yolo:           no gates; the chain runs unattended.
+ *  - risk-threshold: gate the configured steps only when the research agent's
+ *                    `risk_score` ≥ the `auto-factory-risk-threshold` flag.
+ *  - always:         gate the configured steps on every run.
+ * Legacy values are mapped: "middle" → risk-threshold, "manual" → always.
  */
-export type ApprovalMode = "yolo" | "middle" | "manual";
+export type ApprovalMode = "yolo" | "risk-threshold" | "always";
 
-/** Risk score produced by the research agent; gates "middle" approval mode. */
+/** Categorical risk emitted alongside the numeric `risk_score` tag. */
 export type RiskLevel = "low" | "medium" | "high";
 
 // ----------------------------------------------------------------------------

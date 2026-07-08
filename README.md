@@ -134,7 +134,7 @@ config changes) short-circuit after the first agent.
 |-------|---------|--------|
 | `enable_flag_creation` | `false` in the action, `true` in the template | create real flags/metrics vs. read-only dry run |
 | `enable_code_changes` | `false` in the action, `true` in the template | allow agent commits to the PR branch |
-| `approval_mode` | `yolo` | `yolo` (report verdict), `middle` (gate high risk), `manual` (always gate) |
+| `approval_mode` / `risk_threshold` | unset | env OVERRIDES for the approval flags below; normally control via flags |
 | `graph_key` | `gha-auto-factory` | which agent graph to walk |
 
 The `auto-factory-ai-provider` flag (factory project, string variations
@@ -160,19 +160,29 @@ by the pipeline rather than claimed by the agent. Scores record per-variation un
 what makes the per-agent model A/B a cost-vs-quality comparison. Judges run on the Anthropic
 and Cursor providers; Vega skips them.
 
-### Per-step approval gates
+### Approvals: three flags, compiled into pre-execution gates
 
-`auto-factory-approval-gates` (factory project, a **JSON flag** holding an array of agent
-node keys) pauses the chain **before** each listed agent until a human approves — independent
-of `approval_mode`, which governs the finished chain. Bootstrap provisions it **off** (serves
-`[]` = no gates, behavior unchanged); its on-variation serves `["autofactory-flag-implementer"]`
-(approve after research, before any flag is created), and you can edit the variation to gate
-other steps. In the **GitHub Action**, a gated run halts, comments which PR label to add
-(`af-approve:<nodeKey>`), and posts a distinct `action_required` check run (**AutoFactory —
-Approval gate**) rather than a red failure — so a pending gate reads as "needs a human," not
-as a pipeline error or a reviewer rejection. Adding the label re-runs the chain past that gate
-(the workflow template listens for the `labeled` event, and approval persists across pushes).
-In the **Cursor extension**, a modal asks to approve or stop at each gate.
+Human approval is controlled by three LaunchDarkly flags in the factory project that
+**compile into gates which pause the chain before a step runs** (so nothing is created or
+pushed for that step until a human approves — there is no post-hoc "approval" of work
+already done):
+
+| Flag | Question it answers | Values |
+|------|---------------------|--------|
+| `auto-factory-approval-mode` | whether approvals happen | `yolo` (default: no gates, unattended) · `risk-threshold` · `always` |
+| `auto-factory-risk-threshold` | how sensitive | number 0–1 (default 0.6); in risk-threshold mode a step gates when the research agent's `risk_score` ≥ this |
+| `auto-factory-approval-gates` | where | array of agent node keys (min: the flag implementer); entries may be `{step, threshold}` objects to override the threshold per step |
+
+In **risk-threshold** mode the research planner's numeric `risk_score` (0–1, emitted on
+every run) decides per run whether the gated steps need a human; unknown risk **fails
+closed** (gates apply). A non-yolo mode with no configured steps defaults to gating the
+flag implementer. Tune the threshold up/down based on what you see run.
+
+When a gate holds, the **GitHub Action** halts before the step, comments which PR label to
+add (`af-approve:<nodeKey>`), and posts a distinct `action_required` check run (**AutoFactory
+— Approval gate**) rather than a red failure. Adding the label re-runs the chain past that
+gate (the template listens for the `labeled` event; approval persists across pushes). In the
+**Cursor extension**, a modal asks to approve or stop at each gate.
 
 ## Phase 2 setup (Beacon)
 

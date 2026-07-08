@@ -76,7 +76,7 @@ async function runShape(script: Record<string, Partial<AgentNodeResult>>): Promi
   return walkGraph(buildChain(), new FakeRunner(script), { PR_NUMBER: "1" });
 }
 const path = (w: WalkResult) => w.runs.map((r) => r.configKey);
-const decide = (w: WalkResult) => decideApproval("yolo", interpretWalk(w.tags));
+const decide = (w: WalkResult) => decideApproval(interpretWalk(w.tags));
 
 // ---------------------------------------------------------------------------
 describe("routing contract: PR-shape fixtures (walk → interpret → decide)", () => {

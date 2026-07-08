@@ -62,9 +62,11 @@ inputs:
     required: false
     default: "."
   approval_mode:
-    description: "yolo | middle | manual (default yolo)."
+    description: "Env OVERRIDE for the auto-factory-approval-mode flag: yolo | risk-threshold | always (legacy middle/manual map to risk-threshold/always). Normally leave unset and control via the flag."
     required: false
-    default: "yolo"
+  risk_threshold:
+    description: "Env OVERRIDE (0-1) for the auto-factory-risk-threshold flag. Normally leave unset and control via the flag."
+    required: false
   github_token:
     description: "Token for posting the PR summary comment."
     required: false

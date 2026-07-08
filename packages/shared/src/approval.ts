@@ -1,19 +1,25 @@
 /**
- * Approval logic. The agent chain produces a review verdict and a risk level
- * (as tags); the approval mode decides whether to auto-apply, gate on risk, or
- * require a human.
+ * Post-walk verdict interpretation.
+ *
+ * This module used to also hold the approval-MODE logic (yolo/middle/manual as
+ * a post-hoc decision). That was theater: by the time the walk finishes, the
+ * flags exist and the commits are pushed — there is nothing left to "apply".
+ * Human approval now happens where it can still prevent side effects:
+ * pre-execution gates, compiled from the approval-mode + risk-threshold +
+ * approval-gates flags (see approvalPolicy.ts). What remains here is reading
+ * the reviewer's verdict from the accumulated tags and turning it into the
+ * run's reported outcome (green/red/no-op/incomplete).
  *
  * The DECISION logic is firm. How the verdict/risk are read from agent tags is
  * best-effort: the canonical tags are `review_approved` / `risk_level`, but
- * `interpretWalk` also accepts a few legacy keys for resilience, so it's easy to
- * adjust if the agent configs change.
+ * `interpretWalk` also accepts a few legacy keys for resilience.
  */
 
-import type { ApprovalMode, RiskLevel } from "./types.js";
+import type { RiskLevel } from "./types.js";
 
 export interface ApprovalDecision {
+  /** The reviewer approved — the run reports success. */
   apply: boolean;
-  requiresHuman: boolean;
   /**
    * True when the pipeline intentionally created no flag (e.g. an infra/docs PR
    * that hit Rule F11). There is nothing to review or apply, so this is a
@@ -44,47 +50,20 @@ export interface WalkVerdict {
   skipFlagging: boolean;
 }
 
-/**
- * Resolve the active approval mode. Defaults to "yolo".
- * TODO: read from a per-repo LaunchDarkly flag once that flag's evaluation
- * context (context kind/key, server-SDK vs REST eval) is pinned; this env
- * fallback is the interim path.
- */
-export function getApprovalMode(): ApprovalMode {
-  const m = (process.env.APPROVAL_MODE || "yolo").toLowerCase();
-  return m === "manual" || m === "middle" ? m : "yolo";
-}
+/** Turn the reviewer's verdict into the run's reported outcome. */
+export function decideApproval(verdict: WalkVerdict): ApprovalDecision {
+  const base = { apply: false, noop: false, incomplete: false };
 
-export function decideApproval(mode: ApprovalMode, verdict: WalkVerdict): ApprovalDecision {
-  const base = { apply: false, requiresHuman: false, noop: false, incomplete: false };
-
-  // 1. Intentional skip (no flag needed — e.g. infra/docs PR). The chain
-  //    short-circuits before the reviewer; a successful no-op, not a rejection.
   if (verdict.skipFlagging) {
     return { ...base, noop: true, reason: "no flag needed — nothing to review" };
   }
-  // 2. No verdict recorded → the reviewer never ran (chain stalled / stopped
-  //    early). INCOMPLETE, NOT a rejection — the reviewer didn't reject, it
-  //    never weighed in. (Distinguishing these is the heart of issue #9.)
   if (!verdict.hasVerdict) {
     return { ...base, incomplete: true, reason: "INCOMPLETE — the code reviewer never produced a verdict" };
   }
-  // 3. A verdict was recorded and it was negative → genuine rejection.
   if (!verdict.reviewApproved) {
     return { ...base, reason: "code review REJECTED" };
   }
-  // 4. Approved → apply per mode.
-  switch (mode) {
-    case "yolo":
-      return { ...base, apply: true, reason: "yolo: auto-apply on approval" };
-    case "manual":
-      return { ...base, requiresHuman: true, reason: "manual: awaiting human approval" };
-    case "middle":
-      if (verdict.risk === "high") {
-        return { ...base, requiresHuman: true, reason: "middle: high risk → human approval" };
-      }
-      return { ...base, apply: true, reason: `middle: ${verdict.risk ?? "unknown"} risk → auto-apply` };
-  }
+  return { ...base, apply: true, reason: "code review APPROVED" };
 }
 
 /**
@@ -102,8 +81,6 @@ export function interpretWalk(tags: Record<string, string>): WalkVerdict {
     tags.approved ?? // legacy
     ""
   ).toLowerCase();
-  // An explicit verdict tag was present at all — distinguishes "reviewer rejected"
-  // (hasVerdict + !reviewApproved) from "reviewer never ran" (!hasVerdict).
   const hasVerdict = rawDecision !== "";
   const reviewApproved = rawDecision === "approve" || rawDecision === "approved" || rawDecision === "true";
   const rawRisk = (
@@ -113,8 +90,6 @@ export function interpretWalk(tags: Record<string, string>): WalkVerdict {
   ).toLowerCase();
   const risk: RiskLevel | undefined =
     rawRisk === "low" || rawRisk === "medium" || rawRisk === "high" ? rawRisk : undefined;
-  // The research-planner sets skip_flagging=true when a PR legitimately needs no
-  // feature flag (Rule F11: infra, docs, chore, etc.).
   const skipFlagging = (tags.skip_flagging ?? "").toLowerCase() === "true";
   return { reviewApproved, hasVerdict, risk, skipFlagging };
 }

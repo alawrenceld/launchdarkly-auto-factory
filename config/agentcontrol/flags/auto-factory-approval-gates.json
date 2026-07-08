@@ -1,13 +1,30 @@
 {
   "key": "auto-factory-approval-gates",
   "name": "AutoFactory approval gates",
-  "description": "JSON array of agent node keys that require human approval before they run (per-step gates). Read natively by the runtime; default [] = no gates. Provisioned off (serves []); flip on to gate before the flag implementer, or edit the on-variation to gate other steps.",
+  "description": "WHERE approvals happen: JSON array of agent node keys gated for human approval. Entries may also be {\"step\", \"threshold\"} objects to override the blanket risk threshold per step. WHETHER these gates are active is the auto-factory-approval-mode flag (yolo bypasses them entirely), so variations are never empty \u2014 the implementer is the minimum.",
   "kind": "multivariate",
   "temporary": false,
-  "tags": ["auto-factory"],
-  "variations": [
-    { "value": [], "name": "No gates" },
-    { "value": ["autofactory-flag-implementer"], "name": "Gate before flag implementer" }
+  "tags": [
+    "auto-factory"
   ],
-  "defaults": { "onVariation": 1, "offVariation": 0 }
+  "variations": [
+    {
+      "value": [
+        "autofactory-flag-implementer"
+      ],
+      "name": "Flag implementer (default)"
+    },
+    {
+      "value": [
+        "autofactory-flag-implementer",
+        "autofactory-metrics-author",
+        "autofactory-flag-testing"
+      ],
+      "name": "All coding steps"
+    }
+  ],
+  "defaults": {
+    "onVariation": 1,
+    "offVariation": 0
+  }
 }

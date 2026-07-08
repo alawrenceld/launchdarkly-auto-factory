@@ -15,6 +15,27 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-07-08
+
+### ✅ Approval policy: three flags compiled into pre-execution gates (ADR 0008)
+- **New flags** (factory project + committed defs, provisioned by bootstrap):
+  `auto-factory-approval-mode` (`yolo` default / `risk-threshold` / `always`) and
+  `auto-factory-risk-threshold` (0–1, default 0.6). `auto-factory-approval-gates`
+  reworked: **no empty variations** (implementer at minimum — yolo is the bypass);
+  entries may be `{step, threshold}` objects for per-step sensitivity.
+- **Research planner (default variation)** now emits a numeric **`risk_score`**
+  (0.0–1.0, anchored: ~0.2 additive / ~0.5 business logic / ~0.8 cross-cutting,
+  auth, payments, migrations) alongside `risk_level`; forced via
+  NODE_REQUIRED_TAGS so risk-threshold gates fail closed when absent. Registry +
+  README table gained `risk_score`; `risk_level` re-described as the categorical
+  companion/fallback.
+- **Post-hoc modes removed** from the runtime: `decideApproval` is verdict-only;
+  the yolo/middle/manual env semantics are legacy-mapped (`middle`→risk-threshold,
+  `manual`→always). Workflow templates no longer hardcode `approval_mode`.
+- ⚠ The planner instruction edit is a variation PATCH — the no-op
+  `modelConfigKey` re-PATCH (cost-derivation workaround, 2026-07-08) was applied
+  in the same change.
+
 ## 2026-07-07
 
 ### ✅ Judges are now part of bootstrap (committed + provisioned)

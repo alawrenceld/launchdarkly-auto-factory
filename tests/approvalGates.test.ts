@@ -21,7 +21,7 @@ describe("resolveApprovalGates", () => {
   it("reads a JSON array of node keys from the flag", async () => {
     delete process.env.APPROVAL_GATES;
     const steps = await resolveApprovalGates(fakeClient(["autofactory-flag-implementer"]), ctx);
-    assert.deepEqual(steps, ["autofactory-flag-implementer"]);
+    assert.deepEqual(steps, [{ step: "autofactory-flag-implementer" }]);
   });
 
   it("defaults to no gates when the flag value is absent/non-array", async () => {
@@ -34,13 +34,13 @@ describe("resolveApprovalGates", () => {
   it("APPROVAL_GATES env overrides the flag (JSON array form)", async () => {
     process.env.APPROVAL_GATES = '["autofactory-metrics-author"]';
     const steps = await resolveApprovalGates(fakeClient(["from-flag"]), ctx);
-    assert.deepEqual(steps, ["autofactory-metrics-author"]);
+    assert.deepEqual(steps, [{ step: "autofactory-metrics-author" }]);
   });
 
   it("APPROVAL_GATES env also accepts a comma-separated list", async () => {
     process.env.APPROVAL_GATES = "autofactory-flag-implementer, autofactory-metrics-author";
     const steps = await resolveApprovalGates(fakeClient([]), ctx);
-    assert.deepEqual(steps, ["autofactory-flag-implementer", "autofactory-metrics-author"]);
+    assert.deepEqual(steps, [{ step: "autofactory-flag-implementer" }, { step: "autofactory-metrics-author" }]);
   });
 
   it("exports the canonical flag key", () => {

@@ -93,7 +93,9 @@ const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
  * graph side is guarded separately by `npm run check:configs`.
  */
 export const NODE_REQUIRED_TAGS: Record<string, string[]> = {
-  "autofactory-research-planner": ["flag_worthy"], // always decides flag-worthiness
+  // Always decides flag-worthiness AND a numeric risk score — risk-threshold
+  // gates fail closed when risk_score is missing, so force it.
+  "autofactory-research-planner": ["flag_worthy", "risk_score"],
   "autofactory-metrics-author": ["needs_tests"], // always hands off to testing
   "autofactory-code-reviewer": ["review_approved"], // always produces a verdict
 };

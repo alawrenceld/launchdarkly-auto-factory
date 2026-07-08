@@ -65,7 +65,8 @@ the registry, the graph, and the instructions all agree.
 | `review_approved` | code-reviewer | `"approve"`/`"approved"`/`"true"`: the change is approved |
 | `metrics_created` | metrics-author | `"true"` if any metric was created/reused (set automatically by `create_metric`) |
 | `metric_keys` | metrics-author | comma-separated metric keys attached (set automatically by `create_metric`) |
-| `risk_level` | code-reviewer | `low` / `medium` / `high`; gates the `middle` approval mode |
+| `risk_level` | code-reviewer | `low` / `medium` / `high`; categorical companion to `risk_score` (fallback mapping when the score is missing) |
+| `risk_score` | research-planner | numeric `0.0`–`1.0`; in `risk-threshold` approval mode, steps gate when it meets the `auto-factory-risk-threshold` flag (fail-closed when absent) |
 
 `interpretWalk` (`packages/shared/src/approval.ts`) reads
 `review_approved` / `risk_level` first and accepts a few legacy keys
