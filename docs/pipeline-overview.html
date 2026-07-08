@@ -222,7 +222,7 @@
 
 <section class="phase p2">
   <h2>Phase 2: deploy &rarr; guarded release (Beacon)</h2>
-  <p class="sub">HTTP service, hosted separately from the application. Receives deploy notifications, diffs release manifests, triggers and monitors releases via the LaunchDarkly API.</p>
+  <p class="sub">HTTP service, hosted separately from the application. Receives deploy notifications, diffs release manifests, and triggers releases via the LaunchDarkly API. The release itself — traffic shifting, metric monitoring, auto-rollback — runs server-side in LaunchDarkly; Beacon only observes the outcome.</p>
   <div class="flow">
 
     <div class="node">
@@ -294,39 +294,43 @@
 
     <div class="node">
       <div class="step">Step 14</div>
-      <div class="title">Guarded release runs</div>
-      <div class="hint">staged rollout, metric comparison</div>
-      <div class="tip">LaunchDarkly shifts traffic per stage while the Phase 1 metrics
-        compare treatment against control on live traffic.
+      <div class="title">LaunchDarkly runs the release</div>
+      <div class="hint">staged rollout, metric monitoring — server-side</div>
+      <div class="tip">From here the work is LaunchDarkly's, not Beacon's: LaunchDarkly
+        shifts traffic per stage and continuously compares the Phase 1 metrics between
+        treatment and control on live traffic.
         <ul>
           <li><span class="k">autoRollback</span> is set per metric at trigger time.</li>
           <li>The randomization unit from the manifest keeps measurement aligned with the rollout.</li>
+          <li>No Beacon involvement: the release progresses (or reverts) even if Beacon goes down.</li>
         </ul></div>
     </div>
     <div class="arrow">→</div>
 
     <div class="node">
       <div class="step">Step 15</div>
-      <div class="title">Beacon monitors</div>
-      <div class="hint">poll to terminal state</div>
+      <div class="title">Beacon observes</div>
+      <div class="hint">status polling + outcome record only</div>
       <div class="tip">Beacon resolves the release id (per-flag automated-releases list,
-        filtered to <span class="k">in_progress</span>) and polls until a terminal state:
+        filtered to <span class="k">in_progress</span>) and polls purely to RECORD the outcome —
+        it takes no release actions:
         <ul>
           <li><span class="k">completed</span>: rolled out to 100%.</li>
-          <li><span class="k">reverted</span>: a guardrail metric regressed; traffic returned to control.</li>
+          <li><span class="k">reverted</span>: LaunchDarkly's guardrail monitoring regressed a metric and returned traffic to control.</li>
           <li><span class="k">monitoring_stopped</span>: a human intervened.</li>
-          <li>Polling runs detached from the webhook request. A monitoring failure does not affect the release, which runs server-side.</li>
+          <li>Polling runs detached from the webhook request. A Beacon failure has no effect on the release, which LaunchDarkly runs server-side.</li>
         </ul></div>
     </div>
     <div class="arrow">→</div>
 
     <div class="node rollback">
       <div class="step">On regression</div>
-      <div class="title">Auto-rollback</div>
-      <div class="hint">flag reverts to control</div>
-      <div class="tip">A killswitch metric regression reverts the release: traffic
-        returns to the control variation by flag change, with no deploy. Beacon
-        records the <span class="k">reverted</span> terminal state.</div>
+      <div class="title">Auto-rollback (LaunchDarkly)</div>
+      <div class="hint">flag reverts to control, server-side</div>
+      <div class="tip">LaunchDarkly's guarded release detects the killswitch metric
+        regression and reverts: traffic returns to the control variation by flag
+        change, with no deploy and no Beacon involvement. Beacon merely records the
+        <span class="k">reverted</span> terminal state.</div>
     </div>
 
   </div>
