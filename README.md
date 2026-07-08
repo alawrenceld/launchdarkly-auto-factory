@@ -81,10 +81,12 @@ npm run bootstrap       # prompts for the execution provider (anthropic or curso
 ```
 
 Bootstrap runs preflight checks, then creates, in your factory project from the committed
-definitions in `config/agentcontrol/`: the five agent AI configs, the `gha-auto-factory`
-agent graph, and the two operational flags (`auto-factory-ai-provider`,
-`auto-factory-approval-gates`) — the latter **off by default**, so they're visible and
-ready to toggle in your LD UI without changing behavior. It is idempotent: existing
+definitions in `config/agentcontrol/`: the five agent AI configs, the two **judge**
+configs (attached to the flag-implementer and metrics-author, so evidence-based quality
+scoring works out of the box), the `gha-auto-factory` agent graph, and the two
+operational flags (`auto-factory-ai-provider`, `auto-factory-approval-gates`) — the
+latter **off by default**, so they're visible and ready to toggle in your LD UI without
+changing behavior. It is idempotent: existing
 resources are left untouched (your targeting is never overwritten). After provisioning, the
 agent instructions are editable in the LaunchDarkly UI; the pipeline reads them at run time,
 so instruction changes take effect on the next PR without redeploying anything.

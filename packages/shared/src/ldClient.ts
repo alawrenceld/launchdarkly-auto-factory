@@ -100,6 +100,16 @@ export class LdClient {
     });
   }
 
+  /** Partial update of an AI-config variation (e.g. attach a judgeConfiguration). */
+  updateAiConfigVariation<T = unknown>(configKey: string, variationKey: string, body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "PATCH",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-configs/${configKey}/variations/${variationKey}`,
+      headers: BETA,
+      body,
+    });
+  }
+
   /** Get an agent graph; returns status 404 (not throwing) when absent. */
   getAgentGraph<T = unknown>(key: string): Promise<LdResponse<T>> {
     return this.request<T>({

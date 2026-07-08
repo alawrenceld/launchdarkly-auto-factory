@@ -33233,6 +33233,15 @@ var LdClient = class {
       body
     });
   }
+  /** Partial update of an AI-config variation (e.g. attach a judgeConfiguration). */
+  updateAiConfigVariation(configKey, variationKey, body) {
+    return this.request({
+      method: "PATCH",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-configs/${configKey}/variations/${variationKey}`,
+      headers: BETA,
+      body
+    });
+  }
   /** Get an agent graph; returns status 404 (not throwing) when absent. */
   getAgentGraph(key) {
     return this.request({

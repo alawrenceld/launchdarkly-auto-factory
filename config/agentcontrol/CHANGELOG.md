@@ -17,6 +17,18 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-07-07
 
+### ✅ Judges are now part of bootstrap (committed + provisioned)
+- **Committed:** `ai-configs/autofactory-judge-implementation-quality.json` and
+  `-metrics-quality.json` (mode `judge`, `evaluationMetricKey`, rubric v2 exported
+  from live), plus `judgeConfiguration` attachments on the committed
+  flag-implementer / metrics-author `default` variations (samplingRate 1).
+- **Provisioner:** passes `evaluationMetricKey` at config creation (required for
+  judge mode), provisions judge-mode configs before agents (attachments reference
+  them), and re-attaches `judgeConfiguration` via a follow-up variation PATCH —
+  the create endpoint's inline `defaultVariation` silently drops it.
+- **Verified e2e** against a scratch project: judges created + served, attachments
+  present, re-provision idempotent (nothing touched).
+
 ### ✅ Judges verify evidence, not just the agent's self-report
 - **Runtime:** the judge hook now appends a **VERIFIED EVIDENCE** section to the
   judge input — a node-scoped `git diff` of exactly the commits the judged agent

@@ -45,6 +45,8 @@ interface AiConfigFile {
   description?: string;
   mode?: string;
   tags?: string[];
+  /** Required by the API for mode "judge" (e.g. "$ld:ai:judge:<config-key>"). */
+  evaluationMetricKey?: string;
   variations?: AiVariation[];
 }
 interface AgentGraphFile {
@@ -85,6 +87,28 @@ function mapVariation(
   return out;
 }
 
+/**
+ * The create-config endpoint's inline `defaultVariation` silently DROPS
+ * `judgeConfiguration` (verified against the API), so judge attachments on a
+ * newly created variation must land via a follow-up variation PATCH. Only runs
+ * for variations this provision created — existing variations are never touched.
+ */
+async function attachJudges(
+  ld: LdClient,
+  configKey: string,
+  v: AiVariation,
+  result: ProvisionResult,
+  dryRun: boolean,
+): Promise<void> {
+  if (v.judgeConfiguration === undefined) return;
+  try {
+    if (!dryRun) await ld.updateAiConfigVariation(configKey, v.key, { judgeConfiguration: v.judgeConfiguration });
+  } catch (e) {
+    const err = e as LdApiError;
+    result.failures.push({ resource: `${configKey}/${v.key} judgeConfiguration`, status: err.status ?? 0, message: err.responseBody ?? String(e) });
+  }
+}
+
 async function provisionAiConfig(
   ld: LdClient,
   cfg: AiConfigFile,
@@ -105,13 +129,19 @@ async function provisionAiConfig(
       description: cfg.description ?? "",
       mode: cfg.mode ?? "agent",
       tags: cfg.tags ?? [],
+      // Judge mode requires the evaluation metric key at creation time.
+      ...(cfg.evaluationMetricKey ? { evaluationMetricKey: cfg.evaluationMetricKey } : {}),
     };
     if (variations[0]) body.defaultVariation = mapVariation(variations[0], cfg.key, result);
     try {
       if (!dryRun) await ld.createAiConfig(body);
       result.configsCreated.push(cfg.key);
       result.variationsCreated += variations[0] ? 1 : 0;
-      if (variations[0]) existingVarKeys.add(variations[0].key);
+      if (variations[0]) {
+        existingVarKeys.add(variations[0].key);
+        // The inline defaultVariation drops judgeConfiguration — re-attach.
+        await attachJudges(ld, cfg.key, variations[0], result, dryRun);
+      }
     } catch (e) {
       const err = e as LdApiError;
       result.failures.push({ resource: `ai-config ${cfg.key}`, status: err.status ?? 0, message: err.responseBody ?? String(e) });
@@ -128,6 +158,7 @@ async function provisionAiConfig(
       const mapped = mapVariation(v, cfg.key, result);
       if (!dryRun) await ld.createAiConfigVariation(cfg.key, mapped);
       result.variationsCreated += 1;
+      await attachJudges(ld, cfg.key, v, result, dryRun);
     } catch (e) {
       const err = e as LdApiError;
       result.failures.push({ resource: `${cfg.key}/${v.key}`, status: err.status ?? 0, message: err.responseBody ?? String(e) });
@@ -207,8 +238,12 @@ export async function provision(ld: LdClient, opts: ProvisionOptions): Promise<P
   };
   const dryRun = opts.dryRun ?? false;
 
-  for (const file of listJson(opts.aiConfigsDir)) {
-    const cfg = JSON.parse(readFileSync(file, "utf8")) as AiConfigFile;
+  // Judge-mode configs first: agent variations may carry a `judgeConfiguration`
+  // that references a judge by key, so the judges must exist before the agents.
+  const aiConfigs = listJson(opts.aiConfigsDir)
+    .map((file) => JSON.parse(readFileSync(file, "utf8")) as AiConfigFile)
+    .sort((a, b) => Number(b.mode === "judge") - Number(a.mode === "judge"));
+  for (const cfg of aiConfigs) {
     await provisionAiConfig(ld, cfg, result, dryRun);
   }
   // Graphs after configs — they reference config keys.

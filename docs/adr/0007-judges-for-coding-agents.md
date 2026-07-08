@@ -49,5 +49,8 @@ failures record a failed evaluation but never fail the chain.
   routing-tag/reviewer change, not a judge change — keep the gate/evaluator separation.
 - Field-name quirk: the management API stores attachments as `judgeConfigKey`; the SDK type
   says `key`. The hook accepts both.
-- The Cursor extension front end does not wire the hook yet (judges run in the GHA path);
-  the committed starting configs also don't carry judges — both are follow-ups if needed.
+- The Cursor extension front end does not wire the hook yet (judges run in the GHA path).
+  *(Update 2026-07-07: the judge configs + attachments are now committed under
+  `config/agentcontrol/` and provisioned by bootstrap — fresh installs get judging out of
+  the box. The provisioner re-attaches `judgeConfiguration` via a follow-up variation
+  PATCH, because the create-config endpoint's inline `defaultVariation` drops it.)*
