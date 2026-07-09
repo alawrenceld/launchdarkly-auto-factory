@@ -51,7 +51,7 @@
       "sourceConfig": "autofactory-metrics-author",
       "targetConfig": "autofactory-flag-testing",
       "handoff": {
-        "max_turns": 20,
+        "max_turns": 40,
         "request_type": "Fix",
         "capabilities": [
           "edit_files"
@@ -66,7 +66,7 @@
       "sourceConfig": "autofactory-flag-implementer",
       "targetConfig": "autofactory-metrics-author",
       "handoff": {
-        "max_turns": 20,
+        "max_turns": 40,
         "request_type": "Fix",
         "capabilities": [
           "create_metric",
