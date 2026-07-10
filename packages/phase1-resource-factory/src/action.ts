@@ -406,7 +406,7 @@ async function main(): Promise<void> {
   const gate = createPolicyGate(policy, (node) => approvedSteps.has(node));
   const stepsDesc = policy.steps.map((s) => s.step + (s.threshold !== undefined ? `@${s.threshold}` : "")).join(", ");
   console.log(
-    `Approval policy: mode=${policy.mode}` +
+    `Approval policy: mode=${policy.mode} (source: ${policy.modeSource === "env" ? "APPROVAL_MODE env override" : "LD flags"})` +
       (policy.mode === "risk-threshold" ? ` threshold=${policy.threshold}` : "") +
       (gate ? ` steps=[${stepsDesc}]; approved: [${[...approvedSteps].join(", ") || "none"}]` : " (no gates)"),
   );

@@ -25,6 +25,7 @@ const policy = (o: Partial<ApprovalPolicy> = {}): ApprovalPolicy => ({
   mode: "always",
   threshold: 0.6,
   steps: [{ step: "autofactory-flag-implementer" }],
+  modeSource: "flag",
   ...o,
 });
 
@@ -115,6 +116,17 @@ describe("resolveApprovalPolicy", () => {
     const p = await resolveApprovalPolicy(fakeLd({ "auto-factory-approval-mode": "yolo" }), ctx);
     assert.equal(p.mode, "always");
     assert.equal(p.threshold, 0.9);
+  });
+
+  it("reports where the mode came from (env override vs flags)", async () => {
+    // Flag-driven: source is the flags.
+    const flagP = await resolveApprovalPolicy(fakeLd({ "auto-factory-approval-mode": "always" }), ctx);
+    assert.equal(flagP.modeSource, "flag");
+    // Env-driven (the PR-3 bypass shape: workflow hardcodes yolo, flag says always).
+    process.env.APPROVAL_MODE = "yolo";
+    const envP = await resolveApprovalPolicy(fakeLd({ "auto-factory-approval-mode": "always" }), ctx);
+    assert.equal(envP.mode, "yolo");
+    assert.equal(envP.modeSource, "env");
   });
 
   it("clamps a bogus threshold into 0..1 (or default)", async () => {

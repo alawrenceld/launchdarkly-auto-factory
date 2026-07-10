@@ -33764,7 +33764,14 @@ function riskScoreOf(tags) {
 }
 async function resolveApprovalPolicy(ldClient, context) {
   loadDotEnv();
+  const modeSource = process.env.APPROVAL_MODE ? "env" : "flag";
   const mode = process.env.APPROVAL_MODE ? normalizeApprovalMode(process.env.APPROVAL_MODE) : normalizeApprovalMode(await ldClient.variation(APPROVAL_MODE_FLAG_KEY, context, DEFAULT_MODE));
+  if (modeSource === "env") {
+    const flagMode = normalizeApprovalMode(await ldClient.variation(APPROVAL_MODE_FLAG_KEY, context, DEFAULT_MODE));
+    const conflict = flagMode !== mode ? ` \u2014 the ${APPROVAL_MODE_FLAG_KEY} flag says '${flagMode}' and is being IGNORED` : "";
+    const msg = `approval mode '${mode}' comes from the APPROVAL_MODE env var, not LaunchDarkly${conflict}. Remove APPROVAL_MODE from the workflow to let the flags control approvals.`;
+    console.log(process.env.GITHUB_ACTIONS ? `::warning::AutoFactory: ${msg}` : `[approval] ${msg}`);
+  }
   const rawThreshold = process.env.RISK_THRESHOLD ? Number.parseFloat(process.env.RISK_THRESHOLD) : Number(await ldClient.variation(RISK_THRESHOLD_FLAG_KEY, context, DEFAULT_THRESHOLD));
   const threshold = Number.isFinite(rawThreshold) ? Math.min(1, Math.max(0, rawThreshold)) : DEFAULT_THRESHOLD;
   let steps = await resolveApprovalGates(ldClient, context);
@@ -33772,7 +33779,7 @@ async function resolveApprovalPolicy(ldClient, context) {
     console.log(`[approval] mode '${mode}' with no gated steps configured \u2014 defaulting to [${DEFAULT_GATED_STEPS.join(", ")}]`);
     steps = DEFAULT_GATED_STEPS.map((step) => ({ step }));
   }
-  return { mode, threshold, steps };
+  return { mode, threshold, steps, modeSource };
 }
 function createPolicyGate(policy, approve) {
   if (policy.mode === "yolo" || policy.steps.length === 0)
@@ -37845,7 +37852,7 @@ async function main() {
   const gate = createPolicyGate(policy, (node) => approvedSteps.has(node));
   const stepsDesc = policy.steps.map((s) => s.step + (s.threshold !== void 0 ? `@${s.threshold}` : "")).join(", ");
   console.log(
-    `Approval policy: mode=${policy.mode}` + (policy.mode === "risk-threshold" ? ` threshold=${policy.threshold}` : "") + (gate ? ` steps=[${stepsDesc}]; approved: [${[...approvedSteps].join(", ") || "none"}]` : " (no gates)")
+    `Approval policy: mode=${policy.mode} (source: ${policy.modeSource === "env" ? "APPROVAL_MODE env override" : "LD flags"})` + (policy.mode === "risk-threshold" ? ` threshold=${policy.threshold}` : "") + (gate ? ` steps=[${stepsDesc}]; approved: [${[...approvedSteps].join(", ") || "none"}]` : " (no gates)")
   );
   const sandboxRoot = resolve6(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const judgeCompletion = createJudgeCompletion(provider);

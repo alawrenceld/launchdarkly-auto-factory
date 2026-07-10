@@ -69,15 +69,27 @@ export interface ApprovalPolicy {
   threshold: number;
   /** Steps that MAY be gated (with optional per-step threshold overrides). */
   steps: GateStep[];
+  /** Where the mode came from: the LD flag, or the APPROVAL_MODE env override. */
+  modeSource: "flag" | "env";
 }
 
 /** Resolve the three flags (with env overrides) into one policy. */
 export async function resolveApprovalPolicy(ldClient: LDClient, context: LDContext): Promise<ApprovalPolicy> {
   loadDotEnv();
 
+  const modeSource: ApprovalPolicy["modeSource"] = process.env.APPROVAL_MODE ? "env" : "flag";
   const mode = process.env.APPROVAL_MODE
     ? normalizeApprovalMode(process.env.APPROVAL_MODE)
     : normalizeApprovalMode(await ldClient.variation(APPROVAL_MODE_FLAG_KEY, context, DEFAULT_MODE));
+  if (modeSource === "env") {
+    // The env override is a local-run escape hatch. In CI it silently defeats
+    // the flag control plane (a stale workflow hardcoding APPROVAL_MODE: yolo
+    // bypassed a tester's mode=always gates), so it must be LOUD.
+    const flagMode = normalizeApprovalMode(await ldClient.variation(APPROVAL_MODE_FLAG_KEY, context, DEFAULT_MODE));
+    const conflict = flagMode !== mode ? ` — the ${APPROVAL_MODE_FLAG_KEY} flag says '${flagMode}' and is being IGNORED` : "";
+    const msg = `approval mode '${mode}' comes from the APPROVAL_MODE env var, not LaunchDarkly${conflict}. Remove APPROVAL_MODE from the workflow to let the flags control approvals.`;
+    console.log(process.env.GITHUB_ACTIONS ? `::warning::AutoFactory: ${msg}` : `[approval] ${msg}`);
+  }
 
   const rawThreshold = process.env.RISK_THRESHOLD
     ? Number.parseFloat(process.env.RISK_THRESHOLD)
@@ -94,7 +106,7 @@ export async function resolveApprovalPolicy(ldClient: LDClient, context: LDConte
     steps = DEFAULT_GATED_STEPS.map((step) => ({ step }));
   }
 
-  return { mode, threshold, steps };
+  return { mode, threshold, steps, modeSource };
 }
 
 /**
