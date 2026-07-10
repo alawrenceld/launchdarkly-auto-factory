@@ -224,10 +224,8 @@ of what a deployment involves (details in [packages/beacon/README.md](packages/b
    overrides, then the flag's release policy, then guarded-if-metrics), and monitors each
    release to completion.
 
-Known limitations: agents do not yet write the `scope` field into manifests (everything
-defaults to frontend scope, so the fullstack coordination path is unexercised); the
-deploy-state store is a local JSON file (single instance, mount a volume to survive
-redeploys); boolean flags only.
+Known limitations: the deploy-state store is a local JSON file (single instance, mount a
+volume to survive redeploys); boolean flags only.
 
 ## Development
 

@@ -11,15 +11,16 @@ without touching code.
 
 One JSON file per agent, in the shape `provision` consumes
 (`key`, `name`, `description`, `mode`, `tags`, `variations`). These are the
-canonical public copies of the five agents:
+canonical public copies of the six agents:
 
 | File | Chain position | Role |
 |------|----------------|------|
-| `autofactory-research-planner.json` | 1 | classify the PR, produce the implementation brief |
-| `autofactory-flag-implementer.json` | 2 | create the flag (targeting off), wire the code |
-| `autofactory-metrics-author.json` | 3 | create guarded-release metrics, instrument events, write the manifest |
-| `autofactory-flag-testing.json` | 4 | flag-on/flag-off tests, run to green |
-| `autofactory-code-reviewer.json` | 5 | independent verdict + risk level |
+| `autofactory-research-planner.json` | 1 | classify the PR, produce the implementation brief, create the release manifest (+ intent skeleton) |
+| `autofactory-manifest-steward.json` | 2 | normalize human `releaseIntent` edits (notes → structured fields); pass the brief through |
+| `autofactory-flag-implementer.json` | 3 | create the flag (targeting off), wire the code, correct the manifest flagKey |
+| `autofactory-metrics-author.json` | 4 | create guarded-release metrics, instrument events, write metricKeys into the manifest |
+| `autofactory-flag-testing.json` | 5 | flag-on/flag-off tests, run to green |
+| `autofactory-code-reviewer.json` | 6 | independent verdict + risk level |
 
 Only the `default` variation (the Anthropic tool-use surface, on
 `claude-sonnet-4-6`) is committed. The live prototype project also carries
@@ -27,8 +28,8 @@ per-provider/per-model variations (e.g. a Vega runtime variant, and a Composer
 variation on the coding agents for the Cursor A/B); those are not committed here —
 the Composer variation waits on Composer becoming a built-in LD model.
 
-The two **judge** configs (`autofactory-judge-implementation-quality`,
-`autofactory-judge-metrics-quality`, mode `judge`, ADR 0007) ARE committed here and
+The two **judge** configs (`autofactory-judge-implementation-quality.json`,
+`autofactory-judge-metrics-quality.json`, mode `judge`, ADR 0007) ARE committed here and
 provisioned by bootstrap, including their `judgeConfiguration` attachments on the
 flag-implementer / metrics-author `default` variations — so a fresh install gets
 evidence-based judging out of the box. Judge-instruction edits reset score
@@ -84,14 +85,21 @@ Anthropic provider:
 - `"create_metric"`: real guarded-release metric creation in the app project
   (off a custom event the agent instruments with `track()`).
 - `"edit_files"`: `write_file` / `edit_file` / `run_tests` / `commit_and_push`.
+- `"write_manifest"`: the `write_manifest` tool — the ONLY writer of
+  `.release-flags/` manifests (`write_file`/`edit_file` refuse those paths).
+  Creates the `releaseIntent` skeleton but never updates an existing intent.
+- `"steward_manifest"`: `write_manifest` in steward grade — may UPDATE the
+  human-editable `releaseIntent` block (the manifest steward only).
 
 Put grants here so "which agent can write" is config, not code. When an edge
 omits `capabilities`, the runner falls back to a built-in per-config-key map
-(`autofactory-flag-implementer`: create_flag+edit_files,
-`autofactory-flag-testing`: edit_files, `autofactory-metrics-author`:
-create_metric+edit_files); everything else is read-only. Grants are always
-intersected with the global `ENABLE_FLAG_CREATION` / `ENABLE_CODE_CHANGES`
-toggles.
+(`autofactory-research-planner`: write_manifest — the ROOT node has no inbound
+edge, so this is its only grant path; `autofactory-manifest-steward`:
+steward_manifest; `autofactory-flag-implementer`: create_flag+edit_files+
+write_manifest; `autofactory-flag-testing`: edit_files;
+`autofactory-metrics-author`: create_metric+edit_files+write_manifest);
+everything else is read-only. Grants are always intersected with the global
+`ENABLE_FLAG_CREATION` / `ENABLE_CODE_CHANGES` toggles.
 
 ## Naming convention
 

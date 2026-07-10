@@ -18,6 +18,9 @@
  *      must be in the write-tool auto-set.
  *   4. README ⟷ registry — the "Canonical agent tags" table keys must equal the
  *      registry keys, so the human doc can't drift.
+ *   5. README ⟷ ai-configs — every committed agent config file must appear in
+ *      the README's agents table and vice versa (caught real drift: the
+ *      manifest-steward config shipped without a README row).
  *
  * Run: node scripts/check-configs.mjs   (wired as `npm run check:configs`)
  */
@@ -134,6 +137,22 @@ try {
   for (const k of tableKeys) if (!registryKeys.has(k)) fail(`README: tag '${k}' is in the README table but not in the registry.`);
 } catch (e) {
   fail(`README: could not cross-check ${README}: ${e.message}`);
+}
+
+// --- Check 5: README ⟷ ai-config files -------------------------------------
+try {
+  const md = readFileSync(README, "utf8");
+  // Filenames referenced anywhere in the README as `autofactory-….json`.
+  const readmeFiles = new Set([...md.matchAll(/`(autofactory-[a-z-]+\.json)`/g)].map((m) => m[1]));
+  const diskFiles = new Set(configFiles.map((f) => basename(f)));
+  for (const f of diskFiles) {
+    if (!readmeFiles.has(f)) fail(`README: committed config '${f}' is not mentioned in ${README} (add it to the agents/judges tables).`);
+  }
+  for (const f of readmeFiles) {
+    if (!diskFiles.has(f)) fail(`README: mentions '${f}' but no such file exists under ${AI_CONFIG_DIR}.`);
+  }
+} catch (e) {
+  fail(`README: could not cross-check config files against ${README}: ${e.message}`);
 }
 
 // --- Report ---------------------------------------------------------------
