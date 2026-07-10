@@ -50,6 +50,64 @@ describe("LdClient", () => {
     restore();
   });
 
+  it("retries 429s honoring Retry-After, then succeeds", async () => {
+    let attempts = 0;
+    const t0 = Date.now();
+    const restore = withFetch((async () => {
+      attempts += 1;
+      if (attempts <= 2) {
+        return new Response('{"code":"rate_limited"}', { status: 429, headers: { "Retry-After": "0.05" } });
+      }
+      return new Response('{"key":"f"}', { status: 200 });
+    }) as unknown as typeof fetch);
+
+    const res = await new LdClient(conn).getFlag<{ key: string }>("f");
+    restore();
+
+    assert.equal(res.status, 200);
+    assert.equal(attempts, 3);
+    assert.ok(Date.now() - t0 >= 100, "should have slept through two backoffs");
+  });
+
+  it("surfaces the 429 as LdApiError when retries are exhausted", async () => {
+    let attempts = 0;
+    const restore = withFetch((async () => {
+      attempts += 1;
+      return new Response('{"code":"rate_limited"}', { status: 429, headers: { "Retry-After": "0.01" } });
+    }) as unknown as typeof fetch);
+
+    await assert.rejects(() => new LdClient(conn).getFlag("f"), (e: unknown) => {
+      assert.ok(e instanceof LdApiError);
+      assert.equal((e as LdApiError).status, 429);
+      return true;
+    });
+    restore();
+    assert.equal(attempts, 7); // initial try + RATE_LIMIT_RETRIES
+  });
+
+  it("falls back to X-Ratelimit-Reset (clamped to the minimum backoff) when Retry-After is absent", async () => {
+    let attempts = 0;
+    const t0 = Date.now();
+    const restore = withFetch((async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        // Reset in the past → clamped up to the 500ms minimum backoff.
+        return new Response('{"code":"rate_limited"}', {
+          status: 429,
+          headers: { "X-Ratelimit-Reset": String(Date.now() - 1000) },
+        });
+      }
+      return new Response('{"key":"f"}', { status: 200 });
+    }) as unknown as typeof fetch);
+
+    const res = await new LdClient(conn).getFlag<{ key: string }>("f");
+    restore();
+
+    assert.equal(res.status, 200);
+    assert.equal(attempts, 2);
+    assert.ok(Date.now() - t0 >= 450, "should have slept ~the minimum backoff");
+  });
+
   it("sends the semantic-patch content-type for flag patches", async () => {
     let ct: unknown;
     const restore = withFetch((async (_url: string, init: RequestInit) => {

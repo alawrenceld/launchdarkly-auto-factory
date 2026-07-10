@@ -9149,7 +9149,7 @@ var require_cjs = __commonJS({
     var base64UrlEncode = (s, encoding) => encoding.btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     var noop2 = () => {
     };
-    var sleep2 = async (delayMillis = 1e3) => new Promise((resolve7) => {
+    var sleep3 = async (delayMillis = 1e3) => new Promise((resolve7) => {
       setTimeout(resolve7, delayMillis);
     });
     var timedPromise = (t, taskName) => new Promise((_res, reject) => {
@@ -9303,7 +9303,7 @@ var require_cjs = __commonJS({
           tryRes.error = error;
           return tryRes;
         }
-        await sleep2();
+        await sleep3();
         return this._tryPostingEvents(events, this._eventsUri, payloadId, false);
       }
       async sendEventData(type, data) {
@@ -10259,7 +10259,7 @@ var require_cjs = __commonJS({
     exports.noop = noop2;
     exports.secondsToMillis = secondsToMillis;
     exports.shouldRetry = shouldRetry;
-    exports.sleep = sleep2;
+    exports.sleep = sleep3;
     exports.subsystem = index$1;
     exports.timedPromise = timedPromise;
   }
@@ -21988,10 +21988,10 @@ var init_values = __esm({
 });
 
 // ../../node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs
-var sleep;
+var sleep2;
 var init_sleep = __esm({
   "../../node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs"() {
-    sleep = (ms, signal) => new Promise((resolve7) => {
+    sleep2 = (ms, signal) => new Promise((resolve7) => {
       if (signal?.aborted)
         return resolve7();
       const onAbort = () => {
@@ -26061,14 +26061,14 @@ var init_poller = __esm({
               const wait = applyJitter(backoff2(attempt));
               log.warn("poll failed, backing off", { error: String(e), backoff_ms: wait });
               attempt++;
-              await sleep(wait, __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
+              await sleep2(wait, __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
               continue;
             }
             attempt = 0;
             if (work == null) {
               if (__classPrivateFieldGet(this, _WorkPoller_drain, "f"))
                 return;
-              await sleep(jitter(1e3, 3e3), __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
+              await sleep2(jitter(1e3, 3e3), __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
               continue;
             }
             log.info("claimed work", {
@@ -26377,7 +26377,7 @@ var init_SessionToolRunner = __esm({
           });
         }
         ctrl.signal.throwIfAborted();
-        await sleep(backoff3, ctrl.signal);
+        await sleep2(backoff3, ctrl.signal);
         backoff3 = Math.min(backoff3 * 2, STREAM_BACKOFF_CAP_MS);
       }
     }, _SessionToolRunner_reconcile = /**
@@ -26536,7 +26536,7 @@ var init_SessionToolRunner = __esm({
           if (isFatal4xx(e))
             break;
           if (i < SEND_RETRIES - 1)
-            await sleep((i + 1) * 1e3, ctrl.signal);
+            await sleep2((i + 1) * 1e3, ctrl.signal);
         }
       }
       __classPrivateFieldGet(this, _SessionToolRunner_logger, "f").error("failed to send tool result", {
@@ -26548,7 +26548,7 @@ var init_SessionToolRunner = __esm({
     async function _SessionToolRunner_drain2() {
       if (__classPrivateFieldGet(this, _SessionToolRunner_inFlightCount, "f") === 0)
         return;
-      await Promise.race([new Promise((r) => __classPrivateFieldSet(this, _SessionToolRunner_onIdle, r, "f")), sleep(DRAIN_TIMEOUT_MS)]);
+      await Promise.race([new Promise((r) => __classPrivateFieldSet(this, _SessionToolRunner_onIdle, r, "f")), sleep2(DRAIN_TIMEOUT_MS)]);
       __classPrivateFieldSet(this, _SessionToolRunner_onIdle, null, "f");
       if (__classPrivateFieldGet(this, _SessionToolRunner_inFlightCount, "f") > 0) {
         __classPrivateFieldGet(this, _SessionToolRunner_logger, "f").warn("drain timeout exceeded");
@@ -27512,7 +27512,7 @@ async function heartbeatLoop(client, work, ctrl, logger, requestOptions) {
   };
   await beat();
   while (!ctrl.signal.aborted) {
-    await sleep(intervalMs, ctrl.signal);
+    await sleep2(intervalMs, ctrl.signal);
     ctrl.signal.throwIfAborted();
     await beat();
   }
@@ -32969,7 +32969,7 @@ var init_client = __esm({
           const maxRetries = options.maxRetries ?? this.maxRetries;
           timeoutMillis = this.calculateDefaultRetryTimeoutMillis(retriesRemaining, maxRetries);
         }
-        await sleep(timeoutMillis);
+        await sleep2(timeoutMillis);
         return this.makeRequest(options, retriesRemaining - 1, requestLogID);
       }
       calculateDefaultRetryTimeoutMillis(retriesRemaining, maxRetries) {
@@ -33170,6 +33170,21 @@ var import_yaml = __toESM(require_dist(), 1);
 
 // ../shared/dist/ldClient.js
 var BETA = { "LD-API-Version": "beta" };
+var RATE_LIMIT_RETRIES = 6;
+var MIN_BACKOFF_MS = 500;
+var MAX_BACKOFF_MS = 15e3;
+var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function backoffMs(res) {
+  const retryAfter = Number(res.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(retryAfter * 1e3, MAX_BACKOFF_MS);
+  }
+  const reset = Number(res.headers.get("x-ratelimit-reset"));
+  if (Number.isFinite(reset) && reset > 0) {
+    return Math.min(Math.max(reset - Date.now(), MIN_BACKOFF_MS), MAX_BACKOFF_MS);
+  }
+  return 2e3;
+}
 var LdClient = class {
   conn;
   constructor(conn) {
@@ -33179,16 +33194,22 @@ var LdClient = class {
     return this.conn.projectKey;
   }
   async request(opts) {
-    const res = await fetch(`${this.conn.baseUrl}${opts.path}`, {
-      method: opts.method ?? "GET",
-      headers: {
-        Authorization: this.conn.apiKey,
-        Accept: "application/json",
-        ...opts.body !== void 0 ? { "Content-Type": "application/json" } : {},
-        ...opts.headers
-      },
-      body: opts.body !== void 0 ? JSON.stringify(opts.body) : void 0
-    });
+    let res;
+    for (let attempt = 0; ; attempt++) {
+      res = await fetch(`${this.conn.baseUrl}${opts.path}`, {
+        method: opts.method ?? "GET",
+        headers: {
+          Authorization: this.conn.apiKey,
+          Accept: "application/json",
+          ...opts.body !== void 0 ? { "Content-Type": "application/json" } : {},
+          ...opts.headers
+        },
+        body: opts.body !== void 0 ? JSON.stringify(opts.body) : void 0
+      });
+      if (res.status !== 429 || attempt >= RATE_LIMIT_RETRIES)
+        break;
+      await sleep(backoffMs(res));
+    }
     const text = await res.text();
     let data = text;
     if (text) {

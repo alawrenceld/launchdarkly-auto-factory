@@ -27,6 +27,30 @@ export interface LdResponse<T = unknown> {
   data: T;
 }
 
+/** Max automatic retries on HTTP 429 before surfacing the error. */
+const RATE_LIMIT_RETRIES = 6;
+/** Bounds on how long a single 429 backoff may sleep (LD's reset is usually <10s). */
+const MIN_BACKOFF_MS = 500;
+const MAX_BACKOFF_MS = 15_000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * How long to wait before retrying a 429. Prefers `Retry-After` (seconds),
+ * falls back to `X-Ratelimit-Reset` (epoch ms), else a fixed backoff.
+ */
+function backoffMs(res: Response): number {
+  const retryAfter = Number(res.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(retryAfter * 1000, MAX_BACKOFF_MS);
+  }
+  const reset = Number(res.headers.get("x-ratelimit-reset"));
+  if (Number.isFinite(reset) && reset > 0) {
+    return Math.min(Math.max(reset - Date.now(), MIN_BACKOFF_MS), MAX_BACKOFF_MS);
+  }
+  return 2000;
+}
+
 export class LdClient {
   constructor(private readonly conn: LdConnection) {}
 
@@ -35,16 +59,21 @@ export class LdClient {
   }
 
   async request<T = unknown>(opts: LdRequestOptions): Promise<LdResponse<T>> {
-    const res = await fetch(`${this.conn.baseUrl}${opts.path}`, {
-      method: opts.method ?? "GET",
-      headers: {
-        Authorization: this.conn.apiKey,
-        Accept: "application/json",
-        ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...opts.headers,
-      },
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    });
+    let res!: Response;
+    for (let attempt = 0; ; attempt++) {
+      res = await fetch(`${this.conn.baseUrl}${opts.path}`, {
+        method: opts.method ?? "GET",
+        headers: {
+          Authorization: this.conn.apiKey,
+          Accept: "application/json",
+          ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...opts.headers,
+        },
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      });
+      if (res.status !== 429 || attempt >= RATE_LIMIT_RETRIES) break;
+      await sleep(backoffMs(res));
+    }
 
     const text = await res.text();
     let data: unknown = text;
