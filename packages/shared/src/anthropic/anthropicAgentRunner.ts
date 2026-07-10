@@ -21,6 +21,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AgentNodeRequest, AgentNodeResult, AgentRunner, AgentStatus } from "../agentRunner.js";
 import { SpanKind, SpanStatusCode, aiTracer, setGenAiAttributes } from "../observability.js";
+import type { KnowledgeGraph } from "../graph/schema.js";
 import type { LdResourceWriter } from "./ldWriter.js";
 import { type GitMode, SandboxToolExecutor, type ToolCapabilities, buildSandboxTools } from "./sandboxTools.js";
 
@@ -42,6 +43,11 @@ export function modeNote(caps: ToolCapabilities): string {
     "\n\n---\n## EXECUTION MODE",
     "You have read-only repo tools (`read_file`, `list_dir`, `grep`).",
   ];
+  if (caps.queryGraph) {
+    lines.push(
+      "You have `query_dependencies` — the estate's knowledge graph (service call edges observed from LaunchDarkly telemetry + flag→code wrap points). Call it with NO arguments EARLY to get this PR's blast radius (changed services, dependent services at risk, upstream contracts, flags already on the changed code) and let it inform your classification and risk_score. Treat any entry in its `gaps` list as UNKNOWN coverage — a thin graph is never evidence of low impact.",
+    );
+  }
   if (caps.createFlag) {
     lines.push(
       "You have `create_flag` — creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.",
@@ -84,7 +90,9 @@ const DEFAULT_MODEL = "claude-sonnet-4-6";
 const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
   // ROOT node: edges can't grant capabilities to it (grants ride inbound
   // handoffs), so the research planner's narrow manifest-write power lives here.
-  "autofactory-research-planner": { createFlag: false, createMetric: false, editFiles: false, writeManifest: true },
+  // queryGraph: the planner's blast-radius input (ADR 0010) — only offered when
+  // a graph was actually composed for the run (the KG flag gates that upstream).
+  "autofactory-research-planner": { createFlag: false, createMetric: false, editFiles: false, writeManifest: true, queryGraph: true },
   // The steward normalizes the human-edited releaseIntent — the only node that
   // may UPDATE an existing intent block.
   "autofactory-manifest-steward": { createFlag: false, createMetric: false, editFiles: false, stewardManifest: true },
@@ -124,6 +132,7 @@ export const CAP_CREATE_METRIC = "create_metric";
 export const CAP_EDIT_FILES = "edit_files";
 export const CAP_WRITE_MANIFEST = "write_manifest";
 export const CAP_STEWARD_MANIFEST = "steward_manifest";
+export const CAP_QUERY_GRAPH = "query_graph";
 
 /**
  * Resolve a node's requested capability grant: from the edge `capabilities` list
@@ -142,6 +151,7 @@ export function resolveGrant(
         editFiles: capabilities.includes(CAP_EDIT_FILES),
         writeManifest: capabilities.includes(CAP_WRITE_MANIFEST),
         stewardManifest: capabilities.includes(CAP_STEWARD_MANIFEST),
+        queryGraph: capabilities.includes(CAP_QUERY_GRAPH),
       },
       source: "edge",
     };
@@ -169,6 +179,15 @@ export interface AnthropicAgentRunnerOptions {
    * "workingTree" (Cursor extension — leave edits uncommitted for review).
    */
   gitMode?: GitMode;
+  /**
+   * Composed knowledge graph for this run (ADR 0010). Presence is the global
+   * enable for `query_dependencies`: the front end only composes a graph when
+   * the `auto-factory-knowledge-graph` flag serves true, so a granted node on
+   * a flag-off run simply doesn't get the tool.
+   */
+  knowledgeGraph?: KnowledgeGraph;
+  /** Repo-relative files changed in this PR (blast-radius input). */
+  changedFiles?: string[];
 }
 
 export class AnthropicAgentRunner implements AgentRunner {
@@ -188,6 +207,8 @@ export class AnthropicAgentRunner implements AgentRunner {
       // Manifest writes are code changes — same global toggle as editFiles.
       writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
       stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
+      // Read-only; globally enabled by the presence of a composed graph (KG flag).
+      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== undefined,
     };
     // Per-node diagnostic: makes a renamed/added agent that silently lost its
     // grant (source "none", read-only) visible in the run logs.
@@ -208,6 +229,9 @@ export class AnthropicAgentRunner implements AgentRunner {
       caps.writeManifest === true && this.opts.codeChangesEnabled === true,
       caps.stewardManifest === true && this.opts.codeChangesEnabled === true,
     );
+    if (caps.queryGraph && this.opts.knowledgeGraph) {
+      executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
+    }
     const tools = buildSandboxTools(caps) as Anthropic.Tool[];
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
 

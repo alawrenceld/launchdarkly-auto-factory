@@ -17,6 +17,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { intentSkeleton, normalizeReleaseIntent } from "../releaseIntent.js";
+import type { KnowledgeGraph } from "../graph/schema.js";
+import { fileNodeId, flagNodeId, serviceNodeId } from "../graph/schema.js";
+import { blastRadius, neighbors } from "../graph/query.js";
 import type { LdResourceWriter, MetricCategory } from "./ldWriter.js";
 
 export interface AnthropicToolDef {
@@ -182,7 +185,31 @@ export interface ToolCapabilities {
   writeManifest?: boolean;
   /** Steward-grade `write_manifest`: may also update an existing releaseIntent. */
   stewardManifest?: boolean;
+  /** Offer `query_dependencies` (needs a composed knowledge graph, ADR 0010). */
+  queryGraph?: boolean;
 }
+
+const QUERY_DEPENDENCIES_TOOL: AnthropicToolDef = {
+  name: "query_dependencies",
+  description:
+    "Query the estate's knowledge graph (service-to-service call edges observed from LaunchDarkly telemetry, plus flag-to-code wrap points). Call it with NO arguments for the blast radius of THIS PR's changed files: which services the change belongs to, which services depend on them (consumers at risk), which services they call, and which flags already wrap the changed code. Or pass `node` (a service key, flag key, or repo-relative file path) with `direction` to walk dependents/dependencies of one node. Results include a `gaps` list — treat a listed gap as UNKNOWN coverage, never as evidence of no impact.",
+  input_schema: {
+    type: "object",
+    properties: {
+      node: {
+        type: "string",
+        description:
+          "Optional: service key (e.g. 'togglemart-catalog'), flag key, or repo-relative file path. Omit for the PR's blast radius.",
+      },
+      direction: {
+        type: "string",
+        enum: ["dependents", "dependencies"],
+        description: "With `node`: walk who depends on it (default) or what it depends on.",
+      },
+      max_depth: { type: "number", description: "Traversal depth cap (default 3)." },
+    },
+  },
+};
 
 const WRITE_MANIFEST_TOOL: AnthropicToolDef = {
   name: "write_manifest",
@@ -205,6 +232,7 @@ const WRITE_MANIFEST_TOOL: AnthropicToolDef = {
 /** Build the tool set offered to the model for a node, per its capabilities. */
 export function buildSandboxTools(caps: ToolCapabilities): AnthropicToolDef[] {
   const tools = [...READONLY_TOOLS];
+  if (caps.queryGraph) tools.push(QUERY_DEPENDENCIES_TOOL);
   if (caps.createFlag) tools.push(CREATE_FLAG_TOOL);
   if (caps.createMetric) tools.push(CREATE_METRIC_TOOL);
   if (caps.writeManifest || caps.stewardManifest) tools.push(WRITE_MANIFEST_TOOL);
@@ -254,6 +282,18 @@ export const TOOL_OWNED_TAGS: ReadonlySet<string> = new Set([
  */
 export class SandboxToolExecutor {
   readonly tags: Record<string, string> = {};
+  private knowledgeGraph?: KnowledgeGraph;
+  private changedFiles: string[] = [];
+
+  /**
+   * Supply the composed knowledge graph (ADR 0010) + the PR's changed files.
+   * Only meaningful for nodes granted `queryGraph`; set after construction so
+   * existing call sites stay unchanged.
+   */
+  provideKnowledgeGraph(graph: KnowledgeGraph, changedFiles: string[] = []): void {
+    this.knowledgeGraph = graph;
+    this.changedFiles = changedFiles;
+  }
 
   constructor(
     private readonly root: string,
@@ -302,6 +342,8 @@ export class SandboxToolExecutor {
           return await this.createMetric(input);
         case "write_manifest":
           return this.writeManifestTool(String(input.path ?? ""), input.manifest);
+        case "query_dependencies":
+          return this.queryDependencies(input);
         case "write_file":
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
@@ -316,6 +358,45 @@ export class SandboxToolExecutor {
     } catch (e) {
       return { content: e instanceof Error ? e.message : String(e), isError: true };
     }
+  }
+
+  /**
+   * `query_dependencies`: no `node` → blast radius of the PR's changed files;
+   * with `node` → BFS dependents/dependencies. Bare names are resolved against
+   * service, flag, then file node ids. Compact JSON out; the graph's `gaps`
+   * ride along so thin coverage reads as unknown, not safe.
+   */
+  private queryDependencies(input: Record<string, unknown>): ToolExecResult {
+    const graph = this.knowledgeGraph;
+    if (!graph) {
+      return {
+        content:
+          "knowledge graph unavailable for this run (flag off or composition failed) — reason about impact from the code instead",
+        isError: true,
+      };
+    }
+    const maxDepth = typeof input.max_depth === "number" && input.max_depth > 0 ? Math.min(input.max_depth, 6) : 3;
+    const rawNode = typeof input.node === "string" ? input.node.trim() : "";
+    if (!rawNode) {
+      return { content: JSON.stringify(blastRadius(graph, this.changedFiles, maxDepth), null, 1) };
+    }
+    const candidates = [rawNode, serviceNodeId(rawNode), flagNodeId(rawNode), fileNodeId(rawNode)];
+    const nodeId = candidates.find((id) => graph.nodes.some((n) => n.id === id));
+    if (!nodeId) {
+      const services = graph.services.map((s) => s.key).join(", ");
+      return {
+        content: `node '${rawNode}' not in the graph. Known services: ${services}. Flags/files must match a graph node (flag:<key> / file:<repo-relative path>).`,
+        isError: true,
+      };
+    }
+    const direction = input.direction === "dependencies" ? "dependencies" : "dependents";
+    const hits = neighbors(graph, nodeId, direction, maxDepth).map((h) => ({
+      id: h.id,
+      kind: h.kind,
+      depth: h.depth,
+      via: `${h.via.kind} (${h.via.provenance}${h.via.evidence ? `: ${h.via.evidence}` : ""})`,
+    }));
+    return { content: JSON.stringify({ node: nodeId, direction, hits, gaps: graph.gaps }, null, 1) };
   }
 
   private readFile(rel: string): string {

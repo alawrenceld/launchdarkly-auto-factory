@@ -17,6 +17,54 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-07-10
 
+### ✅ Knowledge graph: `auto-factory-knowledge-graph` flag + `query_graph` capability (ADR 0010)
+- **New operational flag** `auto-factory-knowledge-graph` (boolean, provisioned
+  **off**): gates per-run composition of the knowledge graph (service edges
+  derived from observability traces + flag wrap points from find-code-refs at
+  the PR SHA) and the `query_dependencies` agent tool. Off = the judge-score
+  A/B baseline; flag-off runs pay no composition cost.
+- **New capability token** `query_graph` (`ToolCapabilities.queryGraph`),
+  granted to the research planner via the ROOT fallback (root nodes can't
+  receive edge grants). The tool is only offered when a graph was actually
+  composed for the run — the flag is the global enable, the capability is the
+  per-node grant, same two-level model as `create_flag`.
+- **New tool** `query_dependencies`: no-arg call = the PR's blast radius
+  (changed services, dependent services with depth+evidence, upstream contract
+  services, flags already wrapping changed code); or walk
+  dependents/dependencies of one service/flag/file node. Responses carry the
+  artifact's `gaps` list and the mode note instructs agents to treat gaps as
+  UNKNOWN coverage, never low risk.
+- **Why:** ADR 0010 — impact analysis composed from LD-native sources instead
+  of a third-party code-graph dependency.
+- **Live sync:** with the ADR 0010 build (`bridge upgrade`), not yet pushed.
+
+### ✅ Metrics author: trace-metric backing rules + telemetry-footprint duty (ADR 0010)
+- **Instructions** (`autofactory-metrics-author`, default variation): new **Metric
+  Backing** section — a guardrail metric must be per-unit attributable to a flag
+  variation; exactly two valid backings: custom `track()` events (default) and
+  **trace metrics** on span attributes. Trace metrics are valid ONLY when the flag
+  is evaluated INSIDE the active span context: the observability SDK plugin's flag
+  `afterEvaluation` hook enriches the active span (client-side: child span), so a
+  trace metric can only be built on span attributes within a trace that evaluates
+  this flag. **Pre-aggregated OTel metrics are never a valid guardrail backing.**
+  `create_metric` remains event-only for now, so the agent records
+  `trace_metric_candidates` (span attribute + filter) in its output instead of
+  creating them; revisit when the trace-metric API is available (EAP).
+- **New rule M10 (telemetry footprint):** when the service already uses the LD
+  observability SDK, span-cover the flagged path with the flag evaluated in-span
+  and add `<flag-key>.<attribute>` span attributes — growing the service telemetry
+  AutoFactory's impact analysis reads. Never install the SDK into an
+  uninstrumented service (platform decision; report `span_coverage: none`).
+- **Chain output** gains `telemetry: { span_coverage, spans_added,
+  trace_metric_candidates }`.
+- **Why:** the knowledge-graph direction (ADR 0010) derives service-dependency
+  edges from LD observability traces; each PR the factory processes should widen
+  that footprint. Demo estate design: services get a one-time baseline
+  instrumentation sweep, but future demo PRs intentionally ship uninstrumented so
+  the metrics author demonstrably fills the gap.
+- **Live sync:** not yet pushed to the live factory project — sync via
+  `bridge upgrade` together with the ADR 0010 code build.
+
 ### ✅ Release intent + manifest steward node (ADR 0009)
 - **New AI config** `autofactory-manifest-steward` (mode agent, Sonnet 4.6):
   normalizes human edits to the release manifest's `releaseIntent` block —

@@ -42,3 +42,5 @@ export * from "./judges.js";
 export * from "./judgeEvidence.js";
 export * from "./anthropic/judgeCompletion.js";
 export * from "./cursor/judgeCompletion.js";
+// Knowledge graph (ADR 0010): LD-native composition + agent queries.
+export * from "./graph/index.js";

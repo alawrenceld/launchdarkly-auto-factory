@@ -32,6 +32,7 @@
 import type { ModelListItem, SDKAgent, SDKCustomTool, SDKJsonValue, TokenUsage } from "@cursor/sdk";
 import type { AgentNodeRequest, AgentNodeResult, AgentRunner, AgentStatus } from "../agentRunner.js";
 import { missingRequiredTags, modeNote, resolveGrant } from "../anthropic/anthropicAgentRunner.js";
+import type { KnowledgeGraph } from "../graph/schema.js";
 import type { LdResourceWriter } from "../anthropic/ldWriter.js";
 import {
   type AnthropicToolDef,
@@ -78,6 +79,13 @@ export interface CursorAgentRunnerOptions {
   prBaseRef?: string;
   /** How `commit_and_push` finalizes edits: "push" (default) or "workingTree". */
   gitMode?: GitMode;
+  /**
+   * Composed knowledge graph for this run (ADR 0010). Presence is the global
+   * enable for `query_dependencies` — same contract as the Anthropic runner.
+   */
+  knowledgeGraph?: KnowledgeGraph;
+  /** Repo-relative files changed in this PR (blast-radius input). */
+  changedFiles?: string[];
 }
 
 /** Convert the shared sandbox tool defs into Cursor `customTools` backed by one executor. */
@@ -144,6 +152,8 @@ export class CursorAgentRunner implements AgentRunner {
       // Manifest writes are code changes — same global toggle as editFiles.
       writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
       stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
+      // Read-only; globally enabled by the presence of a composed graph (KG flag).
+      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== undefined,
     };
     console.log(
       `[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} → effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`,
@@ -160,6 +170,9 @@ export class CursorAgentRunner implements AgentRunner {
       caps.writeManifest === true && this.opts.codeChangesEnabled === true,
       caps.stewardManifest === true && this.opts.codeChangesEnabled === true,
     );
+    if (caps.queryGraph && this.opts.knowledgeGraph) {
+      executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
+    }
     const customTools = toCursorTools(buildSandboxTools(caps), executor);
 
     // Resolve the Cursor model + parameters from the LaunchDarkly AI config.

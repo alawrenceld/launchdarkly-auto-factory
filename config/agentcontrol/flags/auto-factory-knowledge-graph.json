@@ -1,0 +1,26 @@
+{
+  "key": "auto-factory-knowledge-graph",
+  "name": "AutoFactory knowledge graph",
+  "description": "Enables the knowledge-graph enrichment (ADR 0010): the pipeline composes a per-run graph from LaunchDarkly-native sources (service edges derived from observability traces, flag wrap points from find-code-refs at the PR SHA) and offers the research planner the query_dependencies tool for blast-radius analysis. Off = agents run un-enriched (the judge-score A/B baseline). The flag gates graph composition itself, so flag-off runs pay no cost.",
+  "kind": "boolean",
+  "temporary": false,
+  "tags": [
+    "auto-factory"
+  ],
+  "variations": [
+    {
+      "value": true,
+      "name": "Enriched",
+      "description": "Compose the graph and offer query_dependencies to granted nodes."
+    },
+    {
+      "value": false,
+      "name": "Baseline",
+      "description": "No graph; agents reason from the code alone."
+    }
+  ],
+  "defaults": {
+    "onVariation": 0,
+    "offVariation": 1
+  }
+}
