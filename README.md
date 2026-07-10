@@ -81,15 +81,27 @@ npm run bootstrap       # prompts for the execution provider (anthropic or curso
 ```
 
 Bootstrap runs preflight checks, then creates, in your factory project from the committed
-definitions in `config/agentcontrol/`: the five agent AI configs, the two **judge**
+definitions in `config/agentcontrol/`: the six agent AI configs, the two **judge**
 configs (attached to the flag-implementer and metrics-author, so evidence-based quality
-scoring works out of the box), the `gha-auto-factory` agent graph, and the two
-operational flags (`auto-factory-ai-provider`, `auto-factory-approval-gates`) — the
-latter **off by default**, so they're visible and ready to toggle in your LD UI without
-changing behavior. It is idempotent: existing
+scoring works out of the box), the `gha-auto-factory` agent graph, and the operational
+flags (`auto-factory-ai-provider` plus the approval trio: `auto-factory-approval-mode`,
+`auto-factory-risk-threshold`, `auto-factory-approval-gates`) — approvals default to
+`yolo`, so they're visible and ready to toggle in your LD UI without changing behavior.
+It is idempotent: existing
 resources are left untouched (your targeting is never overwritten). After provisioning, the
 agent instructions are editable in the LaunchDarkly UI; the pipeline reads them at run time,
 so instruction changes take effect on the next PR without redeploying anything.
+
+**Already bootstrapped?** Pull config updates from a newer version of this repo with:
+
+```bash
+npm run bridge -- upgrade            # add --dry-run to preview first
+```
+
+`upgrade` creates anything missing (new agents, graph edges, flags) and syncs existing
+agent *instructions* to the committed copies. It never touches your flag targeting, model
+choices, or variations it doesn't recognize (e.g. an A/B arm you added) — drift there is
+reported, not overwritten.
 
 ### 2. Add the workflow to your app repo
 

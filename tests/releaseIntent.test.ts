@@ -1,0 +1,81 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { intentIsDefault, intentSkeleton, normalizeReleaseIntent } from "@auto-factory/shared";
+
+describe("normalizeReleaseIntent (deterministic, fail-closed)", () => {
+  it("absent intent → plain auto (legacy manifests unaffected)", () => {
+    const r = normalizeReleaseIntent(undefined);
+    assert.equal(r.intent.action, "auto");
+    assert.deepEqual(r.issues, []);
+  });
+
+  it("the pristine skeleton normalizes clean and is 'default'", () => {
+    const r = normalizeReleaseIntent(intentSkeleton());
+    assert.equal(r.intent.action, "auto");
+    assert.deepEqual(r.issues, []);
+    assert.equal(intentIsDefault(r.intent), true);
+  });
+
+  it("action synonyms map (healed), case-insensitively", () => {
+    for (const [raw, want] of [
+      ["PAUSE", "hold"], ["wait", "hold"], ["ship", "auto"], ["Manual", "manual"], ["human", "manual"],
+    ] as const) {
+      const r = normalizeReleaseIntent({ action: raw });
+      assert.equal(r.intent.action, want, raw);
+    }
+    assert.equal(normalizeReleaseIntent({ action: "pause" }).healed, true);
+  });
+
+  it("unintelligible action fails CLOSED to hold, with an issue", () => {
+    const r = normalizeReleaseIntent({ action: "banana" });
+    assert.equal(r.intent.action, "hold");
+    assert.match(r.issues.join(" "), /not understood/);
+  });
+
+  it("notBefore coerces to ISO; unparseable dates hold (fail-closed)", () => {
+    assert.equal(normalizeReleaseIntent({ notBefore: "2026-08-01" }).intent.notBefore, "2026-08-01");
+    const coerced = normalizeReleaseIntent({ notBefore: "Aug 1 2026" });
+    assert.equal(coerced.intent.notBefore, "2026-08-01");
+    assert.equal(coerced.healed, true);
+    const bad = normalizeReleaseIntent({ action: "auto", notBefore: "next month" });
+    assert.equal(bad.intent.action, "hold");
+    assert.match(bad.issues.join(" "), /not a parseable date/);
+  });
+
+  it("prerequisites: strings coerce to {flagKey, variation:'on'}; variation synonyms map", () => {
+    const r = normalizeReleaseIntent({ prerequisites: ["flag-xyz", { flagKey: "flag-abc", variation: "FALSE" }] });
+    assert.deepEqual(r.intent.prerequisites, [
+      { flagKey: "flag-xyz", variation: "on" },
+      { flagKey: "flag-abc", variation: "off" },
+    ]);
+  });
+
+  it("segments accept a comma-separated string", () => {
+    const r = normalizeReleaseIntent({ segments: "beta-users, internal" });
+    assert.deepEqual(r.intent.segments, ["beta-users", "internal"]);
+    assert.equal(r.healed, true);
+  });
+
+  it("a non-object intent holds (fail-closed) and preserves the text as notes", () => {
+    const r = normalizeReleaseIntent("release whenever");
+    assert.equal(r.intent.action, "hold");
+    assert.equal(r.intent.notes, "release whenever");
+  });
+
+  it("underscore/unknown keys are ignored, notes/reference/approvedBy carried", () => {
+    const r = normalizeReleaseIntent({
+      _instructions: "blah", zzz: 1, notes: "after Q3", reference: "JIRA-123", approvedBy: "tom",
+    });
+    assert.equal(r.intent.notes, "after Q3");
+    assert.equal(r.intent.reference, "JIRA-123");
+    assert.equal(r.intent.approvedBy, "tom");
+    assert.equal(r.intent.action, "auto");
+  });
+
+  it("intentIsDefault is false when anything is asked", () => {
+    assert.equal(intentIsDefault(normalizeReleaseIntent({ action: "hold" }).intent), false);
+    assert.equal(intentIsDefault(normalizeReleaseIntent({ notes: "child of flag-xyz" }).intent), false);
+    assert.equal(intentIsDefault(normalizeReleaseIntent({ prerequisites: ["flag-x"] }).intent), false);
+  });
+});

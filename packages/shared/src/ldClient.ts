@@ -128,6 +128,16 @@ export class LdClient {
     });
   }
 
+  /** Full-object update of an agent graph (the graph API is not JSON Patch). */
+  updateAgentGraph<T = unknown>(key: string, body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "PATCH",
+      path: `/api/v2/projects/${this.conn.projectKey}/agent-graphs/${key}`,
+      headers: BETA,
+      body,
+    });
+  }
+
   // --- Flags & metrics ------------------------------------------------------
 
   /** Create a feature flag. Returns status 409 (not throwing) when it exists. */

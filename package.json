@@ -17,7 +17,8 @@
     "check:public": "node scripts/check-public.mjs",
     "check:configs": "node scripts/check-configs.mjs",
     "test": "node --import tsx --test tests/*.test.ts",
-    "bootstrap": "node bootstrap/create.mjs"
+    "bootstrap": "node bootstrap/create.mjs",
+    "bridge": "node --import tsx packages/config-bridge/src/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

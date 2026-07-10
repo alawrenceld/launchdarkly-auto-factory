@@ -52,6 +52,13 @@ export function modeNote(caps: ToolCapabilities): string {
       "You have `create_metric` — creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). To make a metric measurable you must FIRST instrument its event in code: add a LaunchDarkly `track(event_key, …)` call on the path the flag wraps (via `edit_file`), then call `create_metric` with the matching `event_key`. Creating the metric before signals flow is expected.",
     );
   }
+  if (caps.writeManifest || caps.stewardManifest) {
+    lines.push(
+      caps.stewardManifest
+        ? "You have `write_manifest` (STEWARD grade): you may create/update the release manifest INCLUDING an existing `releaseIntent` — you are the only agent allowed to touch a human's intent, and only to normalize/structure it, never to broaden it (e.g. never flip hold→auto)."
+        : "You have `write_manifest` — create/update the release manifest (.release-flags/pr-<N>.json) by passing only the fields you own (flagKey, scope, releasePlan.*). It merges, auto-initializes the human-editable `releaseIntent` skeleton, PRESERVES any existing intent, and commits automatically. Never write manifests with other tools.",
+    );
+  }
   if (caps.editFiles) {
     lines.push(
       "You have `write_file`, `edit_file`, `run_tests`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file). If you wrote or changed tests, call `run_tests` to confirm they pass and FIX any failures before committing. Then call `commit_and_push` ONCE to land your changes on the PR branch. Match the existing code patterns you find.",
@@ -75,11 +82,17 @@ const DEFAULT_MODEL = "claude-sonnet-4-6";
  * silently misses renamed agents; the per-node log makes that diagnosable).
  */
 const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
-  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true },
+  // ROOT node: edges can't grant capabilities to it (grants ride inbound
+  // handoffs), so the research planner's narrow manifest-write power lives here.
+  "autofactory-research-planner": { createFlag: false, createMetric: false, editFiles: false, writeManifest: true },
+  // The steward normalizes the human-edited releaseIntent — the only node that
+  // may UPDATE an existing intent block.
+  "autofactory-manifest-steward": { createFlag: false, createMetric: false, editFiles: false, stewardManifest: true },
+  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true, writeManifest: true },
   "autofactory-flag-testing": { createFlag: false, createMetric: false, editFiles: true },
   // The metrics author creates LD metrics and instruments the event (track()) that
-  // feeds them — so it needs create_metric AND edit_files.
-  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true },
+  // feeds them — so it needs create_metric AND edit_files (+ manifest updates).
+  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true, writeManifest: true },
 };
 
 /**
@@ -109,6 +122,8 @@ export function missingRequiredTags(configKey: string, tags: Record<string, stri
 export const CAP_CREATE_FLAG = "create_flag";
 export const CAP_CREATE_METRIC = "create_metric";
 export const CAP_EDIT_FILES = "edit_files";
+export const CAP_WRITE_MANIFEST = "write_manifest";
+export const CAP_STEWARD_MANIFEST = "steward_manifest";
 
 /**
  * Resolve a node's requested capability grant: from the edge `capabilities` list
@@ -125,6 +140,8 @@ export function resolveGrant(
         createFlag: capabilities.includes(CAP_CREATE_FLAG),
         createMetric: capabilities.includes(CAP_CREATE_METRIC),
         editFiles: capabilities.includes(CAP_EDIT_FILES),
+        writeManifest: capabilities.includes(CAP_WRITE_MANIFEST),
+        stewardManifest: capabilities.includes(CAP_STEWARD_MANIFEST),
       },
       source: "edge",
     };
@@ -168,6 +185,9 @@ export class AnthropicAgentRunner implements AgentRunner {
       createFlag: grant.createFlag && this.opts.writer !== undefined,
       createMetric: grant.createMetric && this.opts.writer !== undefined,
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
+      // Manifest writes are code changes — same global toggle as editFiles.
+      writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
+      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
     };
     // Per-node diagnostic: makes a renamed/added agent that silently lost its
     // grant (source "none", read-only) visible in the run logs.
@@ -185,6 +205,8 @@ export class AnthropicAgentRunner implements AgentRunner {
       this.opts.prBranch,
       this.opts.prBaseRef,
       this.opts.gitMode ?? "push",
+      caps.writeManifest === true && this.opts.codeChangesEnabled === true,
+      caps.stewardManifest === true && this.opts.codeChangesEnabled === true,
     );
     const tools = buildSandboxTools(caps) as Anthropic.Tool[];
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;

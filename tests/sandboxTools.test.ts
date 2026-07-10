@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
@@ -295,7 +295,7 @@ describe("SandboxToolExecutor — write_file content guards", () => {
   it("refuses empty content (the 0-byte release-manifest bug)", async () => {
     const exec = new SandboxToolExecutor(root, undefined, true);
     for (const content of ["", "   \n"]) {
-      const r = await exec.execute("write_file", { path: ".release-flags/pr-1.json", content });
+      const r = await exec.execute("write_file", { path: "config/settings.json", content });
       assert.equal(r.isError, true);
       assert.match(r.content, /refusing to write empty content/);
     }
@@ -303,16 +303,105 @@ describe("SandboxToolExecutor — write_file content guards", () => {
 
   it("rejects invalid JSON written to a .json path", async () => {
     const exec = new SandboxToolExecutor(root, undefined, true);
-    const r = await exec.execute("write_file", { path: ".release-flags/pr-1.json", content: "{not json" });
+    const r = await exec.execute("write_file", { path: "config/settings.json", content: "{not json" });
     assert.equal(r.isError, true);
     assert.match(r.content, /not valid JSON/);
   });
 
   it("accepts valid JSON and non-JSON files as before", async () => {
     const exec = new SandboxToolExecutor(root, undefined, true);
-    const ok = await exec.execute("write_file", { path: ".release-flags/pr-1.json", content: '{"flagKey":"x"}' });
+    const ok = await exec.execute("write_file", { path: "config/settings.json", content: '{"flagKey":"x"}' });
     assert.equal(ok.isError, undefined);
     const txt = await exec.execute("write_file", { path: "notes.txt", content: "not json, fine here" });
     assert.equal(txt.isError, undefined);
+  });
+});
+
+describe("SandboxToolExecutor — write_manifest", () => {
+  const PATH = ".release-flags/pr-9.json";
+  // workingTree mode: no git needed; file writes land uncommitted.
+  const steward = () => new SandboxToolExecutor(root, undefined, false, undefined, undefined, "workingTree", false, true);
+  const agent = () => new SandboxToolExecutor(root, undefined, false, undefined, undefined, "workingTree", true, false);
+  const readManifest = () => JSON.parse(readFileSync(join(root, PATH), "utf8"));
+
+  it("unavailable without the capability", async () => {
+    const exec = new SandboxToolExecutor(root, undefined, true); // editFiles only
+    const r = await exec.execute("write_manifest", { path: PATH, manifest: { flagKey: "x" } });
+    assert.equal(r.isError, true);
+  });
+
+  it("creates schema-1.1 manifest and injects the human-editable intent skeleton", async () => {
+    const r = await agent().execute("write_manifest", {
+      path: PATH,
+      manifest: { flagKey: "enable-x", scope: "backend", releasePlan: { randomizationUnit: "user" } },
+    });
+    assert.equal(r.isError, undefined, r.content);
+    const m = readManifest();
+    assert.equal(m.schemaVersion, "1.1");
+    assert.equal(m.flagKey, "enable-x");
+    assert.equal(m.releasePlan.randomizationUnit, "user");
+    assert.equal(m.releaseIntent.action, "auto");
+    assert.match(m.releaseIntent._instructions, /Human approver/);
+  });
+
+  it("agents cannot overwrite an existing releaseIntent (human-owned)", async () => {
+    await agent().execute("write_manifest", { path: PATH, manifest: { flagKey: "enable-x" } });
+    // Simulate the human's edit.
+    const m = readManifest();
+    m.releaseIntent = { action: "hold", notes: "after Q3" };
+    writeFileSync(join(root, PATH), JSON.stringify(m));
+    // Agent write with an intent — ignored; other fields merge.
+    const r = await agent().execute("write_manifest", {
+      path: PATH,
+      manifest: { flagKey: "enable-x-final", releaseIntent: { action: "auto" } },
+    });
+    assert.match(r.content, /PRESERVED/);
+    const after = readManifest();
+    assert.equal(after.flagKey, "enable-x-final");
+    assert.equal(after.releaseIntent.action, "hold");
+    assert.equal(after.releaseIntent.notes, "after Q3");
+  });
+
+  it("the steward MAY update an existing releaseIntent", async () => {
+    await agent().execute("write_manifest", { path: PATH, manifest: { flagKey: "enable-x" } });
+    const r = await steward().execute("write_manifest", {
+      path: PATH,
+      manifest: { releaseIntent: { action: "hold", notBefore: "2026-08-01", notes: "" } },
+    });
+    assert.match(r.content, /releaseIntent updated \(steward\)/);
+    assert.equal(readManifest().releaseIntent.action, "hold");
+  });
+
+  it("heals the legacy releaseOverrides key into releasePlan", async () => {
+    mkdirSync(join(root, ".release-flags"), { recursive: true });
+    writeFileSync(join(root, PATH), JSON.stringify({ flagKey: "old", releaseOverrides: { metricKeys: ["m1"] } }));
+    await agent().execute("write_manifest", { path: PATH, manifest: { releasePlan: { randomizationUnit: "user" } } });
+    const m = readManifest();
+    assert.deepEqual(m.releasePlan, { metricKeys: ["m1"], randomizationUnit: "user" });
+    assert.equal(m.releaseOverrides, undefined);
+  });
+
+  it("rejects non-manifest paths", async () => {
+    const r = await agent().execute("write_manifest", { path: "backend/app.py", manifest: { flagKey: "x" } });
+    assert.equal(r.isError, true);
+  });
+
+  it("write_file/edit_file refuse .release-flags/ paths", async () => {
+    const exec = new SandboxToolExecutor(root, undefined, true);
+    const w = await exec.execute("write_file", { path: PATH, content: '{"flagKey":"x"}' });
+    assert.equal(w.isError, true);
+    assert.match(w.content, /write_manifest/);
+    mkdirSync(join(root, ".release-flags"), { recursive: true });
+    writeFileSync(join(root, PATH), '{"flagKey":"x"}');
+    const e = await exec.execute("edit_file", { path: PATH, old_string: "x", new_string: "y" });
+    assert.equal(e.isError, true);
+  });
+
+  it("reports intent issues informationally without blocking the write", async () => {
+    mkdirSync(join(root, ".release-flags"), { recursive: true });
+    writeFileSync(join(root, PATH), JSON.stringify({ flagKey: "x", releaseIntent: { action: "banana" } }));
+    const r = await agent().execute("write_manifest", { path: PATH, manifest: { scope: "backend" } });
+    assert.equal(r.isError, undefined);
+    assert.match(r.content, /Intent issues/);
   });
 });

@@ -31,7 +31,7 @@ import { triggerRelease } from "./trigger.js";
 interface FlagOutcome {
   flag: string;
   scope: string;
-  action: "released" | "already_running" | "skipped" | "waiting" | "error";
+  action: "released" | "held" | "already_running" | "skipped" | "waiting" | "error";
   detail?: unknown;
 }
 
@@ -147,8 +147,17 @@ export function createApp(cfg: BeaconConfig, ld: LdClient, deps: BeaconDeps = {}
           continue;
         }
         const result = await triggerRelease(ld, flag, n.environment);
-        if (result.method !== "immediate") onReleaseStarted(flag.flagKey, n.environment);
-        outcomes.push({ flag: flag.flagKey, scope, action: "released", detail: result });
+        // Only staged rollouts get release monitoring: "held" started nothing,
+        // "prerequisites"/"immediate" have no automated release to watch.
+        if (result.method === "progressive" || result.method === "guarded") {
+          onReleaseStarted(flag.flagKey, n.environment);
+        }
+        outcomes.push({
+          flag: flag.flagKey,
+          scope,
+          action: result.method === "held" ? "held" : "released",
+          detail: result,
+        });
       } catch (e) {
         console.warn(`[beacon] release trigger ERROR for '${flag.flagKey}': ${String(e)}`);
         outcomes.push({ flag: flag.flagKey, scope, action: "error", detail: String(e) });

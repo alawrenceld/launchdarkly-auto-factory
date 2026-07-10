@@ -27,10 +27,13 @@ export interface MetricRef {
 }
 
 /**
- * Optional per-release overrides carried in a `.release-flags/*.json` file.
- * These take precedence over the flag's configured release policy.
+ * Agent-computed release parameters carried in a `.release-flags/*.json` file.
+ * Named for the precedence chain (releasePolicy in LD ← releasePlan in the
+ * manifest ← releaseIntent from the human): the plan overrides the flag's
+ * configured release policy; the human's intent directs the plan.
+ * (`releaseOverrides` is the legacy name for this block — still read.)
  */
-export interface ReleaseOverrides {
+export interface ReleasePlan {
   releaseMethod?: ReleaseKind;
   randomizationUnit?: string;
   stages?: Stage[];
@@ -40,12 +43,54 @@ export interface ReleaseOverrides {
   metricGroupKeys?: string[];
 }
 
+/** Legacy alias for ReleasePlan (pre-1.1 manifests use this key). */
+export type ReleaseOverrides = ReleasePlan;
+
+/** What should happen when the guarding code deploys. */
+export type IntentAction = "auto" | "hold" | "manual";
+
+/** A flag-prerequisite relationship expressed in release intent (LD-native semantics). */
+export interface IntentPrerequisite {
+  flagKey: string;
+  /** Variation the prerequisite must serve; "on" | "off". Default "on". */
+  variation?: "on" | "off";
+}
+
+/**
+ * HUMAN-authored release intent, captured on the PR (typically at an approval
+ * gate) in the manifest. Structured fields are what deterministic execution
+ * reads; `notes` is free text a steward agent may PROMOTE into structured
+ * fields — visibly, on the PR, never at deploy time. Wins over `releasePlan`
+ * on conflict. All fields optional; blank = today's behavior (auto-release).
+ */
+export interface ReleaseIntent {
+  action?: IntentAction;
+  /** ISO date (YYYY-MM-DD) before which the release must not start. */
+  notBefore?: string;
+  /** Serve to these LD segments immediately (recorded, not yet executed). */
+  segments?: string[];
+  prerequisites?: IntentPrerequisite[];
+  /** Flags to release together (future LD multi-phase; recorded for now). */
+  releaseWith?: string[];
+  /** Ticket / doc URL — also feeds business-intent metrics later. */
+  reference?: string;
+  /** Auto-filled from the approval-gate label actor. */
+  approvedBy?: string;
+  notes?: string;
+}
+
 /** The on-disk shape of a `.release-flags/*.json` file. */
 export interface ReleaseFlagFile {
+  schemaVersion?: string;
   flagKey: string;
   /** Defaults to "frontend" when omitted (matches reference behavior). */
   scope?: Scope;
-  releaseOverrides?: ReleaseOverrides;
+  /** Agent-computed parameters (canonical key since schema 1.1). */
+  releasePlan?: ReleasePlan;
+  /** Legacy key for releasePlan; pre-1.1 manifests. */
+  releaseOverrides?: ReleasePlan;
+  /** Human-authored intent (schema 1.1+). */
+  releaseIntent?: ReleaseIntent;
 }
 
 /** A release-flag file discovered during a deploy notification. */

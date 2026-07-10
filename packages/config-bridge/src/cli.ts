@@ -16,12 +16,19 @@
  *       FROM the SOURCE project into a gitignored staging dir, then provision
  *       them straight INTO the TARGET project. No commit step.
  *       Default graph: gha-auto-factory; default staging: .agentcontrol-cache.
+ *
+ *   bridge upgrade [--ai-configs <dir>] [--graphs <dir>] [--flags <dir>] [--dry-run]
+ *       Bring an EXISTING install up to the repo's committed definitions:
+ *       provision anything missing, then sync existing variation instructions
+ *       and graph edges to the committed copies. Never touches flag targeting,
+ *       model choices, or extra live variations — drift there is reported.
  */
 
 import { LdClient, sourceConnection, targetConnection } from "@auto-factory/shared";
 import { provision } from "./provision.js";
 import { seed } from "./seed.js";
 import { sync } from "./sync.js";
+import { upgrade } from "./upgrade.js";
 
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(`--${name}`);
@@ -105,7 +112,39 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.error("Usage: bridge <provision|sync|seed> [options]");
+  if (cmd === "upgrade") {
+    const ld = new LdClient(targetConnection());
+    const aiConfigsDir = flag(args, "ai-configs") ?? "config/agentcontrol/ai-configs";
+    const graphsDir = flag(args, "graphs") ?? "config/agentcontrol/graphs";
+    const flagsDir = flag(args, "flags") ?? "config/agentcontrol/flags";
+    const dryRun = args.includes("--dry-run");
+    console.log(`Upgrading project '${ld.projectKey}' to committed definitions${dryRun ? " (DRY RUN — no writes)" : ""}`);
+    console.log(`  ai-configs: ${aiConfigsDir}\n  graphs:     ${graphsDir}\n  flags:      ${flagsDir}\n`);
+    const r = await upgrade(ld, { aiConfigsDir, graphsDir, flagsDir, dryRun });
+    const p = r.provision;
+    console.log(`Created:  ${p.configsCreated.length} config(s), ${p.variationsCreated} variation(s), ${p.graphsCreated.length} graph(s), ${p.flagsCreated.length} flag(s)`);
+    console.log(`Updated:  ${r.variationsUpdated.length} variation(s), ${r.graphsUpdated.length} graph(s)`);
+    for (const v of r.variationsUpdated) console.log(`    ~ ${v}`);
+    for (const g of r.graphsUpdated) console.log(`    ~ graph ${g}`);
+    if (p.toolsStripped.length) {
+      console.log(`⚠ tools stripped from ${p.toolsStripped.length} created variation(s) — re-attach in LD if the provider needs them`);
+    }
+    if (r.drift.length) {
+      console.log(`Drift (reported, NOT changed):`);
+      for (const d of r.drift) console.log(`    ! ${d}`);
+    }
+    const failures = [...p.failures.map((f) => `${f.resource} [${f.status}]: ${JSON.stringify(f.message)}`), ...r.failures.map((f) => `${f.resource}: ${JSON.stringify(f.message)}`)];
+    if (failures.length) {
+      console.log(`✗ ${failures.length} failure(s):`);
+      for (const f of failures) console.log(`    ${f}`);
+      process.exitCode = 1;
+    } else {
+      console.log(dryRun ? "Dry run complete — no writes performed." : "Done.");
+    }
+    return;
+  }
+
+  console.error("Usage: bridge <provision|sync|seed|upgrade> [options]");
   process.exitCode = 2;
 }
 

@@ -9,7 +9,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import {
   type AgentRunner,
   AnthropicAgentRunner,
@@ -34,6 +35,8 @@ import {
   decideApproval,
   getLdSdk,
   interpretWalk,
+  intentIsDefault,
+  normalizeReleaseIntent,
   pipelineContext,
   resolveAiProvider,
   resolveApprovalPolicy,
@@ -41,7 +44,7 @@ import {
 } from "@auto-factory/shared";
 import { postCheckRun } from "./checkRun.js";
 import { postPrComment } from "./comment.js";
-import { approveLabel, ensureLabel, fetchApprovedSteps } from "./labels.js";
+import { approveLabel, ensureLabel, fetchApprovalActor, fetchApprovedSteps } from "./labels.js";
 import { type PrContext, assemblePrContext } from "./prContext.js";
 
 /**
@@ -166,6 +169,79 @@ function checkoutHeadSha(root: string): string | undefined {
     return execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   } catch {
     return undefined;
+  }
+}
+
+
+/**
+ * Post-chain release-intent handling: validate the manifest's releaseIntent
+ * (deterministic normalizer — surface issues on the PR before merge, where a
+ * human can still fix them instead of hitting Beacon's fail-closed hold at
+ * deploy), and stamp `approvedBy` from the gate-label actor when gates cleared.
+ * Best-effort: never fails the run.
+ */
+async function reviewManifestIntent(opts: {
+  sandboxRoot: string;
+  prNumber?: string;
+  repo?: string;
+  gatesCleared: boolean;
+  prBranch?: string;
+}): Promise<{ line?: string; warning?: string }> {
+  try {
+    if (!opts.prNumber) return {};
+    const rel = `.release-flags/pr-${opts.prNumber}.json`;
+    const abs = join(opts.sandboxRoot, rel);
+    if (!existsSync(abs)) return {};
+    const manifest = JSON.parse(readFileSync(abs, "utf8")) as Record<string, unknown>;
+    const { intent, issues } = normalizeReleaseIntent(manifest.releaseIntent);
+
+    // approvedBy: auto-filled from whoever added the af-approve:* label.
+    if (opts.gatesCleared && !intent.approvedBy) {
+      const actor = await fetchApprovalActor(opts.repo, opts.prNumber, process.env.GITHUB_TOKEN);
+      const rawIntent = (manifest.releaseIntent ?? {}) as Record<string, unknown>;
+      if (actor && !rawIntent.approvedBy) {
+        rawIntent.approvedBy = actor;
+        manifest.releaseIntent = rawIntent;
+        writeFileSync(abs, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+        try {
+          const git = (args: string[]) =>
+            execFileSync("git", args, { cwd: opts.sandboxRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+          git(["config", "user.email", "autofactory@launchdarkly.com"]);
+          git(["config", "user.name", "LaunchDarkly AutoFactory"]);
+          git(["add", rel]);
+          if (git(["diff", "--cached", "--name-only"]).trim()) {
+            git(["commit", "-m", `chore(auto-factory): record approvedBy=${actor} in ${rel}\n\n[skip ci]`]);
+            const branch = opts.prBranch ?? process.env.PR_BRANCH;
+            git(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
+            console.log(`Release intent: recorded approvedBy=${actor} in ${rel}.`);
+          }
+        } catch (e) {
+          console.warn(`Release intent: could not commit approvedBy (non-fatal): ${e instanceof Error ? e.message : e}`);
+        }
+        intent.approvedBy = actor;
+      }
+    }
+
+    const parts: string[] = [];
+    if (!intentIsDefault(intent)) {
+      parts.push(
+        `action=${intent.action}` +
+          (intent.notBefore ? `, notBefore=${intent.notBefore}` : "") +
+          (intent.prerequisites?.length ? `, prerequisites=[${intent.prerequisites.map((x) => x.flagKey).join(", ")}]` : "") +
+          (intent.segments?.length ? `, segments=[${intent.segments.join(", ")}]` : "") +
+          (intent.notes ? `, notes present` : ""),
+      );
+    }
+    if (intent.approvedBy) parts.push(`approved by @${intent.approvedBy}`);
+    if (intent.reference) parts.push(`ref ${intent.reference}`);
+    const line = parts.length ? `**Release intent:** ${parts.join(" — ")}` : undefined;
+    const warning = issues.length
+      ? `release intent in ${rel} needs attention (Beacon will HOLD the release): ${issues.join("; ")}`
+      : undefined;
+    return { ...(line ? { line } : {}), ...(warning ? { warning } : {}) };
+  } catch (e) {
+    console.warn(`Release intent review failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+    return {};
   }
 }
 
@@ -377,6 +453,16 @@ async function main(): Promise<void> {
     });
   }
 
+  // Release intent: validate + surface on the PR; stamp approvedBy on gate clear.
+  const intentReview = await reviewManifestIntent({
+    sandboxRoot,
+    ...(context.PR_NUMBER ? { prNumber: context.PR_NUMBER } : {}),
+    ...(context.REPO ? { repo: context.REPO } : {}),
+    gatesCleared: gate !== undefined && approvedSteps.size > 0,
+    ...(process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {}),
+  });
+  if (intentReview.warning) console.log(`::warning::AutoFactory: ${intentReview.warning}`);
+
   const verdict = interpretWalk(walk.tags);
   const decision = decideApproval(verdict);
 
@@ -408,6 +494,8 @@ async function main(): Promise<void> {
     "",
     `**Verdict:** ${decision.reason}` +
       (policy.mode !== "yolo" ? ` _(approval mode: ${policy.mode}${policy.mode === "risk-threshold" ? ` @ ${policy.threshold}` : ""})_` : ""),
+    intentReview.line ?? "",
+    intentReview.warning ? `**⚠ Release intent:** ${intentReview.warning}` : "",
     walk.skipped.length ? `**Skipped:** ${walk.skipped.join(", ")}` : "",
     stallText ? `**⚠ Stalled:** ${stallText}` : "",
     "",

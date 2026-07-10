@@ -9,6 +9,7 @@
 
 import {
   getReleasePolicy,
+  normalizeReleaseIntent,
   startRelease,
   type DiscoveredFlag,
   type LdClient,
@@ -42,7 +43,13 @@ interface FlagVariations {
 
 export interface TriggerResult {
   flagKey: string;
-  method: ReleaseKind;
+  /**
+   * The release method used, or an intent outcome: "held" (releaseIntent said
+   * hold/manual, a future notBefore, a not-yet-executable ask like segments, or
+   * an unintelligible intent — fail-closed) / "prerequisites" (flag turned on
+   * behind LD prerequisites; it releases when its parents do).
+   */
+  method: ReleaseKind | "held" | "prerequisites";
   note?: string;
 }
 
@@ -51,6 +58,41 @@ export async function triggerRelease(
   flag: DiscoveredFlag,
   environmentKey: string,
 ): Promise<TriggerResult> {
+  // HUMAN release intent (manifest releaseIntent, schema 1.1) is checked FIRST —
+  // it directs everything below. Deterministic normalization only at deploy
+  // time; anything unintelligible or not yet executable fails closed to "held".
+  const { intent, issues } = normalizeReleaseIntent(flag.releaseIntent);
+  const intentContext = [
+    intent.reference ? `ref: ${intent.reference}` : "",
+    intent.approvedBy ? `approved by: ${intent.approvedBy}` : "",
+    intent.notes ? `notes: ${intent.notes.slice(0, 200)}` : "",
+    issues.length ? `intent issues: ${issues.join("; ")}` : "",
+  ].filter(Boolean).join(" | ");
+
+  if (intent.action === "hold" || intent.action === "manual") {
+    return {
+      flagKey: flag.flagKey,
+      method: "held",
+      note: `releaseIntent action=${intent.action} — not auto-released${intentContext ? ` (${intentContext})` : ""}`,
+    };
+  }
+  if (intent.notBefore && new Date(intent.notBefore).getTime() > Date.now()) {
+    return {
+      flagKey: flag.flagKey,
+      method: "held",
+      note: `releaseIntent notBefore=${intent.notBefore} is in the future — not auto-released${intentContext ? ` (${intentContext})` : ""}`,
+    };
+  }
+  if (intent.segments && intent.segments.length > 0) {
+    // Segment-first serving is recorded but not yet executed (LD-native
+    // multi-phase releases will own this) — fail closed rather than guess.
+    return {
+      flagKey: flag.flagKey,
+      method: "held",
+      note: `releaseIntent asks for segment serving [${intent.segments.join(", ")}] — not yet auto-executable${intentContext ? ` (${intentContext})` : ""}`,
+    };
+  }
+
   const { data } = await ld.getFlag<FlagVariations>(flag.flagKey, `?env=${encodeURIComponent(environmentKey)}`);
   const variations = data.variations ?? [];
   const onVar = variations.find((v) => v.value === true);
@@ -66,7 +108,48 @@ export async function triggerRelease(
   // instruction owns the fallthrough, so no traffic shifts except via stages.
   const flagIsOn = data.environments?.[environmentKey]?.on === true;
 
-  // Defaults precedence: .release-flags overrides > the flag's release policy > demo defaults.
+  // Prerequisites intent: LD-native — attach the parent flag(s) as prerequisites
+  // and turn this flag ON serving treatment. It then releases exactly when its
+  // parents do; no automated release is started.
+  if (intent.prerequisites && intent.prerequisites.length > 0) {
+    const instructions: Array<Record<string, unknown>> = [];
+    for (const p of intent.prerequisites) {
+      let parent: { data: FlagVariations };
+      try {
+        parent = await ld.getFlag<FlagVariations>(p.flagKey, `?env=${encodeURIComponent(environmentKey)}`);
+      } catch {
+        return {
+          flagKey: flag.flagKey,
+          method: "held",
+          note: `releaseIntent prerequisite '${p.flagKey}' could not be read — held (fail-closed)${intentContext ? ` (${intentContext})` : ""}`,
+        };
+      }
+      const want = (p.variation ?? "on") === "on";
+      const parentVar = (parent.data.variations ?? []).find((v) => v.value === want);
+      if (!parentVar) {
+        return {
+          flagKey: flag.flagKey,
+          method: "held",
+          note: `releaseIntent prerequisite '${p.flagKey}' has no boolean '${p.variation ?? "on"}' variation — held${intentContext ? ` (${intentContext})` : ""}`,
+        };
+      }
+      instructions.push({ kind: "addPrerequisite", key: p.flagKey, variationId: parentVar._id });
+    }
+    instructions.push({ kind: "turnFlagOn" }, { kind: "updateFallthroughVariationOrRollout", variationId: onVar._id });
+    await ld.patchFlagSemantic(
+      flag.flagKey,
+      environmentKey,
+      instructions,
+      "auto-factory: release via prerequisites (releaseIntent)",
+    );
+    return {
+      flagKey: flag.flagKey,
+      method: "prerequisites",
+      note: `on behind prerequisites [${intent.prerequisites.map((p) => `${p.flagKey}=${p.variation ?? "on"}`).join(", ")}]${intentContext ? ` (${intentContext})` : ""}`,
+    };
+  }
+
+  // Defaults precedence: manifest releasePlan > the flag's release policy > demo defaults.
   let policy: ReleasePolicy | null = null;
   try {
     policy = await getReleasePolicy(ld, flag.flagKey, environmentKey);
@@ -74,7 +157,7 @@ export async function triggerRelease(
     policy = null; // policy read is best-effort; fall back to demo defaults
   }
 
-  const ov = flag.releaseOverrides ?? {};
+  const ov = flag.releasePlan ?? flag.releaseOverrides ?? {};
   const metricKeys = ov.metricKeys ?? policy?.metricKeys ?? [];
   const metricGroupKeys = ov.metricGroupKeys ?? policy?.metricGroupKeys ?? [];
   const hasMetrics = metricKeys.length > 0 || metricGroupKeys.length > 0;

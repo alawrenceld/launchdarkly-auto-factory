@@ -16,6 +16,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { intentSkeleton, normalizeReleaseIntent } from "../releaseIntent.js";
 import type { LdResourceWriter, MetricCategory } from "./ldWriter.js";
 
 export interface AnthropicToolDef {
@@ -177,13 +178,36 @@ export interface ToolCapabilities {
   createMetric: boolean;
   /** Offer `write_file` / `edit_file` / `commit_and_push`. */
   editFiles: boolean;
+  /** Offer `write_manifest` (release manifest create/update; intent-preserving). */
+  writeManifest?: boolean;
+  /** Steward-grade `write_manifest`: may also update an existing releaseIntent. */
+  stewardManifest?: boolean;
 }
+
+const WRITE_MANIFEST_TOOL: AnthropicToolDef = {
+  name: "write_manifest",
+  description:
+    "Create or update the release manifest (.release-flags/pr-<N>.json). Pass only the fields you own — they are MERGED into the existing file (agent fields: flagKey, scope, releasePlan.*). The human-editable releaseIntent block is auto-initialized on first write and PRESERVED on later writes (you cannot overwrite it). The file is validated, written as schema 1.1, and committed to the PR branch automatically — do not also edit it with write_file/edit_file.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "Repo-relative manifest path, e.g. .release-flags/pr-42.json" },
+      manifest: {
+        type: "object",
+        description:
+          "Fields to merge, e.g. {\"flagKey\": \"enable-x\", \"scope\": \"backend\", \"releasePlan\": {\"metricKeys\": [...], \"randomizationUnit\": \"user\"}}",
+      },
+    },
+    required: ["path", "manifest"],
+  },
+};
 
 /** Build the tool set offered to the model for a node, per its capabilities. */
 export function buildSandboxTools(caps: ToolCapabilities): AnthropicToolDef[] {
   const tools = [...READONLY_TOOLS];
   if (caps.createFlag) tools.push(CREATE_FLAG_TOOL);
   if (caps.createMetric) tools.push(CREATE_METRIC_TOOL);
+  if (caps.writeManifest || caps.stewardManifest) tools.push(WRITE_MANIFEST_TOOL);
   if (caps.editFiles) tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, RUN_TESTS_TOOL, COMMIT_PUSH_TOOL);
   return tools;
 }
@@ -241,6 +265,10 @@ export class SandboxToolExecutor {
     private readonly prBaseRef?: string,
     /** Whether commit_and_push commits+pushes or leaves edits in the working tree. */
     private readonly gitMode: GitMode = "push",
+    /** Offer `write_manifest` (intent-preserving release-manifest writes). */
+    private readonly allowWriteManifest = false,
+    /** Steward grade: `write_manifest` may also update an existing releaseIntent. */
+    private readonly stewardManifest = false,
   ) {}
 
   /** Resolve a repo-relative path and reject anything escaping the sandbox root. */
@@ -272,6 +300,8 @@ export class SandboxToolExecutor {
           return await this.createFlag(input);
         case "create_metric":
           return await this.createMetric(input);
+        case "write_manifest":
+          return this.writeManifestTool(String(input.path ?? ""), input.manifest);
         case "write_file":
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
@@ -399,8 +429,117 @@ export class SandboxToolExecutor {
     return { content: result.detail };
   }
 
+  /**
+   * Release-manifest writes: schema-validated, MERGED (never clobbering), with
+   * the human-editable releaseIntent block structurally protected — agents get
+   * create-if-absent semantics; only the steward grade may update an existing
+   * intent. Auto-commits the manifest (with the [skip ci] loop guard) in push
+   * mode; leaves it in the working tree otherwise.
+   */
+  private writeManifestTool(rel: string, incoming: unknown): ToolExecResult {
+    if (!this.allowWriteManifest && !this.stewardManifest) {
+      return { content: "write_manifest is not available", isError: true };
+    }
+    if (!/^\.release-flags\/[A-Za-z0-9._-]+\.json$/.test(rel)) {
+      return { content: `write_manifest: path must be .release-flags/<name>.json (got '${rel}')`, isError: true };
+    }
+    if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+      return { content: "write_manifest: `manifest` must be an object of fields to merge", isError: true };
+    }
+    const abs = this.safeResolve(rel);
+    const inc = incoming as Record<string, unknown>;
+
+    let existing: Record<string, unknown> = {};
+    let existed = false;
+    if (existsSync(abs)) {
+      try {
+        existing = JSON.parse(readFileSync(abs, "utf8")) as Record<string, unknown>;
+        existed = true;
+      } catch {
+        // Corrupt/empty manifest on disk: treat as absent and rebuild it.
+        existing = {};
+      }
+    }
+
+    // releasePlan: merge field-wise; heal the legacy releaseOverrides key.
+    const planOf = (o: Record<string, unknown>): Record<string, unknown> =>
+      ((o.releasePlan ?? o.releaseOverrides) as Record<string, unknown> | undefined) ?? {};
+    const mergedPlan = { ...planOf(existing), ...planOf(inc) };
+
+    // releaseIntent: create-if-absent for agents; steward grade may update it.
+    const existingIntent = existing.releaseIntent as Record<string, unknown> | undefined;
+    let intent: Record<string, unknown>;
+    let intentNote: string;
+    if (existingIntent && !this.stewardManifest) {
+      intent = existingIntent;
+      intentNote = inc.releaseIntent !== undefined ? "releaseIntent PRESERVED (human-owned; your value was ignored)" : "releaseIntent preserved";
+    } else if (inc.releaseIntent && typeof inc.releaseIntent === "object") {
+      intent = inc.releaseIntent as Record<string, unknown>;
+      intentNote = existingIntent ? "releaseIntent updated (steward)" : "releaseIntent set";
+    } else if (existingIntent) {
+      intent = existingIntent;
+      intentNote = "releaseIntent preserved";
+    } else {
+      intent = intentSkeleton();
+      intentNote = "releaseIntent initialized (human-editable skeleton)";
+    }
+
+    const {
+      releasePlan: _ip, releaseOverrides: _io, releaseIntent: _ii, schemaVersion: _iv, ...incRest
+    } = inc;
+    const {
+      releasePlan: _ep, releaseOverrides: _eo, releaseIntent: _ei, schemaVersion: _ev, ...existRest
+    } = existing;
+    const manifest: Record<string, unknown> = {
+      schemaVersion: "1.1",
+      ...existRest,
+      ...incRest,
+      releasePlan: mergedPlan,
+      releaseIntent: intent,
+    };
+
+    // Deterministic intent check — report problems to the agent, never block the write.
+    const { issues } = normalizeReleaseIntent(intent);
+
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+
+    let commitNote = "left in the working tree (review and commit in your editor)";
+    if (this.gitMode === "push") {
+      try {
+        this.runGit(["config", "user.email", "autofactory@launchdarkly.com"]);
+        this.runGit(["config", "user.name", "LaunchDarkly AutoFactory"]);
+        this.runGit(["add", rel]);
+        const staged = this.runGit(["diff", "--cached", "--name-only"]).trim();
+        if (staged) {
+          this.runGit(["commit", "-m", `chore(auto-factory): ${existed ? "update" : "create"} ${rel}\n\n[skip ci]`]);
+          const branch = this.prBranch ?? process.env.PR_BRANCH;
+          this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
+          commitNote = "committed and pushed to the PR branch";
+        } else {
+          commitNote = "no changes (file already up to date)";
+        }
+      } catch (e) {
+        const err = e as { stderr?: Buffer | string; message?: string };
+        return {
+          content: `write_manifest: wrote ${rel} but commit/push failed: ${(err.stderr?.toString() || err.message || String(e)).slice(0, 300)}`,
+          isError: true,
+        };
+      }
+    }
+
+    return {
+      content:
+        `${existed ? "Updated" : "Created"} ${rel} (schema 1.1); ${intentNote}; ${commitNote}.` +
+        (issues.length ? ` Intent issues (informational): ${issues.join("; ")}` : ""),
+    };
+  }
+
   private writeFile(rel: string, content: string): ToolExecResult {
     if (!this.allowEdits) return { content: "write_file is not available", isError: true };
+    if (rel.startsWith(".release-flags/")) {
+      return { content: "write_file: .release-flags/ manifests are managed by the write_manifest tool — use it instead", isError: true };
+    }
     // An empty write is never intentional in this pipeline and has silently
     // produced a 0-byte release manifest (Phase 2's input) that the agent then
     // reported as written. Refuse it so the agent sees the problem and retries.
@@ -430,6 +569,9 @@ export class SandboxToolExecutor {
 
   private editFile(rel: string, oldStr: string, newStr: string): ToolExecResult {
     if (!this.allowEdits) return { content: "edit_file is not available", isError: true };
+    if (rel.startsWith(".release-flags/")) {
+      return { content: "edit_file: .release-flags/ manifests are managed by the write_manifest tool — use it instead", isError: true };
+    }
     if (!oldStr) return { content: "edit_file: old_string is required", isError: true };
     const abs = this.safeResolve(rel);
     const text = readFileSync(abs, "utf8");

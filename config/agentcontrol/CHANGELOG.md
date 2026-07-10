@@ -15,6 +15,31 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-07-10
+
+### ✅ Release intent + manifest steward node (ADR 0009)
+- **New AI config** `autofactory-manifest-steward` (mode agent, Sonnet 4.6):
+  normalizes human edits to the release manifest's `releaseIntent` block —
+  promotes free-text notes ("child of flag-xyz") into structured fields via ONE
+  `write_manifest` call, passes the brief through unchanged, fast no-op on an
+  untouched skeleton, NEVER broadens intent (never hold→auto).
+- **Graph `gha-auto-factory` rewired**: research → **steward** → implementer
+  (was research → implementer). Edges: research→steward `{max_turns: 8,
+  request_type: "Fix", capabilities: ["steward_manifest"], skip_if_tags:
+  {skip_flagging: "true"}}`; steward→implementer carries the implementer's
+  previous grant plus `write_manifest`; implementer→metrics adds `write_manifest`.
+- **Instruction updates**: research planner gains "Release Manifest (create it
+  now)" (creates the manifest + intent skeleton via `write_manifest`); flag
+  implementer gains a manifest-correction section; metrics author's
+  `releaseOverrides` renamed to **`releasePlan`** (legacy key still read/healed).
+- **Registry/tags**: `skip_flagging` edge now research→steward (kind
+  `skip_if_tags`).
+- **Rollout note**: existing installs pick all of this up via the new
+  **`bridge upgrade`** command (provision what's missing + sync existing
+  variation instructions and graph edges to the committed defs; built-in
+  no-op `modelConfigKey` re-PATCH after every instruction update, so the
+  2026-07-08 cost-derivation workaround is automatic).
+
 ## 2026-07-08
 
 ### ✅ Approval policy: three flags compiled into pre-execution gates (ADR 0008)

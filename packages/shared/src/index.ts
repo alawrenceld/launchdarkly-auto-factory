@@ -5,6 +5,7 @@ export * from "./env.js";
 export * from "./config.js";
 export * from "./ldClient.js";
 export * from "./releaseAdapter.js";
+export * from "./releaseIntent.js";
 // Provider-agnostic Phase 1 orchestration, shared by every front end (the
 // GitHub Action and the Cursor extension). Front ends supply the context and a
 // reporter; the walk + approval logic lives here.

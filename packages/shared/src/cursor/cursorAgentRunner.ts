@@ -141,6 +141,9 @@ export class CursorAgentRunner implements AgentRunner {
       createFlag: grant.createFlag && this.opts.writer !== undefined,
       createMetric: grant.createMetric && this.opts.writer !== undefined,
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
+      // Manifest writes are code changes — same global toggle as editFiles.
+      writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
+      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
     };
     console.log(
       `[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} → effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`,
@@ -154,6 +157,8 @@ export class CursorAgentRunner implements AgentRunner {
       this.opts.prBranch,
       this.opts.prBaseRef,
       this.opts.gitMode ?? "push",
+      caps.writeManifest === true && this.opts.codeChangesEnabled === true,
+      caps.stewardManifest === true && this.opts.codeChangesEnabled === true,
     );
     const customTools = toCursorTools(buildSandboxTools(caps), executor);
 

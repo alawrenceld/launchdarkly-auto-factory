@@ -62,3 +62,34 @@ export async function ensureLabel(repo: string | undefined, name: string, token:
     /* best-effort; label may already exist */
   }
 }
+
+/**
+ * Who approved: the GitHub login that last added an `af-approve:*` label to the
+ * PR (from the issue events timeline). Best-effort — undefined on any failure.
+ * Feeds releaseIntent.approvedBy in the manifest.
+ */
+export async function fetchApprovalActor(
+  repo?: string,
+  prNumber?: string,
+  token?: string,
+): Promise<string | undefined> {
+  const t = token ?? process.env.GITHUB_TOKEN;
+  if (!t || !repo || !prNumber) return undefined;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues/${prNumber}/events?per_page=100`, {
+      headers: ghHeaders(t),
+    });
+    if (!res.ok) return undefined;
+    const events = (await res.json()) as Array<{
+      event?: string;
+      label?: { name?: string };
+      actor?: { login?: string };
+    }>;
+    const labeled = events.filter(
+      (e) => e.event === "labeled" && e.label?.name?.startsWith(APPROVE_LABEL_PREFIX) && e.actor?.login,
+    );
+    return labeled.length ? labeled[labeled.length - 1]?.actor?.login : undefined;
+  } catch {
+    return undefined;
+  }
+}

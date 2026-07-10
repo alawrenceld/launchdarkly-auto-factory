@@ -8,7 +8,7 @@
       "edges": [
         {
           "from": "autofactory-research-planner",
-          "to": "autofactory-flag-implementer",
+          "to": "autofactory-manifest-steward",
           "kind": "skip_if_tags"
         }
       ],

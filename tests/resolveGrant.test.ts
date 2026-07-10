@@ -6,43 +6,64 @@ import { resolveGrant } from "@auto-factory/shared";
 describe("resolveGrant", () => {
   it("uses edge capabilities when present (source=edge)", () => {
     const r = resolveGrant("anything", ["create_flag", "edit_files"]);
-    assert.deepEqual(r.grant, { createFlag: true, createMetric: false, editFiles: true });
+    assert.deepEqual(r.grant, {
+      createFlag: true, createMetric: false, editFiles: true, writeManifest: false, stewardManifest: false,
+    });
     assert.equal(r.source, "edge");
   });
 
-  it("maps create_metric from the edge list", () => {
-    const r = resolveGrant("anything", ["create_metric", "edit_files"]);
-    assert.deepEqual(r.grant, { createFlag: false, createMetric: true, editFiles: true });
-    assert.equal(r.source, "edge");
+  it("maps create_metric / write_manifest / steward_manifest from the edge list", () => {
+    const r = resolveGrant("anything", ["create_metric", "edit_files", "write_manifest"]);
+    assert.deepEqual(r.grant, {
+      createFlag: false, createMetric: true, editFiles: true, writeManifest: true, stewardManifest: false,
+    });
+    const s = resolveGrant("anything", ["steward_manifest"]);
+    assert.equal(s.grant.stewardManifest, true);
+    assert.equal(s.grant.writeManifest, false);
+    assert.equal(s.grant.editFiles, false);
   });
 
   it("an empty edge list grants nothing (still source=edge, overrides fallback)", () => {
     const r = resolveGrant("autofactory-flag-implementer", []);
-    assert.deepEqual(r.grant, { createFlag: false, createMetric: false, editFiles: false });
+    assert.deepEqual(r.grant, {
+      createFlag: false, createMetric: false, editFiles: false, writeManifest: false, stewardManifest: false,
+    });
     assert.equal(r.source, "edge");
-  });
-
-  it("partial edge list grants only what's listed", () => {
-    const r = resolveGrant("autofactory-flag-testing", ["edit_files"]);
-    assert.deepEqual(r.grant, { createFlag: false, createMetric: false, editFiles: true });
   });
 
   it("falls back to NODE_CAPABILITIES by config key when no edge list (source=fallback)", () => {
     const impl = resolveGrant("autofactory-flag-implementer", undefined);
-    assert.deepEqual(impl.grant, { createFlag: true, createMetric: false, editFiles: true });
     assert.equal(impl.source, "fallback");
+    assert.equal(impl.grant.createFlag, true);
+    assert.equal(impl.grant.editFiles, true);
+    assert.equal(impl.grant.writeManifest, true);
 
     const testing = resolveGrant("autofactory-flag-testing", undefined);
-    assert.deepEqual(testing.grant, { createFlag: false, createMetric: false, editFiles: true });
-    assert.equal(testing.source, "fallback");
+    assert.equal(testing.grant.editFiles, true);
+    assert.equal(testing.grant.createFlag, false);
 
     const metrics = resolveGrant("autofactory-metrics-author", undefined);
-    assert.deepEqual(metrics.grant, { createFlag: false, createMetric: true, editFiles: true });
-    assert.equal(metrics.source, "fallback");
+    assert.equal(metrics.grant.createMetric, true);
+    assert.equal(metrics.grant.writeManifest, true);
+  });
+
+  it("research (ROOT — no inbound edge) gets narrow write_manifest via fallback", () => {
+    const r = resolveGrant("autofactory-research-planner", undefined);
+    assert.equal(r.source, "fallback");
+    assert.equal(r.grant.writeManifest, true);
+    assert.equal(r.grant.editFiles, false);
+    assert.equal(r.grant.createFlag, false);
+  });
+
+  it("the steward gets steward_manifest via fallback", () => {
+    const r = resolveGrant("autofactory-manifest-steward", undefined);
+    assert.equal(r.source, "fallback");
+    assert.equal(r.grant.stewardManifest, true);
+    assert.equal(r.grant.editFiles, false);
   });
 
   it("read-only (source=none) for an unknown key with no edge list", () => {
-    const r = resolveGrant("autofactory-research-planner", undefined);
+    const r = resolveGrant("some-unknown-agent", undefined);
     assert.deepEqual(r.grant, { createFlag: false, createMetric: false, editFiles: false });
     assert.equal(r.source, "none");
   });

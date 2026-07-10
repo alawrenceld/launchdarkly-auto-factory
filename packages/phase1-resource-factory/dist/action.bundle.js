@@ -33122,7 +33122,8 @@ var init_sdk = __esm({
 
 // src/action.ts
 import { execFileSync as execFileSync3 } from "node:child_process";
-import { resolve as resolve6 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join4, resolve as resolve6 } from "node:path";
 
 // ../shared/dist/env.js
 import { existsSync, readFileSync } from "node:fs";
@@ -33259,6 +33260,15 @@ var LdClient = class {
       body
     });
   }
+  /** Full-object update of an agent graph (the graph API is not JSON Patch). */
+  updateAgentGraph(key, body) {
+    return this.request({
+      method: "PATCH",
+      path: `/api/v2/projects/${this.conn.projectKey}/agent-graphs/${key}`,
+      headers: BETA,
+      body
+    });
+  }
   // --- Flags & metrics ------------------------------------------------------
   /** Create a feature flag. Returns status 409 (not throwing) when it exists. */
   createFlag(body) {
@@ -33305,6 +33315,145 @@ var LdApiError = class extends Error {
     this.name = "LdApiError";
   }
 };
+
+// ../shared/dist/releaseIntent.js
+var INTENT_INSTRUCTIONS = 'Human approver: edit freely. action: auto (release on deploy) | hold (do not release yet) | manual (a human runs the release). Structured fields execute; anything else goes in notes (an agent will structure it on the PR for your review). Blank fields = default auto-release on deploy. prerequisites: [{"flagKey": "flag-xyz", "variation": "on"}]. notBefore: YYYY-MM-DD. reference: ticket/doc URL.';
+function intentSkeleton() {
+  return {
+    _instructions: INTENT_INSTRUCTIONS,
+    action: "auto",
+    notBefore: "",
+    segments: [],
+    prerequisites: [],
+    releaseWith: [],
+    reference: "",
+    approvedBy: "",
+    notes: ""
+  };
+}
+var ACTION_SYNONYMS = {
+  auto: "auto",
+  automatic: "auto",
+  yes: "auto",
+  go: "auto",
+  ship: "auto",
+  release: "auto",
+  proceed: "auto",
+  hold: "hold",
+  pause: "hold",
+  wait: "hold",
+  stop: "hold",
+  block: "hold",
+  "don't": "hold",
+  defer: "hold",
+  manual: "manual",
+  human: "manual",
+  later: "manual",
+  manually: "manual"
+};
+function asStringArray(v) {
+  if (Array.isArray(v)) {
+    return { value: v.filter((s) => typeof s === "string" && s.trim() !== "").map((s) => s.trim()), coerced: false };
+  }
+  if (typeof v === "string" && v.trim() !== "") {
+    return { value: v.split(",").map((s) => s.trim()).filter(Boolean), coerced: true };
+  }
+  return { value: [], coerced: false };
+}
+function normalizePrerequisites(v, issues) {
+  if (v === void 0 || v === null || v === "")
+    return { value: [], coerced: false };
+  const arr = Array.isArray(v) ? v : [v];
+  const out = [];
+  let coerced = !Array.isArray(v);
+  for (const entry of arr) {
+    if (typeof entry === "string" && entry.trim() !== "") {
+      out.push({ flagKey: entry.trim(), variation: "on" });
+      coerced = true;
+    } else if (entry && typeof entry === "object" && typeof entry.flagKey === "string") {
+      const e = entry;
+      const rawVar = String(e.variation ?? "on").toLowerCase().trim();
+      const variation = rawVar === "off" || rawVar === "false" || rawVar === "disabled" ? "off" : "on";
+      if (rawVar !== String(e.variation ?? "on"))
+        coerced = true;
+      out.push({ flagKey: e.flagKey.trim(), variation });
+    } else if (entry !== void 0 && entry !== null && entry !== "") {
+      issues.push(`prerequisites entry not understood: ${JSON.stringify(entry).slice(0, 80)}`);
+    }
+  }
+  return { value: out, coerced };
+}
+function normalizeNotBefore(v, issues) {
+  if (v === void 0 || v === null || v === "")
+    return { value: "", coerced: false };
+  const raw = String(v).trim();
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const iso = parsed.toISOString().slice(0, 10);
+    return { value: iso, coerced: iso !== raw };
+  }
+  issues.push(`notBefore '${raw}' is not a parseable date (use YYYY-MM-DD) \u2014 treated as unintelligible`);
+  return { value: raw, coerced: false };
+}
+function normalizeReleaseIntent(raw) {
+  const issues = [];
+  let healed = false;
+  if (raw === void 0 || raw === null) {
+    return { intent: { action: "auto" }, issues, healed };
+  }
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return {
+      intent: { action: "hold", notes: String(raw) },
+      issues: ["releaseIntent is not an object \u2014 held (fail-closed)"],
+      healed: true
+    };
+  }
+  const o = raw;
+  const rawAction = String(o.action ?? "").toLowerCase().trim();
+  let action;
+  if (rawAction === "") {
+    action = "auto";
+  } else if (ACTION_SYNONYMS[rawAction]) {
+    action = ACTION_SYNONYMS[rawAction];
+    if (rawAction !== action)
+      healed = true;
+  } else {
+    action = "hold";
+    healed = true;
+    issues.push(`action '${o.action}' not understood \u2014 held (fail-closed); use auto | hold | manual`);
+  }
+  const nb = normalizeNotBefore(o.notBefore, issues);
+  if (nb.coerced)
+    healed = true;
+  const segments = asStringArray(o.segments);
+  const releaseWith = asStringArray(o.releaseWith);
+  if (segments.coerced || releaseWith.coerced)
+    healed = true;
+  const prereqIssuesBefore = issues.length;
+  const prereqs = normalizePrerequisites(o.prerequisites, issues);
+  if (prereqs.coerced || issues.length > prereqIssuesBefore)
+    healed = true;
+  if (issues.some((i) => i.startsWith("notBefore")) && action === "auto") {
+    action = "hold";
+  }
+  return {
+    intent: {
+      action,
+      notBefore: nb.value,
+      segments: segments.value,
+      prerequisites: prereqs.value,
+      releaseWith: releaseWith.value,
+      reference: String(o.reference ?? "").trim(),
+      approvedBy: String(o.approvedBy ?? "").trim(),
+      notes: String(o.notes ?? "").trim()
+    },
+    issues,
+    healed
+  };
+}
+function intentIsDefault(intent) {
+  return (intent.action ?? "auto") === "auto" && !intent.notBefore && (intent.segments?.length ?? 0) === 0 && (intent.prerequisites?.length ?? 0) === 0 && (intent.releaseWith?.length ?? 0) === 0 && !(intent.notes ?? "").trim();
+}
 
 // ../shared/dist/graphWalker.js
 function tagsMatch(tags, cond) {
@@ -35978,12 +36127,29 @@ var COMMIT_PUSH_TOOL = {
     required: ["message"]
   }
 };
+var WRITE_MANIFEST_TOOL = {
+  name: "write_manifest",
+  description: "Create or update the release manifest (.release-flags/pr-<N>.json). Pass only the fields you own \u2014 they are MERGED into the existing file (agent fields: flagKey, scope, releasePlan.*). The human-editable releaseIntent block is auto-initialized on first write and PRESERVED on later writes (you cannot overwrite it). The file is validated, written as schema 1.1, and committed to the PR branch automatically \u2014 do not also edit it with write_file/edit_file.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: { type: "string", description: "Repo-relative manifest path, e.g. .release-flags/pr-42.json" },
+      manifest: {
+        type: "object",
+        description: 'Fields to merge, e.g. {"flagKey": "enable-x", "scope": "backend", "releasePlan": {"metricKeys": [...], "randomizationUnit": "user"}}'
+      }
+    },
+    required: ["path", "manifest"]
+  }
+};
 function buildSandboxTools(caps) {
   const tools = [...READONLY_TOOLS];
   if (caps.createFlag)
     tools.push(CREATE_FLAG_TOOL);
   if (caps.createMetric)
     tools.push(CREATE_METRIC_TOOL);
+  if (caps.writeManifest || caps.stewardManifest)
+    tools.push(WRITE_MANIFEST_TOOL);
   if (caps.editFiles)
     tools.push(WRITE_FILE_TOOL, EDIT_FILE_TOOL, RUN_TESTS_TOOL, COMMIT_PUSH_TOOL);
   return tools;
@@ -36004,14 +36170,18 @@ var SandboxToolExecutor = class {
   prBranch;
   prBaseRef;
   gitMode;
+  allowWriteManifest;
+  stewardManifest;
   tags = {};
-  constructor(root, writer, allowEdits = false, prBranch, prBaseRef, gitMode = "push") {
+  constructor(root, writer, allowEdits = false, prBranch, prBaseRef, gitMode = "push", allowWriteManifest = false, stewardManifest = false) {
     this.root = root;
     this.writer = writer;
     this.allowEdits = allowEdits;
     this.prBranch = prBranch;
     this.prBaseRef = prBaseRef;
     this.gitMode = gitMode;
+    this.allowWriteManifest = allowWriteManifest;
+    this.stewardManifest = stewardManifest;
   }
   /** Resolve a repo-relative path and reject anything escaping the sandbox root. */
   safeResolve(rel) {
@@ -36039,6 +36209,8 @@ var SandboxToolExecutor = class {
           return await this.createFlag(input);
         case "create_metric":
           return await this.createMetric(input);
+        case "write_manifest":
+          return this.writeManifestTool(String(input.path ?? ""), input.manifest);
         case "write_file":
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
@@ -36159,9 +36331,100 @@ var SandboxToolExecutor = class {
     this.tags.metric_keys = keys.join(",");
     return { content: result.detail };
   }
+  /**
+   * Release-manifest writes: schema-validated, MERGED (never clobbering), with
+   * the human-editable releaseIntent block structurally protected — agents get
+   * create-if-absent semantics; only the steward grade may update an existing
+   * intent. Auto-commits the manifest (with the [skip ci] loop guard) in push
+   * mode; leaves it in the working tree otherwise.
+   */
+  writeManifestTool(rel, incoming) {
+    if (!this.allowWriteManifest && !this.stewardManifest) {
+      return { content: "write_manifest is not available", isError: true };
+    }
+    if (!/^\.release-flags\/[A-Za-z0-9._-]+\.json$/.test(rel)) {
+      return { content: `write_manifest: path must be .release-flags/<name>.json (got '${rel}')`, isError: true };
+    }
+    if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+      return { content: "write_manifest: `manifest` must be an object of fields to merge", isError: true };
+    }
+    const abs = this.safeResolve(rel);
+    const inc = incoming;
+    let existing = {};
+    let existed = false;
+    if (existsSync2(abs)) {
+      try {
+        existing = JSON.parse(readFileSync2(abs, "utf8"));
+        existed = true;
+      } catch {
+        existing = {};
+      }
+    }
+    const planOf = (o) => o.releasePlan ?? o.releaseOverrides ?? {};
+    const mergedPlan = { ...planOf(existing), ...planOf(inc) };
+    const existingIntent = existing.releaseIntent;
+    let intent;
+    let intentNote;
+    if (existingIntent && !this.stewardManifest) {
+      intent = existingIntent;
+      intentNote = inc.releaseIntent !== void 0 ? "releaseIntent PRESERVED (human-owned; your value was ignored)" : "releaseIntent preserved";
+    } else if (inc.releaseIntent && typeof inc.releaseIntent === "object") {
+      intent = inc.releaseIntent;
+      intentNote = existingIntent ? "releaseIntent updated (steward)" : "releaseIntent set";
+    } else if (existingIntent) {
+      intent = existingIntent;
+      intentNote = "releaseIntent preserved";
+    } else {
+      intent = intentSkeleton();
+      intentNote = "releaseIntent initialized (human-editable skeleton)";
+    }
+    const { releasePlan: _ip, releaseOverrides: _io, releaseIntent: _ii, schemaVersion: _iv, ...incRest } = inc;
+    const { releasePlan: _ep, releaseOverrides: _eo, releaseIntent: _ei, schemaVersion: _ev, ...existRest } = existing;
+    const manifest = {
+      schemaVersion: "1.1",
+      ...existRest,
+      ...incRest,
+      releasePlan: mergedPlan,
+      releaseIntent: intent
+    };
+    const { issues } = normalizeReleaseIntent(intent);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+    let commitNote = "left in the working tree (review and commit in your editor)";
+    if (this.gitMode === "push") {
+      try {
+        this.runGit(["config", "user.email", "autofactory@launchdarkly.com"]);
+        this.runGit(["config", "user.name", "LaunchDarkly AutoFactory"]);
+        this.runGit(["add", rel]);
+        const staged = this.runGit(["diff", "--cached", "--name-only"]).trim();
+        if (staged) {
+          this.runGit(["commit", "-m", `chore(auto-factory): ${existed ? "update" : "create"} ${rel}
+
+[skip ci]`]);
+          const branch = this.prBranch ?? process.env.PR_BRANCH;
+          this.runGit(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
+          commitNote = "committed and pushed to the PR branch";
+        } else {
+          commitNote = "no changes (file already up to date)";
+        }
+      } catch (e) {
+        const err = e;
+        return {
+          content: `write_manifest: wrote ${rel} but commit/push failed: ${(err.stderr?.toString() || err.message || String(e)).slice(0, 300)}`,
+          isError: true
+        };
+      }
+    }
+    return {
+      content: `${existed ? "Updated" : "Created"} ${rel} (schema 1.1); ${intentNote}; ${commitNote}.` + (issues.length ? ` Intent issues (informational): ${issues.join("; ")}` : "")
+    };
+  }
   writeFile(rel, content) {
     if (!this.allowEdits)
       return { content: "write_file is not available", isError: true };
+    if (rel.startsWith(".release-flags/")) {
+      return { content: "write_file: .release-flags/ manifests are managed by the write_manifest tool \u2014 use it instead", isError: true };
+    }
     if (!content.trim()) {
       return {
         content: `write_file: refusing to write empty content to ${rel} \u2014 pass the full file contents in the \`content\` argument`,
@@ -36186,6 +36449,9 @@ var SandboxToolExecutor = class {
   editFile(rel, oldStr, newStr) {
     if (!this.allowEdits)
       return { content: "edit_file is not available", isError: true };
+    if (rel.startsWith(".release-flags/")) {
+      return { content: "edit_file: .release-flags/ manifests are managed by the write_manifest tool \u2014 use it instead", isError: true };
+    }
     if (!oldStr)
       return { content: "edit_file: old_string is required", isError: true };
     const abs = this.safeResolve(rel);
@@ -36471,6 +36737,9 @@ function modeNote(caps) {
   if (caps.createMetric) {
     lines.push("You have `create_metric` \u2014 creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). To make a metric measurable you must FIRST instrument its event in code: add a LaunchDarkly `track(event_key, \u2026)` call on the path the flag wraps (via `edit_file`), then call `create_metric` with the matching `event_key`. Creating the metric before signals flow is expected.");
   }
+  if (caps.writeManifest || caps.stewardManifest) {
+    lines.push(caps.stewardManifest ? "You have `write_manifest` (STEWARD grade): you may create/update the release manifest INCLUDING an existing `releaseIntent` \u2014 you are the only agent allowed to touch a human's intent, and only to normalize/structure it, never to broaden it (e.g. never flip hold\u2192auto)." : "You have `write_manifest` \u2014 create/update the release manifest (.release-flags/pr-<N>.json) by passing only the fields you own (flagKey, scope, releasePlan.*). It merges, auto-initializes the human-editable `releaseIntent` skeleton, PRESERVES any existing intent, and commits automatically. Never write manifests with other tools.");
+  }
   if (caps.editFiles) {
     lines.push("You have `write_file`, `edit_file`, `run_tests`, and `commit_and_push`. EXECUTE your job for real: make the file changes your instructions describe (e.g. wire the flag into the code, or add the test file). If you wrote or changed tests, call `run_tests` to confirm they pass and FIX any failures before committing. Then call `commit_and_push` ONCE to land your changes on the PR branch. Match the existing code patterns you find.");
   } else {
@@ -36483,11 +36752,17 @@ var DEFAULT_MAX_TURNS = 12;
 var MAX_TOKENS = 4096;
 var DEFAULT_MODEL = "claude-sonnet-4-6";
 var NODE_CAPABILITIES = {
-  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true },
+  // ROOT node: edges can't grant capabilities to it (grants ride inbound
+  // handoffs), so the research planner's narrow manifest-write power lives here.
+  "autofactory-research-planner": { createFlag: false, createMetric: false, editFiles: false, writeManifest: true },
+  // The steward normalizes the human-edited releaseIntent — the only node that
+  // may UPDATE an existing intent block.
+  "autofactory-manifest-steward": { createFlag: false, createMetric: false, editFiles: false, stewardManifest: true },
+  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true, writeManifest: true },
   "autofactory-flag-testing": { createFlag: false, createMetric: false, editFiles: true },
   // The metrics author creates LD metrics and instruments the event (track()) that
-  // feeds them — so it needs create_metric AND edit_files.
-  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true }
+  // feeds them — so it needs create_metric AND edit_files (+ manifest updates).
+  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true, writeManifest: true }
 };
 var NODE_REQUIRED_TAGS = {
   // Always decides flag-worthiness AND a numeric risk score — risk-threshold
@@ -36504,13 +36779,17 @@ function missingRequiredTags(configKey, tags) {
 var CAP_CREATE_FLAG = "create_flag";
 var CAP_CREATE_METRIC = "create_metric";
 var CAP_EDIT_FILES = "edit_files";
+var CAP_WRITE_MANIFEST = "write_manifest";
+var CAP_STEWARD_MANIFEST = "steward_manifest";
 function resolveGrant(configKey, capabilities) {
   if (capabilities) {
     return {
       grant: {
         createFlag: capabilities.includes(CAP_CREATE_FLAG),
         createMetric: capabilities.includes(CAP_CREATE_METRIC),
-        editFiles: capabilities.includes(CAP_EDIT_FILES)
+        editFiles: capabilities.includes(CAP_EDIT_FILES),
+        writeManifest: capabilities.includes(CAP_WRITE_MANIFEST),
+        stewardManifest: capabilities.includes(CAP_STEWARD_MANIFEST)
       },
       source: "edge"
     };
@@ -36532,13 +36811,16 @@ var AnthropicAgentRunner = class {
     const caps = {
       createFlag: grant.createFlag && this.opts.writer !== void 0,
       createMetric: grant.createMetric && this.opts.writer !== void 0,
-      editFiles: grant.editFiles && this.opts.codeChangesEnabled === true
+      editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
+      // Manifest writes are code changes — same global toggle as editFiles.
+      writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
+      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true
     };
     console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
     const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
     const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
-    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push");
+    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push", caps.writeManifest === true && this.opts.codeChangesEnabled === true, caps.stewardManifest === true && this.opts.codeChangesEnabled === true);
     const tools = buildSandboxTools(caps);
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
     const messages = [{ role: "user", content: req.prompt }];
@@ -36755,11 +37037,14 @@ var CursorAgentRunner = class {
     const caps = {
       createFlag: grant.createFlag && this.opts.writer !== void 0,
       createMetric: grant.createMetric && this.opts.writer !== void 0,
-      editFiles: grant.editFiles && this.opts.codeChangesEnabled === true
+      editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
+      // Manifest writes are code changes — same global toggle as editFiles.
+      writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
+      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true
     };
     console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
     const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
-    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push");
+    const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push", caps.writeManifest === true && this.opts.codeChangesEnabled === true, caps.stewardManifest === true && this.opts.codeChangesEnabled === true);
     const customTools = toCursorTools(buildSandboxTools(caps), executor);
     const catalog = await this.loadCatalog();
     const match = mapToCursorModel(req.model, catalog, this.fallbackModel);
@@ -37215,6 +37500,23 @@ async function ensureLabel(repo, name, token) {
   } catch {
   }
 }
+async function fetchApprovalActor(repo, prNumber, token) {
+  const t = token ?? process.env.GITHUB_TOKEN;
+  if (!t || !repo || !prNumber) return void 0;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues/${prNumber}/events?per_page=100`, {
+      headers: ghHeaders(t)
+    });
+    if (!res.ok) return void 0;
+    const events = await res.json();
+    const labeled = events.filter(
+      (e) => e.event === "labeled" && e.label?.name?.startsWith(APPROVE_LABEL_PREFIX) && e.actor?.login
+    );
+    return labeled.length ? labeled[labeled.length - 1]?.actor?.login : void 0;
+  } catch {
+    return void 0;
+  }
+}
 
 // src/prContext.ts
 import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
@@ -37322,6 +37624,56 @@ function checkoutHeadSha(root) {
     return execFileSync3("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   } catch {
     return void 0;
+  }
+}
+async function reviewManifestIntent(opts) {
+  try {
+    if (!opts.prNumber) return {};
+    const rel = `.release-flags/pr-${opts.prNumber}.json`;
+    const abs = join4(opts.sandboxRoot, rel);
+    if (!existsSync4(abs)) return {};
+    const manifest = JSON.parse(readFileSync4(abs, "utf8"));
+    const { intent, issues } = normalizeReleaseIntent(manifest.releaseIntent);
+    if (opts.gatesCleared && !intent.approvedBy) {
+      const actor = await fetchApprovalActor(opts.repo, opts.prNumber, process.env.GITHUB_TOKEN);
+      const rawIntent = manifest.releaseIntent ?? {};
+      if (actor && !rawIntent.approvedBy) {
+        rawIntent.approvedBy = actor;
+        manifest.releaseIntent = rawIntent;
+        writeFileSync2(abs, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+        try {
+          const git2 = (args) => execFileSync3("git", args, { cwd: opts.sandboxRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+          git2(["config", "user.email", "autofactory@launchdarkly.com"]);
+          git2(["config", "user.name", "LaunchDarkly AutoFactory"]);
+          git2(["add", rel]);
+          if (git2(["diff", "--cached", "--name-only"]).trim()) {
+            git2(["commit", "-m", `chore(auto-factory): record approvedBy=${actor} in ${rel}
+
+[skip ci]`]);
+            const branch = opts.prBranch ?? process.env.PR_BRANCH;
+            git2(branch ? ["push", "origin", `HEAD:${branch}`] : ["push"]);
+            console.log(`Release intent: recorded approvedBy=${actor} in ${rel}.`);
+          }
+        } catch (e) {
+          console.warn(`Release intent: could not commit approvedBy (non-fatal): ${e instanceof Error ? e.message : e}`);
+        }
+        intent.approvedBy = actor;
+      }
+    }
+    const parts = [];
+    if (!intentIsDefault(intent)) {
+      parts.push(
+        `action=${intent.action}` + (intent.notBefore ? `, notBefore=${intent.notBefore}` : "") + (intent.prerequisites?.length ? `, prerequisites=[${intent.prerequisites.map((x) => x.flagKey).join(", ")}]` : "") + (intent.segments?.length ? `, segments=[${intent.segments.join(", ")}]` : "") + (intent.notes ? `, notes present` : "")
+      );
+    }
+    if (intent.approvedBy) parts.push(`approved by @${intent.approvedBy}`);
+    if (intent.reference) parts.push(`ref ${intent.reference}`);
+    const line = parts.length ? `**Release intent:** ${parts.join(" \u2014 ")}` : void 0;
+    const warning = issues.length ? `release intent in ${rel} needs attention (Beacon will HOLD the release): ${issues.join("; ")}` : void 0;
+    return { ...line ? { line } : {}, ...warning ? { warning } : {} };
+  } catch (e) {
+    console.warn(`Release intent review failed (non-fatal): ${e instanceof Error ? e.message : e}`);
+    return {};
   }
 }
 function describeStall(stall) {
@@ -37463,6 +37815,14 @@ async function main() {
       summary: `Approved step(s): ${[...approvedSteps].join(", ") || "(none gated this run)"}. The chain proceeded past all gates.`
     });
   }
+  const intentReview = await reviewManifestIntent({
+    sandboxRoot,
+    ...context.PR_NUMBER ? { prNumber: context.PR_NUMBER } : {},
+    ...context.REPO ? { repo: context.REPO } : {},
+    gatesCleared: gate !== void 0 && approvedSteps.size > 0,
+    ...process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {}
+  });
+  if (intentReview.warning) console.log(`::warning::AutoFactory: ${intentReview.warning}`);
   const verdict = interpretWalk(walk2.tags);
   const decision = decideApproval(verdict);
   console.log(`Verdict \u2192 ${decision.reason}`);
@@ -37484,6 +37844,8 @@ async function main() {
     "### LaunchDarkly Auto-Factory \u2014 Phase 1",
     "",
     `**Verdict:** ${decision.reason}` + (policy.mode !== "yolo" ? ` _(approval mode: ${policy.mode}${policy.mode === "risk-threshold" ? ` @ ${policy.threshold}` : ""})_` : ""),
+    intentReview.line ?? "",
+    intentReview.warning ? `**\u26A0 Release intent:** ${intentReview.warning}` : "",
     walk2.skipped.length ? `**Skipped:** ${walk2.skipped.join(", ")}` : "",
     stallText ? `**\u26A0 Stalled:** ${stallText}` : "",
     "",
