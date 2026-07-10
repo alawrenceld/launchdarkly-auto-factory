@@ -12,7 +12,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { LdApiError, LdClient } from "@auto-factory/shared";
+import { computeConfigHash, stampDescription, type LdApiError, type LdClient } from "@auto-factory/shared";
 
 /** Fields the variation POST accepts; copy whichever are present. */
 const VAR_FIELDS = [
@@ -171,6 +171,7 @@ async function provisionGraph(
   g: AgentGraphFile,
   result: ProvisionResult,
   dryRun: boolean,
+  configHash?: string,
 ): Promise<void> {
   const existing = await ld.getAgentGraph(g.key);
   if (existing.status === 200) {
@@ -180,7 +181,9 @@ async function provisionGraph(
   const body = {
     key: g.key,
     name: g.name,
-    description: g.description ?? "",
+    // The [cfg:…] stamp records which repo version provisioned this project;
+    // the GHA action compares it against its own checkout to warn on drift.
+    description: configHash ? stampDescription(g.description, configHash) : (g.description ?? ""),
     ...(g.rootConfigKey ? { rootConfigKey: g.rootConfigKey } : {}),
     edges: (g.edges ?? []).map((e) => ({
       key: e.key,
@@ -247,9 +250,14 @@ export async function provision(ld: LdClient, opts: ProvisionOptions): Promise<P
     await provisionAiConfig(ld, cfg, result, dryRun);
   }
   // Graphs after configs — they reference config keys.
+  const configHash = computeConfigHash({
+    aiConfigsDir: opts.aiConfigsDir,
+    graphsDir: opts.graphsDir,
+    flagsDir: opts.flagsDir ?? "config/agentcontrol/flags",
+  });
   for (const file of listJson(opts.graphsDir)) {
     const g = JSON.parse(readFileSync(file, "utf8")) as AgentGraphFile;
-    await provisionGraph(ld, g, result, dryRun);
+    await provisionGraph(ld, g, result, dryRun, configHash);
   }
   // Operational flags (provider selector, approval gates). Always from the
   // repo's committed defs, so this runs for both `provision` and `seed`.

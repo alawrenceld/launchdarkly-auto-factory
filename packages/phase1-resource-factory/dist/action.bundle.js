@@ -26733,10 +26733,10 @@ async function setupSkills(ctx) {
     try {
       const versionId = await resolveSkillVersion(client, skill.skill_id, skill.version);
       const version = await client.beta.skills.versions.retrieve(versionId, { skill_id: skill.skill_id });
-      let dirname5 = path3.basename(version.name.trim());
-      if (dirname5 === "" || dirname5 === "." || dirname5 === "..")
-        dirname5 = skill.skill_id;
-      const dest = path3.resolve(skillsRoot, dirname5);
+      let dirname6 = path3.basename(version.name.trim());
+      if (dirname6 === "" || dirname6 === "." || dirname6 === "..")
+        dirname6 = skill.skill_id;
+      const dest = path3.resolve(skillsRoot, dirname6);
       if (dest !== skillsRoot && !dest.startsWith(skillsRoot + path3.sep)) {
         log.warn("skill name escapes the skills dir; skipping", {
           component: "agent-tool-context",
@@ -33122,8 +33122,9 @@ var init_sdk = __esm({
 
 // src/action.ts
 import { execFileSync as execFileSync3 } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "node:fs";
-import { join as join4, resolve as resolve6 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname5, join as join5, resolve as resolve6 } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ../shared/dist/env.js
 import { existsSync, readFileSync } from "node:fs";
@@ -33155,6 +33156,14 @@ function required(name) {
   if (!v)
     throw new Error(`Missing required env var: ${name}`);
   return v;
+}
+function targetConnection() {
+  loadDotEnv();
+  return {
+    apiKey: required("LD_API_KEY"),
+    baseUrl: (process.env.LD_BASE_URL || "https://app.launchdarkly.com").replace(/\/+$/, ""),
+    projectKey: required("LD_PROJECT_KEY")
+  };
 }
 function appConnection() {
   loadDotEnv();
@@ -33474,6 +33483,40 @@ function normalizeReleaseIntent(raw) {
 }
 function intentIsDefault(intent) {
   return (intent.action ?? "auto") === "auto" && !intent.notBefore && (intent.segments?.length ?? 0) === 0 && (intent.prerequisites?.length ?? 0) === 0 && (intent.releaseWith?.length ?? 0) === 0 && !(intent.notes ?? "").trim();
+}
+
+// ../shared/dist/configVersion.js
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync as readFileSync2 } from "node:fs";
+import { join } from "node:path";
+var STAMP_RE = /\s*\[cfg:([0-9a-f]{12})\]/;
+function computeConfigHash(dirs) {
+  const sources = [
+    ["ai-configs", dirs.aiConfigsDir],
+    ["graphs", dirs.graphsDir],
+    ["flags", dirs.flagsDir]
+  ];
+  const h = createHash("sha256");
+  let files = 0;
+  for (const [label, dir] of sources) {
+    let names;
+    try {
+      names = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      h.update(`${label}/${name}
+`);
+      h.update(readFileSync2(join(dir, name)));
+      h.update("\n");
+      files += 1;
+    }
+  }
+  return files ? h.digest("hex").slice(0, 12) : void 0;
+}
+function extractConfigStamp(description) {
+  return description?.match(STAMP_RE)?.[1];
 }
 
 // ../shared/dist/graphWalker.js
@@ -36017,7 +36060,7 @@ async function resolveAiProvider(ldClient, context, flagKey = PROVIDER_FLAG_KEY)
 
 // ../shared/dist/anthropic/sandboxTools.js
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync3, readdirSync as readdirSync2, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve as resolve2, sep } from "node:path";
 var READONLY_TOOLS = [
   {
@@ -36249,7 +36292,7 @@ var SandboxToolExecutor = class {
   }
   readFile(rel) {
     const abs = this.safeResolve(rel);
-    const buf = readFileSync2(abs);
+    const buf = readFileSync3(abs);
     if (buf.byteLength > MAX_FILE_BYTES) {
       return `${buf.subarray(0, MAX_FILE_BYTES).toString("utf8")}
 \u2026[truncated at ${MAX_FILE_BYTES} bytes]`;
@@ -36258,7 +36301,7 @@ var SandboxToolExecutor = class {
   }
   listDir(rel) {
     const abs = this.safeResolve(rel);
-    const entries = readdirSync(abs, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name)).map((e) => e.isDirectory() ? `${e.name}/` : e.name).sort();
+    const entries = readdirSync2(abs, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name)).map((e) => e.isDirectory() ? `${e.name}/` : e.name).sort();
     return entries.length ? entries.join("\n") : "(empty)";
   }
   grep(pattern, rel) {
@@ -36268,7 +36311,7 @@ var SandboxToolExecutor = class {
     const walk2 = (dir) => {
       if (matches.length >= MAX_GREP_MATCHES)
         return;
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      for (const entry of readdirSync2(dir, { withFileTypes: true })) {
         if (matches.length >= MAX_GREP_MATCHES)
           return;
         if (SKIP_DIRS.has(entry.name))
@@ -36279,7 +36322,7 @@ var SandboxToolExecutor = class {
         } else if (entry.isFile() && statSync(abs).size <= MAX_FILE_BYTES) {
           let text;
           try {
-            text = readFileSync2(abs, "utf8");
+            text = readFileSync3(abs, "utf8");
           } catch {
             continue;
           }
@@ -36375,7 +36418,7 @@ var SandboxToolExecutor = class {
     let existed = false;
     if (existsSync2(abs)) {
       try {
-        existing = JSON.parse(readFileSync2(abs, "utf8"));
+        existing = JSON.parse(readFileSync3(abs, "utf8"));
         existed = true;
       } catch {
         existing = {};
@@ -36476,7 +36519,7 @@ var SandboxToolExecutor = class {
     if (!oldStr)
       return { content: "edit_file: old_string is required", isError: true };
     const abs = this.safeResolve(rel);
-    const text = readFileSync2(abs, "utf8");
+    const text = readFileSync3(abs, "utf8");
     const idx = text.indexOf(oldStr);
     if (idx === -1)
       return { content: `edit_file: old_string not found in ${rel}`, isError: true };
@@ -36540,7 +36583,7 @@ ${s.slice(-15e3)}` : s;
     const has2 = (f) => existsSync2(resolve2(cwd, f));
     let entries = [];
     try {
-      entries = readdirSync(cwd);
+      entries = readdirSync2(cwd);
     } catch {
     }
     const where = dir || ".";
@@ -37540,7 +37583,7 @@ async function fetchApprovalActor(repo, prNumber, token) {
 }
 
 // src/prContext.ts
-import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync4 } from "node:fs";
 function assemblePrContext() {
   const ctx = {
     REPO: process.env.GITHUB_REPOSITORY,
@@ -37549,7 +37592,7 @@ function assemblePrContext() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (eventPath && existsSync3(eventPath)) {
     try {
-      const event = JSON.parse(readFileSync3(eventPath, "utf8"));
+      const event = JSON.parse(readFileSync4(eventPath, "utf8"));
       const pr = event.pull_request;
       if (pr) {
         if (pr.number !== void 0) ctx.PR_NUMBER = String(pr.number);
@@ -37651,9 +37694,9 @@ async function reviewManifestIntent(opts) {
   try {
     if (!opts.prNumber) return {};
     const rel = `.release-flags/pr-${opts.prNumber}.json`;
-    const abs = join4(opts.sandboxRoot, rel);
+    const abs = join5(opts.sandboxRoot, rel);
     if (!existsSync4(abs)) return {};
-    const manifest = JSON.parse(readFileSync4(abs, "utf8"));
+    const manifest = JSON.parse(readFileSync5(abs, "utf8"));
     const { intent, issues } = normalizeReleaseIntent(manifest.releaseIntent);
     if (opts.gatesCleared && !intent.approvedBy) {
       const actor = await fetchApprovalActor(opts.repo, opts.prNumber, process.env.GITHUB_TOKEN);
@@ -37756,6 +37799,26 @@ function mapActionInputs() {
   set("VEGA_AUTH_HEADER", "vega_auth_header");
   set("VEGA_REQUEST_TYPE", "vega_request_type");
 }
+async function detectConfigDrift(graphKey) {
+  try {
+    const repoRoot = resolve6(dirname5(fileURLToPath(import.meta.url)), "../../..");
+    const base = join5(repoRoot, "config", "agentcontrol");
+    const local = computeConfigHash({
+      aiConfigsDir: join5(base, "ai-configs"),
+      graphsDir: join5(base, "graphs"),
+      flagsDir: join5(base, "flags")
+    });
+    if (!local) return void 0;
+    const graph = await new LdClient(targetConnection()).getAgentGraph(graphKey);
+    if (graph.status !== 200) return void 0;
+    const stamp = extractConfigStamp(graph.data.description);
+    if (stamp === local) return void 0;
+    const fix = "run `npm run bridge -- upgrade` from the tooling repo to sync your LaunchDarkly configs";
+    return stamp ? `LaunchDarkly configs were provisioned from a different repo version (project has cfg:${stamp}, this action expects cfg:${local}) \u2014 ${fix}.` : `LaunchDarkly configs pre-date version stamping (no [cfg:\u2026] marker on graph '${graphKey}') \u2014 ${fix}; it also stamps the version for this check.`;
+  } catch {
+    return void 0;
+  }
+}
 async function main() {
   mapActionInputs();
   const context = assemblePrContext();
@@ -37771,6 +37834,8 @@ async function main() {
   }
   const graphTracker = graphDef.createTracker();
   console.log(`Phase 1: PR #${context.PR_NUMBER ?? "?"} \u2192 graph '${graphKey}' [provider: ${provider}]`);
+  const configDrift = await detectConfigDrift(graphKey);
+  if (configDrift) console.log(`::warning::AutoFactory: ${configDrift}`);
   const runner = createAgentRunner(provider);
   const policy = await resolveApprovalPolicy(ldClient, ldContext);
   let approvedSteps = /* @__PURE__ */ new Set();
@@ -37867,6 +37932,7 @@ async function main() {
     `**Verdict:** ${decision.reason}` + (policy.mode !== "yolo" ? ` _(approval mode: ${policy.mode}${policy.mode === "risk-threshold" ? ` @ ${policy.threshold}` : ""})_` : ""),
     intentReview.line ?? "",
     intentReview.warning ? `**\u26A0 Release intent:** ${intentReview.warning}` : "",
+    configDrift ? `**\u26A0 Config drift:** ${configDrift}` : "",
     walk2.skipped.length ? `**Skipped:** ${walk2.skipped.join(", ")}` : "",
     stallText ? `**\u26A0 Stalled:** ${stallText}` : "",
     "",

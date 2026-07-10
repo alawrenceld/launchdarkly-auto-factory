@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
 
-import type { LdClient } from "@auto-factory/shared";
+import { computeConfigHash, stampDescription, type LdClient } from "@auto-factory/shared";
 import { upgrade } from "@auto-factory/config-bridge";
 
 /** Fake LdClient capturing writes; live state provided per-test. */
@@ -136,22 +136,40 @@ describe("bridge upgrade", () => {
       edges: [{ key: "e1", sourceConfig: "research", targetConfig: "steward", handoff: { max_turns: 8 } }],
     };
     const dirs = writeDirs("graph", { graphs: { g1: committedGraph } });
+    const stamp = stampDescription(undefined, computeConfigHash(dirs)!);
 
-    // Same owned shape, plus API metadata → NO update.
+    // Same owned shape + current stamp, plus API metadata → NO update.
     const same = fakeLd({
-      graphs: { g1: { rootConfigKey: "research", edges: [{ key: "e1", sourceConfig: "research", targetConfig: "steward", handoff: { max_turns: 8 } }], _links: {}, version: 3 } as never },
+      graphs: { g1: { rootConfigKey: "research", description: stamp, edges: [{ key: "e1", sourceConfig: "research", targetConfig: "steward", handoff: { max_turns: 8 } }], _links: {}, version: 3 } as never },
     });
     assert.deepEqual((await upgrade(same.ld, dirs)).graphsUpdated, []);
 
-    // Drifted handoff → full-object PATCH.
+    // Drifted handoff → full-object PATCH carrying the committed edges + stamp.
     const drifted = fakeLd({
-      graphs: { g1: { rootConfigKey: "research", edges: [{ key: "e1", sourceConfig: "research", targetConfig: "implementer", handoff: {} }] } },
+      graphs: { g1: { rootConfigKey: "research", description: stamp, edges: [{ key: "e1", sourceConfig: "research", targetConfig: "implementer", handoff: {} }] } },
     });
     const r = await upgrade(drifted.ld, dirs);
     assert.deepEqual(r.graphsUpdated, ["g1"]);
     const patch = drifted.calls.find((c) => c.op === "updateAgentGraph")!;
     assert.equal(patch.args[0], "g1");
     assert.deepEqual((patch.args[1] as { edges: unknown[] }).edges, committedGraph.edges);
+    assert.equal((patch.args[1] as { description: string }).description, stamp);
+  });
+
+  it("re-stamps a graph whose shape is current but whose [cfg:…] stamp is stale or missing", async () => {
+    const committedGraph = {
+      key: "g1", name: "G", description: "Pipeline",
+      rootConfigKey: "research",
+      edges: [{ key: "e1", sourceConfig: "research", targetConfig: "steward", handoff: {} }],
+    };
+    const dirs = writeDirs("stamp", { graphs: { g1: committedGraph } });
+    const { ld, calls } = fakeLd({
+      graphs: { g1: { rootConfigKey: "research", description: "Pipeline [cfg:000000000000]", edges: committedGraph.edges } },
+    });
+    const r = await upgrade(ld, dirs);
+    assert.deepEqual(r.graphsUpdated, ["g1"]);
+    const desc = (calls.find((c) => c.op === "updateAgentGraph")!.args[1] as { description: string }).description;
+    assert.equal(desc, stampDescription("Pipeline", computeConfigHash(dirs)!));
   });
 
   it("existing flags: value drift reported, never written; missing flags created", async () => {

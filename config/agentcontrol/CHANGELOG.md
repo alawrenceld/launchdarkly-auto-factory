@@ -39,6 +39,12 @@ Status legend: ✅ done · 🔜 planned/in progress
   variation instructions and graph edges to the committed defs; built-in
   no-op `modelConfigKey` re-PATCH after every instruction update, so the
   2026-07-08 cost-derivation workaround is automatic).
+- **Config-version stamp**: provision/upgrade now append a `[cfg:<hash>]`
+  marker to the `gha-auto-factory` graph **description** (hash of the
+  committed ai-configs/graphs/flags). The GHA action compares it against its
+  own checkout at chain start and warns on drift (Actions log + PR summary
+  comment). UI instruction edits don't affect the stamp — it tracks which
+  repo version last provisioned the project, not live content.
 
 ## 2026-07-08
 

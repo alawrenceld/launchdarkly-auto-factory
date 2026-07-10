@@ -24,7 +24,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { LdApiError, LdClient } from "@auto-factory/shared";
+import { computeConfigHash, stampDescription, type LdApiError, type LdClient } from "@auto-factory/shared";
 import { provision, type ProvisionResult } from "./provision.js";
 
 interface CommittedVariation {
@@ -133,18 +133,27 @@ export async function upgrade(ld: LdClient, opts: UpgradeOptions): Promise<Upgra
     }
   }
 
-  // Phase 2b: full-object PATCH graphs whose owned shape drifted.
+  // Phase 2b: full-object PATCH graphs whose owned shape drifted — or whose
+  // [cfg:…] stamp is stale. The stamp certifies "provisioned at repo version X",
+  // so it must refresh on EVERY upgrade that syncs content, even when the graph
+  // shape itself is unchanged (e.g. instruction-only updates).
+  const configHash = computeConfigHash({
+    aiConfigsDir: opts.aiConfigsDir,
+    graphsDir: opts.graphsDir,
+    flagsDir: opts.flagsDir ?? "config/agentcontrol/flags",
+  });
   for (const file of listJson(opts.graphsDir)) {
     const g = JSON.parse(readFileSync(file, "utf8")) as GraphFile;
     try {
-      const live = await ld.getAgentGraph<{ rootConfigKey?: string; edges?: unknown[] }>(g.key);
+      const live = await ld.getAgentGraph<{ rootConfigKey?: string; edges?: unknown[]; description?: string }>(g.key);
       if (live.status !== 200) continue; // created (or failed) in phase 1
-      if (ownedGraphShape(g) === ownedGraphShape(live.data)) continue;
+      const targetDesc = configHash ? stampDescription(g.description, configHash) : (g.description ?? "");
+      if (ownedGraphShape(g) === ownedGraphShape(live.data) && (live.data.description ?? "") === targetDesc) continue;
       if (!dryRun) {
         await ld.updateAgentGraph(g.key, {
           key: g.key,
           name: g.name,
-          description: g.description ?? "",
+          description: targetDesc,
           ...(g.rootConfigKey ? { rootConfigKey: g.rootConfigKey } : {}),
           edges: (g.edges ?? []).map((e) => ({ key: e.key, sourceConfig: e.sourceConfig, targetConfig: e.targetConfig, handoff: e.handoff ?? {} })),
         });

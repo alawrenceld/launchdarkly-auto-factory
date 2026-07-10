@@ -10,7 +10,8 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   type AgentRunner,
   AnthropicAgentRunner,
@@ -31,8 +32,10 @@ import {
   type VegaTransport,
   appConnection,
   closeLdSdk,
+  computeConfigHash,
   createPolicyGate,
   decideApproval,
+  extractConfigStamp,
   getLdSdk,
   interpretWalk,
   intentIsDefault,
@@ -40,6 +43,7 @@ import {
   pipelineContext,
   resolveAiProvider,
   resolveApprovalPolicy,
+  targetConnection,
   walkGraph,
 } from "@auto-factory/shared";
 import { postCheckRun } from "./checkRun.js";
@@ -327,6 +331,38 @@ function mapActionInputs(): void {
   set("VEGA_REQUEST_TYPE", "vega_request_type");
 }
 
+/**
+ * Config-drift check: this action runs from a checkout of the tooling repo
+ * (the `uses:` ref pulls the whole repo), so it can hash the committed
+ * config/agentcontrol files three levels up and compare against the
+ * `[cfg:…]` stamp that provision/upgrade write onto the live graph's
+ * description. A mismatch is the "new runtime, stale configs" mixed state —
+ * agent instructions that don't know about the runtime's tools. Best-effort:
+ * never blocks the run.
+ */
+async function detectConfigDrift(graphKey: string): Promise<string | undefined> {
+  try {
+    const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const base = join(repoRoot, "config", "agentcontrol");
+    const local = computeConfigHash({
+      aiConfigsDir: join(base, "ai-configs"),
+      graphsDir: join(base, "graphs"),
+      flagsDir: join(base, "flags"),
+    });
+    if (!local) return undefined; // no repo checkout alongside the bundle — nothing to compare
+    const graph = await new LdClient(targetConnection()).getAgentGraph<{ description?: string }>(graphKey);
+    if (graph.status !== 200) return undefined;
+    const stamp = extractConfigStamp(graph.data.description);
+    if (stamp === local) return undefined;
+    const fix = "run `npm run bridge -- upgrade` from the tooling repo to sync your LaunchDarkly configs";
+    return stamp
+      ? `LaunchDarkly configs were provisioned from a different repo version (project has cfg:${stamp}, this action expects cfg:${local}) — ${fix}.`
+      : `LaunchDarkly configs pre-date version stamping (no [cfg:…] marker on graph '${graphKey}') — ${fix}; it also stamps the version for this check.`;
+  } catch {
+    return undefined;
+  }
+}
+
 async function main(): Promise<void> {
   mapActionInputs();
   const context = assemblePrContext();
@@ -349,6 +385,11 @@ async function main(): Promise<void> {
   const graphTracker = graphDef.createTracker();
 
   console.log(`Phase 1: PR #${context.PR_NUMBER ?? "?"} → graph '${graphKey}' [provider: ${provider}]`);
+
+  // Emit the drift warning up front so it lands even when the run later halts
+  // at an approval gate or fails; it also joins the PR summary comment below.
+  const configDrift = await detectConfigDrift(graphKey);
+  if (configDrift) console.log(`::warning::AutoFactory: ${configDrift}`);
 
   const runner = createAgentRunner(provider);
 
@@ -496,6 +537,7 @@ async function main(): Promise<void> {
       (policy.mode !== "yolo" ? ` _(approval mode: ${policy.mode}${policy.mode === "risk-threshold" ? ` @ ${policy.threshold}` : ""})_` : ""),
     intentReview.line ?? "",
     intentReview.warning ? `**⚠ Release intent:** ${intentReview.warning}` : "",
+    configDrift ? `**⚠ Config drift:** ${configDrift}` : "",
     walk.skipped.length ? `**Skipped:** ${walk.skipped.join(", ")}` : "",
     stallText ? `**⚠ Stalled:** ${stallText}` : "",
     "",

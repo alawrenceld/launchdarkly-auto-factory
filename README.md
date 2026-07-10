@@ -103,6 +103,13 @@ agent *instructions* to the committed copies. It never touches your flag targeti
 choices, or variations it doesn't recognize (e.g. an A/B arm you added) — drift there is
 reported, not overwritten.
 
+You don't have to remember to run it: `provision`/`upgrade` stamp a config-version marker
+(`[cfg:…]`) on the agent graph's description, and the action compares it against its own
+checkout at the start of every run. When your LD configs fall behind the action code, the
+run warns — in the Actions log and the PR summary comment — and points you back at
+`upgrade`. Editing agent instructions in the LD UI does *not* trip the warning; the stamp
+tracks which repo version last provisioned the project, not live content.
+
 ### 2. Add the workflow to your app repo
 
 Copy `bootstrap/github-action-template/auto-factory.yml` into your app repo at
