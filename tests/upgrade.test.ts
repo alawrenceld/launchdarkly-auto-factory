@@ -10,7 +10,7 @@ import { upgrade } from "@auto-factory/config-bridge";
 /** Fake LdClient capturing writes; live state provided per-test. */
 function fakeLd(liveState: {
   configs?: Record<string, { variations: Array<Record<string, unknown>> }>;
-  graphs?: Record<string, { rootConfigKey?: string; edges?: unknown[] }>;
+  graphs?: Record<string, { rootConfigKey?: string; description?: string; edges?: unknown[] }>;
   flags?: Record<string, { variations?: Array<{ value: unknown }> }>;
 }) {
   const calls: Array<{ op: string; args: unknown[] }> = [];
