@@ -45,6 +45,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
+      # Optional: the knowledge graph (auto-factory-knowledge-graph flag) uses
+      # ld-find-code-refs at the PR SHA for flag→code wrap-point edges. Without
+      # the binary the run still succeeds — it just warns and skips that source.
+      - name: Install ld-find-code-refs (knowledge-graph wrap points)
+        continue-on-error: true
+        run: |
+          curl -fsSL https://github.com/launchdarkly/ld-find-code-refs/releases/download/v2.14.0/ld-find-code-refs_2.14.0_linux_amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin ld-find-code-refs
+
       - name: LaunchDarkly Auto-Factory Phase 1
         # Replace <owner> with the org or user hosting the auto-factory repo.
         uses: <owner>/launchdarkly-auto-factory/packages/phase1-resource-factory@main

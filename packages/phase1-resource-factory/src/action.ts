@@ -15,7 +15,10 @@ import { fileURLToPath } from "node:url";
 import {
   type AgentRunner,
   AnthropicAgentRunner,
+  type AssembledGraph,
   CursorAgentRunner,
+  KNOWLEDGE_GRAPH_FLAG_KEY,
+  assembleKnowledgeGraph,
   GraphQLVegaTransport,
   type JudgeCompletion,
   type JudgeHook,
@@ -88,8 +91,9 @@ function createVegaClient(): VegaClient {
  * Flag creation is enabled (real `create_flag` against the app project) when
  * ENABLE_FLAG_CREATION=true and an api- key is present; otherwise read-only.
  */
-function createAgentRunner(provider: string): AgentRunner {
+function createAgentRunner(provider: string, kg?: AssembledGraph): AgentRunner {
   if (provider === "vega") {
+    if (kg) console.log("Knowledge graph: composed, but the Vega provider runs tools server-side — enrichment applies to local providers only.");
     return new VegaAgentRunner(createVegaClient());
   }
 
@@ -107,6 +111,7 @@ function createAgentRunner(provider: string): AgentRunner {
     ...(writer ? { writer } : {}),
     ...(process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {}),
     ...(process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}),
+    ...(kg ? { knowledgeGraph: kg.graph, changedFiles: kg.changedFiles } : {}),
   };
 
   if (provider === "cursor") {
@@ -391,7 +396,46 @@ async function main(): Promise<void> {
   const configDrift = await detectConfigDrift(graphKey);
   if (configDrift) console.log(`::warning::AutoFactory: ${configDrift}`);
 
-  const runner = createAgentRunner(provider);
+  // Knowledge graph (ADR 0010), behind the auto-factory-knowledge-graph flag.
+  // Assembly DEGRADES rather than blocks: every missing source (uninstrumented
+  // estate, no service registry, absent find-code-refs binary) becomes a
+  // ::warning:: + a `gaps` entry the agents are told to treat as unknown — a
+  // PR check must never fail because an observability read did.
+  const kgEnabled = (await ldClient.variation(KNOWLEDGE_GRAPH_FLAG_KEY, ldContext, false)) === true;
+  let kg: AssembledGraph | undefined;
+  if (kgEnabled) {
+    const kgSandboxRoot = resolve(process.env.SANDBOX_ROOT ?? "examples/demo-app");
+    const appProject = process.env.LD_APP_PROJECT_KEY;
+    kg = await assembleKnowledgeGraph({
+      sandboxRoot: kgSandboxRoot,
+      ...(process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}),
+      ...(context.HEAD_SHA ? { sha: context.HEAD_SHA } : {}),
+      ...(process.env.LD_API_KEY && appProject
+        ? {
+            o11y: { apiKey: process.env.LD_API_KEY, projectKey: appProject },
+            codeRefs: {
+              apiKey: process.env.LD_API_KEY,
+              projectKey: appProject,
+              ...(context.REPO ? { repoName: context.REPO.split("/").pop() as string } : {}),
+            },
+          }
+        : {}),
+    });
+    if (!process.env.LD_API_KEY || !appProject) {
+      kg.warnings.push("LD_API_KEY / LD_APP_PROJECT_KEY unset — traces and code-refs sources skipped.");
+    }
+    const svcEdges = kg.graph.edges.filter((e) => e.kind === "service_calls").length;
+    const wrapEdges = kg.graph.edges.filter((e) => e.kind === "flag_wraps").length;
+    console.log(
+      `Knowledge graph: ON — ${kg.graph.services.length} services, ${svcEdges} service edges (traces), ` +
+        `${wrapEdges} wrap points (code refs), ${kg.changedFiles.length} changed files, ${kg.graph.gaps.length} gaps.`,
+    );
+    for (const w of kg.warnings) console.log(`::warning::AutoFactory knowledge graph: ${w}`);
+  } else {
+    console.log("Knowledge graph: off (auto-factory-knowledge-graph) — agents run un-enriched (baseline).");
+  }
+
+  const runner = createAgentRunner(provider, kg);
 
   // The approval policy: mode (yolo / risk-threshold / always) + risk threshold
   // + gated steps, all from LaunchDarkly flags, COMPILED into pre-execution
@@ -538,6 +582,11 @@ async function main(): Promise<void> {
     intentReview.line ?? "",
     intentReview.warning ? `**⚠ Release intent:** ${intentReview.warning}` : "",
     configDrift ? `**⚠ Config drift:** ${configDrift}` : "",
+    kg
+      ? `**Knowledge graph:** on — ${kg.graph.edges.filter((e) => e.kind === "service_calls").length} service edges (traces), ` +
+        `${kg.graph.edges.filter((e) => e.kind === "flag_wraps").length} wrap points (code refs)` +
+        (kg.warnings.length ? `; ⚠ ${kg.warnings.map((w) => w.split(" — ")[0]).join("; ⚠ ")}` : "")
+      : "",
     walk.skipped.length ? `**Skipped:** ${walk.skipped.join(", ")}` : "",
     stallText ? `**⚠ Stalled:** ${stallText}` : "",
     "",

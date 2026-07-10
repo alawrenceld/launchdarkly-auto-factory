@@ -9001,9 +9001,9 @@ var require_cjs = __commonJS({
     }
     function cancelableTimedPromise(t, taskName) {
       let timeout;
-      let resolve7;
+      let resolve8;
       const promise = new Promise((_res, reject) => {
-        resolve7 = _res;
+        resolve8 = _res;
         timeout = setTimeout(() => {
           const e = `${taskName} timed out after ${t} seconds.`;
           reject(new LDTimeoutError(e));
@@ -9012,7 +9012,7 @@ var require_cjs = __commonJS({
       return {
         promise,
         cancel: () => {
-          resolve7();
+          resolve8();
           clearTimeout(timeout);
         }
       };
@@ -9149,8 +9149,8 @@ var require_cjs = __commonJS({
     var base64UrlEncode = (s, encoding) => encoding.btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     var noop2 = () => {
     };
-    var sleep3 = async (delayMillis = 1e3) => new Promise((resolve7) => {
-      setTimeout(resolve7, delayMillis);
+    var sleep3 = async (delayMillis = 1e3) => new Promise((resolve8) => {
+      setTimeout(resolve8, delayMillis);
     });
     var timedPromise = (t, taskName) => new Promise((_res, reject) => {
       setTimeout(() => {
@@ -11871,9 +11871,9 @@ var require_promisify = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function promisify2(method) {
-      return new Promise((resolve7) => {
+      return new Promise((resolve8) => {
         method((val) => {
-          resolve7(val);
+          resolve8(val);
         });
       });
     }
@@ -12555,8 +12555,8 @@ var require_TransactionalFeatureStore = __commonJS({
                 params.push({ dataKind: { namespace }, item: Object.assign({ key }, items[key]) });
               });
             });
-            params.reduce((previousPromise, nextParams) => previousPromise.then(() => new Promise((resolve7) => {
-              this._nonTransPersistenceStore.upsert(nextParams.dataKind, nextParams.item, resolve7);
+            params.reduce((previousPromise, nextParams) => previousPromise.then(() => new Promise((resolve8) => {
+              this._nonTransPersistenceStore.upsert(nextParams.dataKind, nextParams.item, resolve8);
             })), Promise.resolve()).then(callback);
           }
         }, initMetadata, selector);
@@ -13650,8 +13650,8 @@ var require_collection = __commonJS({
         cb(false);
         return;
       }
-      Promise.all(collection === null || collection === void 0 ? void 0 : collection.map((item) => new Promise((resolve7) => {
-        check(item, resolve7);
+      Promise.all(collection === null || collection === void 0 ? void 0 : collection.map((item) => new Promise((resolve8) => {
+        check(item, resolve8);
       }))).then((results) => {
         cb(results.every((success) => success));
       });
@@ -16514,8 +16514,8 @@ var require_Evaluator = __commonJS({
         this._bucketer = new Bucketer_1.default(platform.crypto);
       }
       async evaluate(flag, context, eventFactory) {
-        return new Promise((resolve7) => {
-          this.evaluateCb(flag, context, resolve7, eventFactory);
+        return new Promise((resolve8) => {
+          this.evaluateCb(flag, context, resolve8, eventFactory);
         });
       }
       evaluateCb(flag, context, cb, eventFactory) {
@@ -16835,12 +16835,12 @@ var require_Evaluator = __commonJS({
       bigSegmentMatchContext(membership, segment, context, state) {
         const segmentRef = (0, makeBigSegmentRef_1.default)(segment);
         const included = membership === null || membership === void 0 ? void 0 : membership[segmentRef];
-        return new Promise((resolve7) => {
+        return new Promise((resolve8) => {
           if (included !== void 0 && included !== null) {
-            resolve7(makeMatch(included));
+            resolve8(makeMatch(included));
             return;
           }
-          this.simpleSegmentMatchContext(segment, context, state, [], resolve7);
+          this.simpleSegmentMatchContext(segment, context, state, [], resolve8);
         });
       }
     };
@@ -17805,8 +17805,8 @@ var require_LDClientImpl = __commonJS({
           return this._initializedPromise;
         }
         if (!this._initializedPromise) {
-          this._initializedPromise = new Promise((resolve7, reject) => {
-            this._initResolve = resolve7;
+          this._initializedPromise = new Promise((resolve8, reject) => {
+            this._initResolve = resolve8;
             this._initReject = reject;
           });
         }
@@ -17814,9 +17814,9 @@ var require_LDClientImpl = __commonJS({
       }
       variation(key, context, defaultValue, callback) {
         var _a2, _b, _c;
-        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, VARIATION_METHOD_NAME, () => new Promise((resolve7) => {
+        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, VARIATION_METHOD_NAME, () => new Promise((resolve8) => {
           this._evaluateIfPossible(key, context, defaultValue, this._eventFactoryDefault, (res) => {
-            resolve7(res.detail);
+            resolve8(res.detail);
           });
         }), (_c = (_b = (_a2 = this._featureStore).getInitMetaData) === null || _b === void 0 ? void 0 : _b.call(_a2)) === null || _c === void 0 ? void 0 : _c.environmentId).then((detail) => {
           callback === null || callback === void 0 ? void 0 : callback(null, detail.value);
@@ -17825,23 +17825,23 @@ var require_LDClientImpl = __commonJS({
       }
       variationDetail(key, context, defaultValue, callback) {
         var _a2, _b, _c;
-        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, VARIATION_METHOD_DETAIL_NAME, () => new Promise((resolve7) => {
+        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, VARIATION_METHOD_DETAIL_NAME, () => new Promise((resolve8) => {
           this._evaluateIfPossible(key, context, defaultValue, this._eventFactoryWithReasons, (res) => {
-            resolve7(res.detail);
+            resolve8(res.detail);
             callback === null || callback === void 0 ? void 0 : callback(null, res.detail);
           });
         }), (_c = (_b = (_a2 = this._featureStore).getInitMetaData) === null || _b === void 0 ? void 0 : _b.call(_a2)) === null || _c === void 0 ? void 0 : _c.environmentId);
       }
       _typedEval(key, context, defaultValue, eventFactory, methodName, typeChecker) {
         var _a2, _b, _c;
-        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, methodName, () => new Promise((resolve7) => {
+        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, methodName, () => new Promise((resolve8) => {
           this._evaluateIfPossible(key, context, defaultValue, eventFactory, (res) => {
             const typedRes = {
               value: res.detail.value,
               reason: res.detail.reason,
               variationIndex: res.detail.variationIndex
             };
-            resolve7(typedRes);
+            resolve8(typedRes);
           }, typeChecker);
         }), (_c = (_b = (_a2 = this._featureStore).getInitMetaData) === null || _b === void 0 ? void 0 : _b.call(_a2)) === null || _c === void 0 ? void 0 : _c.environmentId);
       }
@@ -17856,9 +17856,9 @@ var require_LDClientImpl = __commonJS({
       }
       jsonVariation(key, context, defaultValue) {
         var _a2, _b, _c;
-        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, JSON_VARIATION_METHOD_NAME, () => new Promise((resolve7) => {
+        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, JSON_VARIATION_METHOD_NAME, () => new Promise((resolve8) => {
           this._evaluateIfPossible(key, context, defaultValue, this._eventFactoryDefault, (res) => {
-            resolve7(res.detail);
+            resolve8(res.detail);
           });
         }), (_c = (_b = (_a2 = this._featureStore).getInitMetaData) === null || _b === void 0 ? void 0 : _b.call(_a2)) === null || _c === void 0 ? void 0 : _c.environmentId).then((detail) => detail.value);
       }
@@ -17873,15 +17873,15 @@ var require_LDClientImpl = __commonJS({
       }
       jsonVariationDetail(key, context, defaultValue) {
         var _a2, _b, _c;
-        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, JSON_VARIATION_DETAIL_METHOD_NAME, () => new Promise((resolve7) => {
+        return this._hookRunner.withEvaluationSeries(key, context, defaultValue, JSON_VARIATION_DETAIL_METHOD_NAME, () => new Promise((resolve8) => {
           this._evaluateIfPossible(key, context, defaultValue, this._eventFactoryWithReasons, (res) => {
-            resolve7(res.detail);
+            resolve8(res.detail);
           });
         }), (_c = (_b = (_a2 = this._featureStore).getInitMetaData) === null || _b === void 0 ? void 0 : _b.call(_a2)) === null || _c === void 0 ? void 0 : _c.environmentId);
       }
       async _migrationVariationInternal(key, context, defaultValue) {
         var _a2;
-        const res = await new Promise((resolve7) => {
+        const res = await new Promise((resolve8) => {
           this._evaluateIfPossible(key, context, defaultValue, this._eventFactoryWithReasons, ({ detail: detail2 }, flag2) => {
             if (!(0, api_1.IsMigrationStage)(detail2.value)) {
               const error = new Error(`Unrecognized MigrationState for "${key}"; returning default value.`);
@@ -17890,7 +17890,7 @@ var require_LDClientImpl = __commonJS({
                 kind: "ERROR",
                 errorKind: ErrorKinds.WrongType
               };
-              resolve7({
+              resolve8({
                 detail: {
                   value: defaultValue,
                   reason
@@ -17899,7 +17899,7 @@ var require_LDClientImpl = __commonJS({
               });
               return;
             }
-            resolve7({ detail: detail2, flag: flag2 });
+            resolve8({ detail: detail2, flag: flag2 });
           });
         });
         const { detail, flag } = res;
@@ -17943,7 +17943,7 @@ var require_LDClientImpl = __commonJS({
           (_b = this._logger) === null || _b === void 0 ? void 0 : _b.info(`${(_c = evalContext.message) !== null && _c !== void 0 ? _c : "Invalid context."}. Returning empty state.`);
           return Promise.resolve(new FlagsStateBuilder_1.default(false, false).build());
         }
-        return new Promise((resolve7) => {
+        return new Promise((resolve8) => {
           const doEval = (valid) => this._featureStore.all(VersionedDataKinds_1.default.Features, (allFlags) => {
             const builder = new FlagsStateBuilder_1.default(valid, !!(options === null || options === void 0 ? void 0 : options.withReasons));
             const clientOnly = !!(options === null || options === void 0 ? void 0 : options.clientSideOnly);
@@ -17967,7 +17967,7 @@ var require_LDClientImpl = __commonJS({
             }, () => {
               const res = builder.build();
               callback === null || callback === void 0 ? void 0 : callback(null, res);
-              resolve7(res);
+              resolve8(res);
             });
           });
           if (!this.initialized()) {
@@ -20396,8 +20396,8 @@ var require_helpers = __commonJS({
     function req(url, opts = {}) {
       const href = typeof url === "string" ? url : url.href;
       const req2 = (href.startsWith("https:") ? https : http).request(url, opts);
-      const promise = new Promise((resolve7, reject) => {
-        req2.once("response", resolve7).once("error", reject).end();
+      const promise = new Promise((resolve8, reject) => {
+        req2.once("response", resolve8).once("error", reject).end();
       });
       req2.then = promise.then.bind(promise);
       return req2;
@@ -20574,7 +20574,7 @@ var require_parse_proxy_response = __commonJS({
     var debug_1 = __importDefault(require_src());
     var debug = (0, debug_1.default)("https-proxy-agent:parse-proxy-response");
     function parseProxyResponse(socket) {
-      return new Promise((resolve7, reject) => {
+      return new Promise((resolve8, reject) => {
         let buffersLength = 0;
         const buffers = [];
         function read() {
@@ -20640,7 +20640,7 @@ var require_parse_proxy_response = __commonJS({
           }
           debug("got proxy server response: %o %o", firstLine, headers);
           cleanup();
-          resolve7({
+          resolve8({
             connect: {
               statusCode,
               statusText,
@@ -21404,7 +21404,7 @@ var require_NodeResponse = __commonJS({
         this.headers = new HeaderWrapper_1.default(res.headers);
         this.status = res.statusCode || 0;
         this.incomingMessage = res;
-        this.promise = new Promise((resolve7, reject) => {
+        this.promise = new Promise((resolve8, reject) => {
           const pipelineCallback = (err) => {
             if (err) {
               this.rejection = err;
@@ -21412,7 +21412,7 @@ var require_NodeResponse = __commonJS({
                 reject(err);
               }
             }
-            return resolve7(Buffer.concat(this.chunks).toString());
+            return resolve8(Buffer.concat(this.chunks).toString());
           };
           switch (res.headers["content-encoding"]) {
             case "gzip":
@@ -21541,13 +21541,13 @@ var require_NodeRequests = __commonJS({
           headers["content-encoding"] = "gzip";
           bodyData = await gzip(Buffer.from(options.body, "utf8"));
         }
-        return new Promise((resolve7, reject) => {
+        return new Promise((resolve8, reject) => {
           const req = impl.request(url, {
             timeout: options.timeout,
             headers,
             method: options.method,
             agent: this._agent
-          }, (res) => resolve7(new NodeResponse_1.default(res)));
+          }, (res) => resolve8(new NodeResponse_1.default(res)));
           if (bodyData) {
             req.write(bodyData);
           }
@@ -21991,16 +21991,16 @@ var init_values = __esm({
 var sleep2;
 var init_sleep = __esm({
   "../../node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs"() {
-    sleep2 = (ms, signal) => new Promise((resolve7) => {
+    sleep2 = (ms, signal) => new Promise((resolve8) => {
       if (signal?.aborted)
-        return resolve7();
+        return resolve8();
       const onAbort = () => {
         clearTimeout(timer);
-        resolve7();
+        resolve8();
       };
       const timer = setTimeout(() => {
         signal?.removeEventListener("abort", onAbort);
-        resolve7();
+        resolve8();
       }, ms);
       signal?.addEventListener("abort", onAbort, { once: true });
     });
@@ -24077,8 +24077,8 @@ var init_api_promise = __esm({
     init_parse();
     APIPromise = class _APIPromise extends Promise {
       constructor(client, responsePromise, parseResponse = defaultParseResponse) {
-        super((resolve7) => {
-          resolve7(null);
+        super((resolve8) => {
+          resolve8(null);
         });
         this.responsePromise = responsePromise;
         this.parseResponse = parseResponse;
@@ -26149,16 +26149,16 @@ var init_async_queue = __esm({
         if (__classPrivateFieldGet(this, _AsyncQueue_closed, "f") || signal?.aborted) {
           return Promise.resolve({ done: true, value: void 0 });
         }
-        return new Promise((resolve7) => {
+        return new Promise((resolve8) => {
           const waiter = (r) => {
             signal?.removeEventListener("abort", onAbort);
-            resolve7(r);
+            resolve8(r);
           };
           const onAbort = () => {
             const idx = __classPrivateFieldGet(this, _AsyncQueue_waiters, "f").indexOf(waiter);
             if (idx >= 0)
               __classPrivateFieldGet(this, _AsyncQueue_waiters, "f").splice(idx, 1);
-            resolve7({ done: true, value: void 0 });
+            resolve8({ done: true, value: void 0 });
           };
           __classPrivateFieldGet(this, _AsyncQueue_waiters, "f").push(waiter);
           signal?.addEventListener("abort", onAbort, { once: true });
@@ -26588,13 +26588,13 @@ var init_json_schema = __esm({
 
 // ../../node_modules/@anthropic-ai/sdk/internal/utils/promise.mjs
 function promiseWithResolvers() {
-  let resolve7;
+  let resolve8;
   let reject;
   const promise = new Promise((res, rej) => {
-    resolve7 = res;
+    resolve8 = res;
     reject = rej;
   });
-  return { promise, resolve: resolve7, reject };
+  return { promise, resolve: resolve8, reject };
 }
 var init_promise = __esm({
   "../../node_modules/@anthropic-ai/sdk/internal/utils/promise.mjs"() {
@@ -27187,7 +27187,7 @@ function betaGrepTool(ctx) {
   });
 }
 function runRipgrep(rg, pattern, searchPath, signal) {
-  return new Promise((resolve7, reject) => {
+  return new Promise((resolve8, reject) => {
     const proc = cp.spawn(rg, ["-n", "--no-heading", "-e", pattern, "--", searchPath], {
       ...signal ? { signal } : {}
     });
@@ -27209,12 +27209,12 @@ function runRipgrep(rg, pattern, searchPath, signal) {
       if (signal?.aborted)
         return reject(new ToolError("grep: aborted"));
       if (truncated)
-        return resolve7(out + `
+        return resolve8(out + `
 [output truncated at ${GREP_OUTPUT_LIMIT} bytes]`);
       if (code === 0)
-        return resolve7(out);
+        return resolve8(out);
       if (code === 1)
-        return resolve7("no matches");
+        return resolve8("no matches");
       reject(new ToolError(`grep: rg failed: ${errOut || `exit ${code}`}`));
     });
     proc.on("error", (e) => {
@@ -27391,8 +27391,8 @@ var init_node = __esm({
 `;
         __classPrivateFieldGet(this, _BashSession_proc, "f").stdin.write(wrapped);
         if (__classPrivateFieldGet(this, _BashSession_buf, "f").indexOf(sentinel2) < 0) {
-          const { promise: sentinelSeen, resolve: resolve7 } = promiseWithResolvers();
-          __classPrivateFieldSet(this, _BashSession_waiting, { sentinel: sentinel2, resolve: resolve7 }, "f");
+          const { promise: sentinelSeen, resolve: resolve8 } = promiseWithResolvers();
+          __classPrivateFieldSet(this, _BashSession_waiting, { sentinel: sentinel2, resolve: resolve8 }, "f");
           let timer;
           let onAbort;
           try {
@@ -29098,12 +29098,12 @@ var init_BetaMessageStream = __esm({
           }
           return this._emit("error", new AnthropicError(String(error)));
         });
-        __classPrivateFieldSet(this, _BetaMessageStream_connectedPromise, new Promise((resolve7, reject) => {
-          __classPrivateFieldSet(this, _BetaMessageStream_resolveConnectedPromise, resolve7, "f");
+        __classPrivateFieldSet(this, _BetaMessageStream_connectedPromise, new Promise((resolve8, reject) => {
+          __classPrivateFieldSet(this, _BetaMessageStream_resolveConnectedPromise, resolve8, "f");
           __classPrivateFieldSet(this, _BetaMessageStream_rejectConnectedPromise, reject, "f");
         }), "f");
-        __classPrivateFieldSet(this, _BetaMessageStream_endPromise, new Promise((resolve7, reject) => {
-          __classPrivateFieldSet(this, _BetaMessageStream_resolveEndPromise, resolve7, "f");
+        __classPrivateFieldSet(this, _BetaMessageStream_endPromise, new Promise((resolve8, reject) => {
+          __classPrivateFieldSet(this, _BetaMessageStream_resolveEndPromise, resolve8, "f");
           __classPrivateFieldSet(this, _BetaMessageStream_rejectEndPromise, reject, "f");
         }), "f");
         __classPrivateFieldGet(this, _BetaMessageStream_connectedPromise, "f").catch(() => {
@@ -29273,11 +29273,11 @@ var init_BetaMessageStream = __esm({
        *   const message = await stream.emitted('message') // rejects if the stream errors
        */
       emitted(event) {
-        return new Promise((resolve7, reject) => {
+        return new Promise((resolve8, reject) => {
           __classPrivateFieldSet(this, _BetaMessageStream_catchingPromiseCreated, true, "f");
           if (event !== "error")
             this.once("error", reject);
-          this.once(event, resolve7);
+          this.once(event, resolve8);
         });
       }
       async done() {
@@ -29624,7 +29624,7 @@ var init_BetaMessageStream = __esm({
               if (done) {
                 return { value: void 0, done: true };
               }
-              return new Promise((resolve7, reject) => readQueue.push({ resolve: resolve7, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
+              return new Promise((resolve8, reject) => readQueue.push({ resolve: resolve8, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
             }
             const chunk = pushQueue.shift();
             return { value: chunk, done: false };
@@ -31494,12 +31494,12 @@ var init_MessageStream = __esm({
           }
           return this._emit("error", new AnthropicError(String(error)));
         });
-        __classPrivateFieldSet(this, _MessageStream_connectedPromise, new Promise((resolve7, reject) => {
-          __classPrivateFieldSet(this, _MessageStream_resolveConnectedPromise, resolve7, "f");
+        __classPrivateFieldSet(this, _MessageStream_connectedPromise, new Promise((resolve8, reject) => {
+          __classPrivateFieldSet(this, _MessageStream_resolveConnectedPromise, resolve8, "f");
           __classPrivateFieldSet(this, _MessageStream_rejectConnectedPromise, reject, "f");
         }), "f");
-        __classPrivateFieldSet(this, _MessageStream_endPromise, new Promise((resolve7, reject) => {
-          __classPrivateFieldSet(this, _MessageStream_resolveEndPromise, resolve7, "f");
+        __classPrivateFieldSet(this, _MessageStream_endPromise, new Promise((resolve8, reject) => {
+          __classPrivateFieldSet(this, _MessageStream_resolveEndPromise, resolve8, "f");
           __classPrivateFieldSet(this, _MessageStream_rejectEndPromise, reject, "f");
         }), "f");
         __classPrivateFieldGet(this, _MessageStream_connectedPromise, "f").catch(() => {
@@ -31669,11 +31669,11 @@ var init_MessageStream = __esm({
        *   const message = await stream.emitted('message') // rejects if the stream errors
        */
       emitted(event) {
-        return new Promise((resolve7, reject) => {
+        return new Promise((resolve8, reject) => {
           __classPrivateFieldSet(this, _MessageStream_catchingPromiseCreated, true, "f");
           if (event !== "error")
             this.once("error", reject);
-          this.once(event, resolve7);
+          this.once(event, resolve8);
         });
       }
       async done() {
@@ -31994,7 +31994,7 @@ var init_MessageStream = __esm({
               if (done) {
                 return { value: void 0, done: true };
               }
-              return new Promise((resolve7, reject) => readQueue.push({ resolve: resolve7, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
+              return new Promise((resolve8, reject) => readQueue.push({ resolve: resolve8, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
             }
             const chunk = pushQueue.shift();
             return { value: chunk, done: false };
@@ -33121,9 +33121,9 @@ var init_sdk = __esm({
 });
 
 // src/action.ts
-import { execFileSync as execFileSync3 } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname5, join as join5, resolve as resolve6 } from "node:path";
+import { execFileSync as execFileSync4 } from "node:child_process";
+import { existsSync as existsSync5, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname5, join as join6, resolve as resolve7 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // ../shared/dist/env.js
@@ -36069,6 +36069,109 @@ async function resolveAiProvider(ldClient, context, flagKey = PROVIDER_FLAG_KEY)
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync3, readdirSync as readdirSync2, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve as resolve2, sep } from "node:path";
+
+// ../shared/dist/graph/schema.js
+var serviceNodeId = (key) => `service:${key}`;
+var flagNodeId = (key) => `flag:${key}`;
+var fileNodeId = (path5) => `file:${path5.replace(/^\/+/, "")}`;
+function serviceForFile(services, filePath) {
+  const clean = filePath.replace(/^\/+/, "");
+  let best;
+  for (const svc of services) {
+    if (!svc.dir)
+      continue;
+    const dir = svc.dir.replace(/^\/+|\/+$/g, "") + "/";
+    if (clean.startsWith(dir) && (!best?.dir || dir.length > best.dir.length + 1))
+      best = svc;
+  }
+  return best;
+}
+
+// ../shared/dist/graph/query.js
+function neighbors(graph, nodeId, direction, maxDepth = 3) {
+  const hits = [];
+  const visited = /* @__PURE__ */ new Set([nodeId]);
+  let frontier = [nodeId];
+  for (let depth = 1; depth <= maxDepth && frontier.length > 0; depth++) {
+    const next = [];
+    for (const id of frontier) {
+      for (const edge of graph.edges) {
+        const [from, to] = direction === "dependents" ? [edge.dst, edge.src] : [edge.src, edge.dst];
+        if (from !== id || visited.has(to))
+          continue;
+        visited.add(to);
+        const node = graph.nodes.find((n) => n.id === to);
+        hits.push({ id: to, kind: node?.kind ?? "unknown", via: edge, depth });
+        next.push(to);
+      }
+    }
+    frontier = next;
+  }
+  return hits;
+}
+function blastRadius(graph, changedFiles, maxDepth = 3) {
+  const changedServices = /* @__PURE__ */ new Set();
+  const unmappedFiles = [];
+  for (const file of changedFiles) {
+    const svc = serviceForFile(graph.services, file);
+    if (svc)
+      changedServices.add(svc.key);
+    else
+      unmappedFiles.push(file);
+  }
+  const dependents = /* @__PURE__ */ new Map();
+  const upstream = /* @__PURE__ */ new Map();
+  for (const key of changedServices) {
+    for (const hit of neighbors(graph, serviceNodeId(key), "dependents", maxDepth)) {
+      if (hit.kind !== "service")
+        continue;
+      const existing = dependents.get(hit.id);
+      if (!existing || hit.depth < existing.depth)
+        dependents.set(hit.id, hit);
+    }
+    for (const hit of neighbors(graph, serviceNodeId(key), "dependencies", maxDepth)) {
+      if (hit.kind !== "service")
+        continue;
+      const existing = upstream.get(hit.id);
+      if (!existing || hit.depth < existing.depth)
+        upstream.set(hit.id, hit);
+    }
+  }
+  for (const key of changedServices) {
+    dependents.delete(serviceNodeId(key));
+    upstream.delete(serviceNodeId(key));
+  }
+  const changedFileIds = new Set(changedFiles.map((f) => `file:${f.replace(/^\/+/, "")}`));
+  const flags = /* @__PURE__ */ new Map();
+  for (const edge of graph.edges) {
+    if (edge.kind !== "flag_wraps")
+      continue;
+    const dstNode = graph.nodes.find((n) => n.id === edge.dst);
+    const inChangedFile = changedFileIds.has(edge.dst);
+    const inChangedService = dstNode?.service !== void 0 && changedServices.has(dstNode.service);
+    if (inChangedFile || inChangedService) {
+      flags.set(edge.src.replace(/^flag:/, ""), edge.evidence);
+    }
+  }
+  const toEntry = (hit) => ({
+    service: hit.id.replace(/^service:/, ""),
+    depth: hit.depth,
+    ...hit.via.evidence ? { evidence: hit.via.evidence } : {}
+  });
+  return {
+    changedServices: [...changedServices].sort(),
+    unmappedFiles,
+    dependentServices: [...dependents.values()].map(toEntry).sort((a, b) => a.depth - b.depth),
+    upstreamServices: [...upstream.values()].map(toEntry).sort((a, b) => a.depth - b.depth),
+    flagsOnChangedCode: [...flags.entries()].map(([flag, evidence]) => ({
+      flag,
+      ...evidence ? { evidence } : {}
+    })),
+    gaps: graph.gaps
+  };
+}
+
+// ../shared/dist/anthropic/sandboxTools.js
 var READONLY_TOOLS = [
   {
     name: "read_file",
@@ -36198,6 +36301,25 @@ var COMMIT_PUSH_TOOL = {
     required: ["message"]
   }
 };
+var QUERY_DEPENDENCIES_TOOL = {
+  name: "query_dependencies",
+  description: "Query the estate's knowledge graph (service-to-service call edges observed from LaunchDarkly telemetry, plus flag-to-code wrap points). Call it with NO arguments for the blast radius of THIS PR's changed files: which services the change belongs to, which services depend on them (consumers at risk), which services they call, and which flags already wrap the changed code. Or pass `node` (a service key, flag key, or repo-relative file path) with `direction` to walk dependents/dependencies of one node. Results include a `gaps` list \u2014 treat a listed gap as UNKNOWN coverage, never as evidence of no impact.",
+  input_schema: {
+    type: "object",
+    properties: {
+      node: {
+        type: "string",
+        description: "Optional: service key (e.g. 'togglemart-catalog'), flag key, or repo-relative file path. Omit for the PR's blast radius."
+      },
+      direction: {
+        type: "string",
+        enum: ["dependents", "dependencies"],
+        description: "With `node`: walk who depends on it (default) or what it depends on."
+      },
+      max_depth: { type: "number", description: "Traversal depth cap (default 3)." }
+    }
+  }
+};
 var WRITE_MANIFEST_TOOL = {
   name: "write_manifest",
   description: "Create or update the release manifest (.release-flags/pr-<N>.json). Pass only the fields you own \u2014 they are MERGED into the existing file (agent fields: flagKey, scope, releasePlan.*). The human-editable releaseIntent block is auto-initialized on first write and PRESERVED on later writes (you cannot overwrite it). The file is validated, written as schema 1.1, and committed to the PR branch automatically \u2014 do not also edit it with write_file/edit_file.",
@@ -36215,6 +36337,8 @@ var WRITE_MANIFEST_TOOL = {
 };
 function buildSandboxTools(caps) {
   const tools = [...READONLY_TOOLS];
+  if (caps.queryGraph)
+    tools.push(QUERY_DEPENDENCIES_TOOL);
   if (caps.createFlag)
     tools.push(CREATE_FLAG_TOOL);
   if (caps.createMetric)
@@ -36244,6 +36368,17 @@ var SandboxToolExecutor = class {
   allowWriteManifest;
   stewardManifest;
   tags = {};
+  knowledgeGraph;
+  changedFiles = [];
+  /**
+   * Supply the composed knowledge graph (ADR 0010) + the PR's changed files.
+   * Only meaningful for nodes granted `queryGraph`; set after construction so
+   * existing call sites stay unchanged.
+   */
+  provideKnowledgeGraph(graph, changedFiles = []) {
+    this.knowledgeGraph = graph;
+    this.changedFiles = changedFiles;
+  }
   constructor(root, writer, allowEdits = false, prBranch, prBaseRef, gitMode = "push", allowWriteManifest = false, stewardManifest = false) {
     this.root = root;
     this.writer = writer;
@@ -36282,6 +36417,8 @@ var SandboxToolExecutor = class {
           return await this.createMetric(input);
         case "write_manifest":
           return this.writeManifestTool(String(input.path ?? ""), input.manifest);
+        case "query_dependencies":
+          return this.queryDependencies(input);
         case "write_file":
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
@@ -36296,6 +36433,43 @@ var SandboxToolExecutor = class {
     } catch (e) {
       return { content: e instanceof Error ? e.message : String(e), isError: true };
     }
+  }
+  /**
+   * `query_dependencies`: no `node` → blast radius of the PR's changed files;
+   * with `node` → BFS dependents/dependencies. Bare names are resolved against
+   * service, flag, then file node ids. Compact JSON out; the graph's `gaps`
+   * ride along so thin coverage reads as unknown, not safe.
+   */
+  queryDependencies(input) {
+    const graph = this.knowledgeGraph;
+    if (!graph) {
+      return {
+        content: "knowledge graph unavailable for this run (flag off or composition failed) \u2014 reason about impact from the code instead",
+        isError: true
+      };
+    }
+    const maxDepth = typeof input.max_depth === "number" && input.max_depth > 0 ? Math.min(input.max_depth, 6) : 3;
+    const rawNode = typeof input.node === "string" ? input.node.trim() : "";
+    if (!rawNode) {
+      return { content: JSON.stringify(blastRadius(graph, this.changedFiles, maxDepth), null, 1) };
+    }
+    const candidates = [rawNode, serviceNodeId(rawNode), flagNodeId(rawNode), fileNodeId(rawNode)];
+    const nodeId = candidates.find((id) => graph.nodes.some((n) => n.id === id));
+    if (!nodeId) {
+      const services = graph.services.map((s) => s.key).join(", ");
+      return {
+        content: `node '${rawNode}' not in the graph. Known services: ${services}. Flags/files must match a graph node (flag:<key> / file:<repo-relative path>).`,
+        isError: true
+      };
+    }
+    const direction = input.direction === "dependencies" ? "dependencies" : "dependents";
+    const hits = neighbors(graph, nodeId, direction, maxDepth).map((h) => ({
+      id: h.id,
+      kind: h.kind,
+      depth: h.depth,
+      via: `${h.via.kind} (${h.via.provenance}${h.via.evidence ? `: ${h.via.evidence}` : ""})`
+    }));
+    return { content: JSON.stringify({ node: nodeId, direction, hits, gaps: graph.gaps }, null, 1) };
   }
   readFile(rel) {
     const abs = this.safeResolve(rel);
@@ -36802,6 +36976,9 @@ function modeNote(caps) {
     "\n\n---\n## EXECUTION MODE",
     "You have read-only repo tools (`read_file`, `list_dir`, `grep`)."
   ];
+  if (caps.queryGraph) {
+    lines.push("You have `query_dependencies` \u2014 the estate's knowledge graph (service call edges observed from LaunchDarkly telemetry + flag\u2192code wrap points). Call it with NO arguments EARLY to get this PR's blast radius (changed services, dependent services at risk, upstream contracts, flags already on the changed code) and let it inform your classification and risk_score. Treat any entry in its `gaps` list as UNKNOWN coverage \u2014 a thin graph is never evidence of low impact.");
+  }
   if (caps.createFlag) {
     lines.push("You have `create_flag` \u2014 creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.");
   }
@@ -36825,7 +37002,9 @@ var DEFAULT_MODEL = "claude-sonnet-4-6";
 var NODE_CAPABILITIES = {
   // ROOT node: edges can't grant capabilities to it (grants ride inbound
   // handoffs), so the research planner's narrow manifest-write power lives here.
-  "autofactory-research-planner": { createFlag: false, createMetric: false, editFiles: false, writeManifest: true },
+  // queryGraph: the planner's blast-radius input (ADR 0010) — only offered when
+  // a graph was actually composed for the run (the KG flag gates that upstream).
+  "autofactory-research-planner": { createFlag: false, createMetric: false, editFiles: false, writeManifest: true, queryGraph: true },
   // The steward normalizes the human-edited releaseIntent — the only node that
   // may UPDATE an existing intent block.
   "autofactory-manifest-steward": { createFlag: false, createMetric: false, editFiles: false, stewardManifest: true },
@@ -36852,6 +37031,7 @@ var CAP_CREATE_METRIC = "create_metric";
 var CAP_EDIT_FILES = "edit_files";
 var CAP_WRITE_MANIFEST = "write_manifest";
 var CAP_STEWARD_MANIFEST = "steward_manifest";
+var CAP_QUERY_GRAPH = "query_graph";
 function resolveGrant(configKey, capabilities) {
   if (capabilities) {
     return {
@@ -36860,7 +37040,8 @@ function resolveGrant(configKey, capabilities) {
         createMetric: capabilities.includes(CAP_CREATE_METRIC),
         editFiles: capabilities.includes(CAP_EDIT_FILES),
         writeManifest: capabilities.includes(CAP_WRITE_MANIFEST),
-        stewardManifest: capabilities.includes(CAP_STEWARD_MANIFEST)
+        stewardManifest: capabilities.includes(CAP_STEWARD_MANIFEST),
+        queryGraph: capabilities.includes(CAP_QUERY_GRAPH)
       },
       source: "edge"
     };
@@ -36885,13 +37066,18 @@ var AnthropicAgentRunner = class {
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
       // Manifest writes are code changes — same global toggle as editFiles.
       writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
-      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true
+      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
+      // Read-only; globally enabled by the presence of a composed graph (KG flag).
+      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== void 0
     };
     console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
     const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
     const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
     const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push", caps.writeManifest === true && this.opts.codeChangesEnabled === true, caps.stewardManifest === true && this.opts.codeChangesEnabled === true);
+    if (caps.queryGraph && this.opts.knowledgeGraph) {
+      executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
+    }
     const tools = buildSandboxTools(caps);
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
     const messages = [{ role: "user", content: req.prompt }];
@@ -37111,11 +37297,16 @@ var CursorAgentRunner = class {
       editFiles: grant.editFiles && this.opts.codeChangesEnabled === true,
       // Manifest writes are code changes — same global toggle as editFiles.
       writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
-      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true
+      stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
+      // Read-only; globally enabled by the presence of a composed graph (KG flag).
+      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== void 0
     };
     console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
     const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
     const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push", caps.writeManifest === true && this.opts.codeChangesEnabled === true, caps.stewardManifest === true && this.opts.codeChangesEnabled === true);
+    if (caps.queryGraph && this.opts.knowledgeGraph) {
+      executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
+    }
     const customTools = toCursorTools(buildSandboxTools(caps), executor);
     const catalog = await this.loadCatalog();
     const match = mapToCursorModel(req.model, catalog, this.fallbackModel);
@@ -37443,6 +37634,410 @@ Respond with ONLY a single JSON object matching this schema (no prose, no code f
   };
 }
 
+// ../shared/dist/graph/traceEdges.js
+function spanTargetHost(span) {
+  const a = span.traceAttributes;
+  const host = a?.server?.address ?? a?.url?.domain ?? a?.net?.peer?.name ?? (a?.url?.full ? safeHost(a.url.full) : void 0);
+  return host || void 0;
+}
+function safeHost(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return void 0;
+  }
+}
+function serviceForHost(services, host) {
+  const h = host.toLowerCase();
+  for (const svc of services) {
+    for (const declared of svc.hosts ?? []) {
+      const d = declared.toLowerCase();
+      if (h === d || h.includes(d))
+        return svc;
+    }
+  }
+  return services.find((s) => h === s.key.toLowerCase() || h.split(".")[0] === s.key.toLowerCase());
+}
+function deriveServiceEdges(spans, services) {
+  const known = new Map(services.map((s) => [s.key, s]));
+  const counts = /* @__PURE__ */ new Map();
+  for (const span of spans) {
+    if (span.spanKind !== "Client")
+      continue;
+    const caller = span.serviceName;
+    if (!caller || !known.has(caller))
+      continue;
+    const host = spanTargetHost(span);
+    if (!host)
+      continue;
+    const callee = serviceForHost(services, host);
+    if (!callee || callee.key === caller)
+      continue;
+    const key = `${caller}\0${callee.key}`;
+    const entry = counts.get(key) ?? { src: caller, dst: callee.key, host, n: 0 };
+    entry.n += 1;
+    counts.set(key, entry);
+  }
+  return [...counts.values()].map(({ src, dst, host, n }) => ({
+    src: serviceNodeId(src),
+    dst: serviceNodeId(dst),
+    kind: "service_calls",
+    provenance: "traces",
+    evidence: host,
+    weight: n
+  }));
+}
+
+// ../shared/dist/graph/codeRefs.js
+var FLAG_COLUMNS = ["flagkey", "flag_key", "flag"];
+var PATH_COLUMNS = ["path", "filepath", "file"];
+var LINE_COLUMNS = ["startinglinenumber", "linenumber", "line"];
+function splitCsvLine(line) {
+  const out = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"')
+        quoted = false;
+      else
+        field += ch;
+    } else if (ch === '"')
+      quoted = true;
+    else if (ch === ",") {
+      out.push(field);
+      field = "";
+    } else
+      field += ch;
+  }
+  out.push(field);
+  return out;
+}
+function parseCodeRefsCsv(csv) {
+  const lines = csv.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const headerLine = lines[0];
+  if (lines.length < 2 || headerLine === void 0)
+    return [];
+  const header = splitCsvLine(headerLine).map((h) => h.trim().toLowerCase().replace(/[^a-z_]/g, ""));
+  const col = (names) => header.findIndex((h) => names.includes(h));
+  const flagIdx = col(FLAG_COLUMNS);
+  const pathIdx = col(PATH_COLUMNS);
+  const lineIdx = col(LINE_COLUMNS);
+  if (flagIdx < 0 || pathIdx < 0)
+    return [];
+  const rows = [];
+  for (const line of lines.slice(1)) {
+    const cells = splitCsvLine(line);
+    const flagKey = cells[flagIdx]?.trim();
+    const path5 = cells[pathIdx]?.trim().replace(/^\/+/, "");
+    if (!flagKey || !path5)
+      continue;
+    const lineNo = lineIdx >= 0 ? Number.parseInt(cells[lineIdx] ?? "", 10) : Number.NaN;
+    rows.push({ flagKey, path: path5, ...Number.isFinite(lineNo) ? { line: lineNo } : {} });
+  }
+  return rows;
+}
+function codeRefEdges(rows) {
+  const byPair = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const key = `${row.flagKey} ${row.path}`;
+    const entry = byPair.get(key) ?? { flagKey: row.flagKey, path: row.path, lines: [] };
+    if (row.line !== void 0)
+      entry.lines.push(row.line);
+    byPair.set(key, entry);
+  }
+  return [...byPair.values()].map(({ flagKey, path: path5, lines }) => ({
+    src: flagNodeId(flagKey),
+    dst: fileNodeId(path5),
+    kind: "flag_wraps",
+    provenance: "code_refs",
+    evidence: lines.length ? `${path5}:${lines.sort((a, b) => a - b).join(",")}` : path5,
+    weight: Math.max(lines.length, 1)
+  }));
+}
+
+// ../shared/dist/graph/compose.js
+var KNOWLEDGE_GRAPH_FLAG_KEY = "auto-factory-knowledge-graph";
+function composeGraph(inputs) {
+  const { services, spans = [], codeRefs = [], sha } = inputs;
+  const nodes = /* @__PURE__ */ new Map();
+  const gaps = [];
+  for (const svc of services) {
+    nodes.set(serviceNodeId(svc.key), {
+      id: serviceNodeId(svc.key),
+      kind: "service",
+      label: svc.key,
+      service: svc.key
+    });
+  }
+  const serviceEdges = deriveServiceEdges(spans, services);
+  if (spans.length === 0) {
+    gaps.push("traces: no span data \u2014 service_calls edges unavailable (telemetry gap or fetch skipped)");
+  } else {
+    const seen = new Set(spans.map((s) => s.serviceName).filter((n) => !!n && services.some((svc) => svc.key === n)));
+    for (const svc of services) {
+      if (!seen.has(svc.key))
+        gaps.push(`traces: no spans from service '${svc.key}' \u2014 its outbound calls are invisible`);
+    }
+  }
+  const flagEdges = codeRefEdges(codeRefs);
+  if (codeRefs.length === 0)
+    gaps.push("code_refs: no rows \u2014 flag_wraps edges unavailable");
+  for (const edge of flagEdges) {
+    if (!nodes.has(edge.src)) {
+      nodes.set(edge.src, { id: edge.src, kind: "flag", label: edge.src.replace(/^flag:/, "") });
+    }
+    if (!nodes.has(edge.dst)) {
+      const path5 = edge.dst.replace(/^file:/, "");
+      const svc = serviceForFile(services, path5);
+      nodes.set(edge.dst, {
+        id: edge.dst,
+        kind: "file",
+        label: path5,
+        ...svc ? { service: svc.key } : {}
+      });
+    }
+  }
+  return {
+    schema: 1,
+    ...sha ? { sha } : {},
+    services,
+    nodes: [...nodes.values()],
+    edges: [...serviceEdges, ...flagEdges],
+    gaps
+  };
+}
+
+// ../shared/dist/graph/o11yClient.js
+var DEFAULT_O11Y_MCP_URL = "https://mcp.launchdarkly.com/mcp/observability";
+function embeddedToolError(json) {
+  if (json.result?.structuredContent?.traces)
+    return void 0;
+  const text = json.result?.content?.find((c) => c.type === "text")?.text;
+  if (!text)
+    return void 0;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.error)
+      return typeof parsed.error === "string" ? parsed.error : JSON.stringify(parsed.error);
+  } catch {
+  }
+  return void 0;
+}
+function toSpanRecord(node) {
+  return {
+    ...node.serviceName ? { serviceName: node.serviceName } : {},
+    ...node.spanKind ? { spanKind: node.spanKind } : {},
+    ...node.traceAttributes ? { traceAttributes: node.traceAttributes } : {}
+  };
+}
+async function mcpPost(url, apiKey, sessionId, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      // Auth scheme for the hosted MCP gateway. Default is Bearer; the gateway
+      // is OAuth-first today, so headless runs may need LD_O11Y_AUTH once the
+      // observability team provides an API-key scheme (that ask is open —
+      // failures here degrade to a warning, never a blocked run).
+      Authorization: process.env.LD_O11Y_AUTH ?? `Bearer ${apiKey}`,
+      ...sessionId ? { "Mcp-Session-Id": sessionId } : {}
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok)
+    throw new Error(`o11y MCP ${res.status} ${res.statusText}`);
+  const newSession = res.headers.get("mcp-session-id") ?? void 0;
+  const text = await res.text();
+  const payload = text.startsWith("event:") || text.startsWith("data:") ? text.split(/\r?\n/).find((l) => l.startsWith("data:"))?.slice(5).trim() ?? "{}" : text;
+  return { json: JSON.parse(payload), ...newSession ? { sessionId: newSession } : {} };
+}
+async function fetchRecentSpans(opts) {
+  const url = opts.url ?? process.env.LD_O11Y_MCP_URL ?? DEFAULT_O11Y_MCP_URL;
+  const windowHours = Math.min(opts.windowHours ?? 24, 24);
+  const maxSpans = opts.maxSpans ?? 200;
+  const nowMs = (opts.now ?? (() => /* @__PURE__ */ new Date()))().getTime();
+  const startDate = new Date(nowMs - windowHours * 36e5).toISOString();
+  try {
+    const init2 = await mcpPost(url, opts.apiKey, void 0, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "auto-factory-knowledge-graph", version: "1" }
+      }
+    });
+    const sessionId = init2.sessionId;
+    const spans = [];
+    let id = 2;
+    let hasNext = true;
+    while (hasNext && spans.length < maxSpans) {
+      const call = await mcpPost(url, opts.apiKey, sessionId, {
+        jsonrpc: "2.0",
+        id: id++,
+        method: "tools/call",
+        params: {
+          name: "query-traces",
+          arguments: { projectKey: opts.projectKey, startDate, limit: 50 }
+        }
+      });
+      if (call.json.error)
+        throw new Error(call.json.error.message ?? "o11y MCP tool error");
+      const embedded = embeddedToolError(call.json);
+      if (embedded)
+        throw new Error(embedded.slice(0, 200));
+      const traces = call.json.result?.structuredContent?.traces;
+      const nodes = (traces?.edges ?? []).map((e) => e.node).filter((n) => !!n);
+      spans.push(...nodes.map(toSpanRecord));
+      hasNext = traces?.pageInfo?.hasNextPage === true && nodes.length > 0;
+      if (nodes.length > 0)
+        break;
+    }
+    if (spans.length === 0) {
+      return {
+        spans,
+        warning: `no observability spans found for project '${opts.projectKey}' in the last ${windowHours}h \u2014 service-dependency edges unavailable. Instrument the services with the LaunchDarkly observability SDKs (and keep some traffic flowing) to light this up.`
+      };
+    }
+    return { spans };
+  } catch (e) {
+    return {
+      spans: [],
+      warning: `observability trace query failed (${e instanceof Error ? e.message : String(e)}) \u2014 proceeding without service-dependency edges.`
+    };
+  }
+}
+
+// ../shared/dist/graph/assemble.js
+var import_yaml2 = __toESM(require_dist(), 1);
+import { execFileSync as execFileSync3, spawnSync as spawnSync2 } from "node:child_process";
+import { existsSync as existsSync3, mkdtempSync, readFileSync as readFileSync4, readdirSync as readdirSync3, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as join5, resolve as resolve6 } from "node:path";
+var SERVICES_FILE = ".autofactory/services.yaml";
+function parseServicesRegistry(yamlText) {
+  const doc = (0, import_yaml2.parse)(yamlText);
+  const services = [];
+  for (const [key, def] of Object.entries(doc?.services ?? {})) {
+    if (!def || typeof def !== "object")
+      continue;
+    const hosts = [...def.hosts ?? []];
+    if (def.statusUrl) {
+      try {
+        hosts.push(new URL(def.statusUrl).hostname);
+      } catch {
+      }
+    }
+    services.push({
+      key,
+      ...def.side ? { side: def.side } : {},
+      ...def.repo ? { repo: def.repo } : {},
+      ...def.dir ? { dir: def.dir } : {},
+      ...hosts.length ? { hosts } : {}
+    });
+  }
+  return services;
+}
+function changedFilesInCheckout(sandboxRoot, prBaseRef) {
+  const git2 = (args) => execFileSync3("git", args, { cwd: sandboxRoot, encoding: "utf8", timeout: 3e4 });
+  const name = prBaseRef || process.env.PR_BASE_REF || "main";
+  for (const ref of [`origin/${name}`, name, "origin/main", "main"]) {
+    try {
+      git2(["rev-parse", "--verify", "--quiet", ref]);
+      return git2(["diff", "--name-only", `${ref}...HEAD`]).split("\n").map((l) => l.trim()).filter(Boolean);
+    } catch {
+    }
+  }
+  return [];
+}
+function runFindCodeRefs(opts) {
+  const probe = spawnSync2("ld-find-code-refs", ["--version"], { encoding: "utf8", timeout: 15e3 });
+  if (probe.error || probe.status !== 0) {
+    return {
+      rows: [],
+      warning: "ld-find-code-refs binary not found on PATH \u2014 flag\u2192code wrap-point edges unavailable. Install it in the workflow (see bootstrap/github-action-template) to light this up."
+    };
+  }
+  const outDir = mkdtempSync(join5(tmpdir(), "af-coderefs-"));
+  try {
+    const run = spawnSync2("ld-find-code-refs", [
+      "--dir",
+      opts.sandboxRoot,
+      "--projKey",
+      opts.projectKey,
+      "--repoName",
+      opts.repoName ?? "pr-checkout",
+      "--dryRun",
+      "--outDir",
+      outDir
+    ], { encoding: "utf8", timeout: 12e4, env: { ...process.env, LD_ACCESS_TOKEN: opts.apiKey } });
+    if (run.error || run.status !== 0) {
+      const detail = `${run.stderr ?? ""}${run.stdout ?? ""}`.trim().slice(0, 300);
+      return { rows: [], warning: `ld-find-code-refs failed (${detail || "unknown error"}) \u2014 wrap-point edges unavailable.` };
+    }
+    const csvFile = readdirSync3(outDir).find((f) => f.endsWith(".csv"));
+    if (!csvFile)
+      return { rows: [], warning: "ld-find-code-refs produced no CSV \u2014 wrap-point edges unavailable." };
+    const csvText = readFileSync4(join5(outDir, csvFile), "utf8");
+    const rows = parseCodeRefsCsv(csvText);
+    return rows.length ? { rows, csvText } : { rows, csvText, warning: "ld-find-code-refs found no flag references in this checkout." };
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
+  }
+}
+async function assembleKnowledgeGraph(opts) {
+  const warnings = [];
+  const root = resolve6(opts.sandboxRoot);
+  let services = [];
+  const registryPath = join5(root, SERVICES_FILE);
+  if (existsSync3(registryPath)) {
+    try {
+      services = parseServicesRegistry(readFileSync4(registryPath, "utf8"));
+      if (services.length === 0)
+        warnings.push(`${SERVICES_FILE} declares no services \u2014 file\u2192service attribution unavailable.`);
+    } catch (e) {
+      warnings.push(`${SERVICES_FILE} could not be parsed (${e instanceof Error ? e.message : String(e)}).`);
+    }
+  } else {
+    warnings.push(`no ${SERVICES_FILE} in the repo \u2014 service registry unavailable (service edges and file\u2192service attribution off). Commit one to enable the knowledge graph's service view.`);
+  }
+  let spans = [];
+  if (opts.o11y && services.length > 0) {
+    const fetched = await fetchRecentSpans({
+      apiKey: opts.o11y.apiKey,
+      projectKey: opts.o11y.projectKey,
+      ...opts.o11y.windowHours !== void 0 ? { windowHours: opts.o11y.windowHours } : {}
+    });
+    spans = fetched.spans;
+    if (fetched.warning)
+      warnings.push(fetched.warning);
+  } else if (opts.o11y) {
+    warnings.push("skipping observability span fetch \u2014 no service registry to resolve span targets against.");
+  }
+  let codeRefRows = [];
+  if (opts.codeRefs) {
+    const refs = runFindCodeRefs({ sandboxRoot: root, ...opts.codeRefs });
+    codeRefRows = refs.rows;
+    if (refs.warning)
+      warnings.push(refs.warning);
+  }
+  const graph = composeGraph({
+    services,
+    spans,
+    codeRefs: codeRefRows,
+    ...opts.sha ? { sha: opts.sha } : {}
+  });
+  const changedFiles = changedFilesInCheckout(root, opts.prBaseRef);
+  return { graph, changedFiles, warnings };
+}
+
 // src/checkRun.ts
 var CHECK_NAME = "AutoFactory \u2014 Approval gate";
 async function postCheckRun(opts) {
@@ -37590,16 +38185,16 @@ async function fetchApprovalActor(repo, prNumber, token) {
 }
 
 // src/prContext.ts
-import { existsSync as existsSync3, readFileSync as readFileSync4 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync5 } from "node:fs";
 function assemblePrContext() {
   const ctx = {
     REPO: process.env.GITHUB_REPOSITORY,
     SHA: process.env.GITHUB_SHA
   };
   const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (eventPath && existsSync3(eventPath)) {
+  if (eventPath && existsSync4(eventPath)) {
     try {
-      const event = JSON.parse(readFileSync4(eventPath, "utf8"));
+      const event = JSON.parse(readFileSync5(eventPath, "utf8"));
       const pr = event.pull_request;
       if (pr) {
         if (pr.number !== void 0) ctx.PR_NUMBER = String(pr.number);
@@ -37637,11 +38232,12 @@ function createVegaClient() {
   console.log("VEGA_ENDPOINT/VEGA_TOKEN not set \u2014 using stub transport (no agent execution).");
   return new VegaClient(new StubVegaTransport());
 }
-function createAgentRunner(provider) {
+function createAgentRunner(provider, kg) {
   if (provider === "vega") {
+    if (kg) console.log("Knowledge graph: composed, but the Vega provider runs tools server-side \u2014 enrichment applies to local providers only.");
     return new VegaAgentRunner(createVegaClient());
   }
-  const sandboxRoot = resolve6(process.env.SANDBOX_ROOT ?? "examples/demo-app");
+  const sandboxRoot = resolve7(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const writer = flagCreationWriter();
   const codeChangesEnabled = process.env.ENABLE_CODE_CHANGES === "true";
   console.log(`Flag creation: ${writer ? `ENABLED \u2192 app project '${writer.projectKey}'` : "disabled"}.`);
@@ -37651,7 +38247,8 @@ function createAgentRunner(provider) {
     codeChangesEnabled,
     ...writer ? { writer } : {},
     ...process.env.PR_BRANCH ? { prBranch: process.env.PR_BRANCH } : {},
-    ...process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {}
+    ...process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {},
+    ...kg ? { knowledgeGraph: kg.graph, changedFiles: kg.changedFiles } : {}
   };
   if (provider === "cursor") {
     return new CursorAgentRunner({
@@ -37692,7 +38289,7 @@ function flagCreationWriter() {
 }
 function checkoutHeadSha(root) {
   try {
-    return execFileSync3("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+    return execFileSync4("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   } catch {
     return void 0;
   }
@@ -37701,9 +38298,9 @@ async function reviewManifestIntent(opts) {
   try {
     if (!opts.prNumber) return {};
     const rel = `.release-flags/pr-${opts.prNumber}.json`;
-    const abs = join5(opts.sandboxRoot, rel);
-    if (!existsSync4(abs)) return {};
-    const manifest = JSON.parse(readFileSync5(abs, "utf8"));
+    const abs = join6(opts.sandboxRoot, rel);
+    if (!existsSync5(abs)) return {};
+    const manifest = JSON.parse(readFileSync6(abs, "utf8"));
     const { intent, issues } = normalizeReleaseIntent(manifest.releaseIntent);
     if (opts.gatesCleared && !intent.approvedBy) {
       const actor = await fetchApprovalActor(opts.repo, opts.prNumber, process.env.GITHUB_TOKEN);
@@ -37713,7 +38310,7 @@ async function reviewManifestIntent(opts) {
         manifest.releaseIntent = rawIntent;
         writeFileSync2(abs, JSON.stringify(manifest, null, 2) + "\n", "utf8");
         try {
-          const git2 = (args) => execFileSync3("git", args, { cwd: opts.sandboxRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+          const git2 = (args) => execFileSync4("git", args, { cwd: opts.sandboxRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
           git2(["config", "user.email", "autofactory@launchdarkly.com"]);
           git2(["config", "user.name", "LaunchDarkly AutoFactory"]);
           git2(["add", rel]);
@@ -37808,12 +38405,12 @@ function mapActionInputs() {
 }
 async function detectConfigDrift(graphKey) {
   try {
-    const repoRoot = resolve6(dirname5(fileURLToPath(import.meta.url)), "../../..");
-    const base = join5(repoRoot, "config", "agentcontrol");
+    const repoRoot = resolve7(dirname5(fileURLToPath(import.meta.url)), "../../..");
+    const base = join6(repoRoot, "config", "agentcontrol");
     const local = computeConfigHash({
-      aiConfigsDir: join5(base, "ai-configs"),
-      graphsDir: join5(base, "graphs"),
-      flagsDir: join5(base, "flags")
+      aiConfigsDir: join6(base, "ai-configs"),
+      graphsDir: join6(base, "graphs"),
+      flagsDir: join6(base, "flags")
     });
     if (!local) return void 0;
     const graph = await new LdClient(targetConnection()).getAgentGraph(graphKey);
@@ -37843,7 +38440,37 @@ async function main() {
   console.log(`Phase 1: PR #${context.PR_NUMBER ?? "?"} \u2192 graph '${graphKey}' [provider: ${provider}]`);
   const configDrift = await detectConfigDrift(graphKey);
   if (configDrift) console.log(`::warning::AutoFactory: ${configDrift}`);
-  const runner = createAgentRunner(provider);
+  const kgEnabled = await ldClient.variation(KNOWLEDGE_GRAPH_FLAG_KEY, ldContext, false) === true;
+  let kg;
+  if (kgEnabled) {
+    const kgSandboxRoot = resolve7(process.env.SANDBOX_ROOT ?? "examples/demo-app");
+    const appProject = process.env.LD_APP_PROJECT_KEY;
+    kg = await assembleKnowledgeGraph({
+      sandboxRoot: kgSandboxRoot,
+      ...process.env.PR_BASE_REF ? { prBaseRef: process.env.PR_BASE_REF } : {},
+      ...context.HEAD_SHA ? { sha: context.HEAD_SHA } : {},
+      ...process.env.LD_API_KEY && appProject ? {
+        o11y: { apiKey: process.env.LD_API_KEY, projectKey: appProject },
+        codeRefs: {
+          apiKey: process.env.LD_API_KEY,
+          projectKey: appProject,
+          ...context.REPO ? { repoName: context.REPO.split("/").pop() } : {}
+        }
+      } : {}
+    });
+    if (!process.env.LD_API_KEY || !appProject) {
+      kg.warnings.push("LD_API_KEY / LD_APP_PROJECT_KEY unset \u2014 traces and code-refs sources skipped.");
+    }
+    const svcEdges = kg.graph.edges.filter((e) => e.kind === "service_calls").length;
+    const wrapEdges = kg.graph.edges.filter((e) => e.kind === "flag_wraps").length;
+    console.log(
+      `Knowledge graph: ON \u2014 ${kg.graph.services.length} services, ${svcEdges} service edges (traces), ${wrapEdges} wrap points (code refs), ${kg.changedFiles.length} changed files, ${kg.graph.gaps.length} gaps.`
+    );
+    for (const w of kg.warnings) console.log(`::warning::AutoFactory knowledge graph: ${w}`);
+  } else {
+    console.log("Knowledge graph: off (auto-factory-knowledge-graph) \u2014 agents run un-enriched (baseline).");
+  }
+  const runner = createAgentRunner(provider, kg);
   const policy = await resolveApprovalPolicy(ldClient, ldContext);
   let approvedSteps = /* @__PURE__ */ new Set();
   if (policy.mode !== "yolo") {
@@ -37854,7 +38481,7 @@ async function main() {
   console.log(
     `Approval policy: mode=${policy.mode} (source: ${policy.modeSource === "env" ? "APPROVAL_MODE env override" : "LD flags"})` + (policy.mode === "risk-threshold" ? ` threshold=${policy.threshold}` : "") + (gate ? ` steps=[${stepsDesc}]; approved: [${[...approvedSteps].join(", ") || "none"}]` : " (no gates)")
   );
-  const sandboxRoot = resolve6(process.env.SANDBOX_ROOT ?? "examples/demo-app");
+  const sandboxRoot = resolve7(process.env.SANDBOX_ROOT ?? "examples/demo-app");
   const judgeCompletion = createJudgeCompletion(provider);
   const baseJudgeHook = judgeCompletion ? createJudgeHook({
     aiClient,
@@ -37940,6 +38567,7 @@ async function main() {
     intentReview.line ?? "",
     intentReview.warning ? `**\u26A0 Release intent:** ${intentReview.warning}` : "",
     configDrift ? `**\u26A0 Config drift:** ${configDrift}` : "",
+    kg ? `**Knowledge graph:** on \u2014 ${kg.graph.edges.filter((e) => e.kind === "service_calls").length} service edges (traces), ${kg.graph.edges.filter((e) => e.kind === "flag_wraps").length} wrap points (code refs)` + (kg.warnings.length ? `; \u26A0 ${kg.warnings.map((w) => w.split(" \u2014 ")[0]).join("; \u26A0 ")}` : "") : "",
     walk2.skipped.length ? `**Skipped:** ${walk2.skipped.join(", ")}` : "",
     stallText ? `**\u26A0 Stalled:** ${stallText}` : "",
     "",

@@ -5,3 +5,5 @@ export * from "./traceEdges.js";
 export * from "./codeRefs.js";
 export * from "./compose.js";
 export * from "./query.js";
+export * from "./o11yClient.js";
+export * from "./assemble.js";
