@@ -17,6 +17,18 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-07-13
 
+### ✅ Frontend-scoped flags auto-expose to the client-side SDK (`create_flag`)
+- **Runtime fix** (`ldWriter.createBooleanFlag`): when `scope` is `frontend` or
+  `fullstack`, new flags include `clientSideAvailability.usingEnvironmentId`.
+  On idempotent re-runs (HTTP 409), a semantic patch turns client-side
+  availability on for existing flags.
+- **`create_flag` tool** accepts optional `scope`; when omitted, reads
+  `.release-flags/*.json` (sole manifest or matching `flagKey`).
+- **Flag implementer** instructions: pass scope from the release manifest when
+  calling `create_flag`.
+- **Why:** flags could be targeting-on in LaunchDarkly but invisible to browser
+  SDKs — UI gates silently stayed on their offline defaults.
+
 ### ✅ LLM-friendly LaunchDarkly docs for the agents (`read_ld_docs`)
 - **New capability token** `read_docs` → **new tool** `read_ld_docs`: fetches
   LaunchDarkly documentation pages as clean markdown (the docs site serves
