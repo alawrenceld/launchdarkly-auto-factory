@@ -22,6 +22,7 @@ packages build on. If you're looking for the customization points, they're here.
 | `src/ldSdk.ts` | Native LaunchDarkly bootstrap: server SDK (flag eval) + AI SDK (configs/graphs/trackers) + the pipeline context |
 | `src/providerFlag.ts` | Resolves `auto-factory-ai-provider` (default `anthropic`) via the server SDK |
 | `src/ldClient.ts` | REST client (configurable base URL) for flags, metrics, AI configs, graphs |
+| `src/graph/` | Knowledge graph (ADR 0010): `schema` (artifact types), `traceEdges` (observability spans → service edges), `codeRefs` (find-code-refs CSV → flag wrap points), `o11yClient` (hosted o11y MCP span fetch, fail-soft), `assemble` (per-run composition: registry + spans + code refs, degrades per source), `query` (dependents/dependencies BFS + `blastRadius`) |
 | `src/releaseAdapter.ts` | Phase 2 release API: `startAutomatedRelease`, `getReleasePolicy`, `normalizeReleasePolicy` |
 | `src/env.ts` | `.env` loader + `targetConnection` / `appConnection` / `sourceConnection` |
 | `src/config.ts` | Schemas for the YAML files under `config/` |

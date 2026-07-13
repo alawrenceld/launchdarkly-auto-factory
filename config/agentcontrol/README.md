@@ -90,11 +90,15 @@ Anthropic provider:
   Creates the `releaseIntent` skeleton but never updates an existing intent.
 - `"steward_manifest"`: `write_manifest` in steward grade — may UPDATE the
   human-editable `releaseIntent` block (the manifest steward only).
+- `"query_graph"`: the `query_dependencies` tool (ADR 0010) — blast-radius and
+  dependency queries over the per-run knowledge graph. Read-only; only offered
+  when the `auto-factory-knowledge-graph` flag enabled graph composition for
+  the run, so a grant on a flag-off run is inert.
 
 Put grants here so "which agent can write" is config, not code. When an edge
 omits `capabilities`, the runner falls back to a built-in per-config-key map
-(`autofactory-research-planner`: write_manifest — the ROOT node has no inbound
-edge, so this is its only grant path; `autofactory-manifest-steward`:
+(`autofactory-research-planner`: write_manifest+query_graph — the ROOT node has
+no inbound edge, so this is its only grant path; `autofactory-manifest-steward`:
 steward_manifest; `autofactory-flag-implementer`: create_flag+edit_files+
 write_manifest; `autofactory-flag-testing`: edit_files;
 `autofactory-metrics-author`: create_metric+edit_files+write_manifest);

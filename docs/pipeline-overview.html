@@ -130,6 +130,7 @@
           <li>The targeting context is a multi-context (<span class="k">service</span> static + <span class="k">run</span> = fresh UUID), so coding agents can A/B their model (Composer vs Sonnet) independently per run.</li>
           <li>Per-agent write permissions (<span class="k">create_flag</span>, <span class="k">create_metric</span>, <span class="k">edit_files</span>, <span class="k">write_manifest</span>) are declared on the graph's edges.</li>
           <li>Approval policy: the <span class="k">auto-factory-approval-mode</span> / <span class="k">-risk-threshold</span> / <span class="k">-approval-gates</span> flags compile into pre-execution gates. A gated step halts the chain BEFORE it runs; adding the PR label <span class="k">af-approve:&lt;step&gt;</span> resumes it. Yolo (the default) means no gates.</li>
+          <li>Knowledge graph (<span class="k">auto-factory-knowledge-graph</span> flag, off by default): the run composes an impact graph from LaunchDarkly-native sources — service→service edges derived from <b>observability traces</b>, flag→code wrap points from an <b>ld-find-code-refs</b> dry-run at the PR SHA, and changed-file→service mapping from the repo's <span class="k">.autofactory/services.yaml</span>. Every source is fail-soft: missing telemetry or a missing scanner binary becomes a warning + a <span class="k">gaps</span> entry, never a failed run.</li>
         </ul></div>
     </div>
     <div class="arrow">→</div>
@@ -145,6 +146,7 @@
           <li>Records the repo's existing flag, test, and telemetry patterns; downstream agents match them.</li>
           <li>Creates the release manifest <span class="k">.release-flags/pr-N.json</span> via <span class="k">write_manifest</span>, including the human-editable <span class="k">releaseIntent</span> skeleton — so an approver at a gate has a form to fill in BEFORE implementation.</li>
           <li>Routing: tags <span class="k">flag_worthy</span> and a numeric <span class="k">risk_score</span> (0–1, consumed by the risk-threshold approval mode). Tagging <span class="k">skip_flagging=true</span> ends the chain (config-only, docs, dependency PRs).</li>
+          <li>When the knowledge graph is on, it also gets <span class="k">query_dependencies</span>: a no-argument call returns this PR's blast radius (changed services, dependent services with evidence, upstream contracts, flags already wrapping the changed code). Graph <span class="k">gaps</span> are reported as UNKNOWN coverage, never as low risk — a thin graph can't launder a risky change.</li>
         </ul></div>
     </div>
     <div class="arrow">→</div>
@@ -192,6 +194,8 @@
           <li>Adds <span class="k">track()</span> calls on the flagged path. Telemetry is wrapped so a tracking failure cannot fail the request.</li>
           <li>Creates each metric with <span class="k">eventKey</span> equal to the tracked event name. Metric key convention: <span class="k">&lt;flag&gt;-&lt;category&gt;</span>.</li>
           <li>The metric randomization unit must equal the flag rollout unit (default <span class="k">user</span>).</li>
+          <li>Metric backing rules: guardrails must be per-unit attributable — <span class="k">track()</span> events (default) or <b>trace metrics</b> on span attributes, the latter ONLY when the flag is evaluated inside the active span (the observability SDK's <span class="k">afterEvaluation</span> hook enriches that span). Pre-aggregated OTel metrics never qualify. Trace-metric creation is UI-only today, so the agent records <span class="k">trace_metric_candidates</span> instead of creating them.</li>
+          <li>Telemetry footprint (M10): when the service already uses the LaunchDarkly observability SDK, the agent span-covers the flagged path (flag evaluated in-span, <span class="k">&lt;flag&gt;.&lt;attribute&gt;</span> span attributes) — growing the very telemetry the knowledge graph reads. Each processed PR widens the map that informs the next PR.</li>
           <li>Classifies metrics killswitch / pause / monitoring and writes <span class="k">metricKeys</span> + <span class="k">randomizationUnit</span> into the manifest.</li>
           <li>An attached LaunchDarkly judge (<span class="k">metrics-quality</span>) then scores the output 0..1 against the agent's actual git diff (instrumentation + manifest edits). Non-blocking; scores record per-variation for the model A/B.</li>
         </ul></div>
