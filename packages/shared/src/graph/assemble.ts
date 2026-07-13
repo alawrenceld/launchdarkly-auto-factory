@@ -13,7 +13,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import { parse as parseYaml } from "yaml";
 
 import { type CodeRefRow, parseCodeRefsCsv } from "./codeRefs.js";
@@ -90,6 +90,17 @@ export function changedFilesInCheckout(sandboxRoot: string, prBaseRef?: string):
   return [];
 }
 
+/** Walk up from `start` to the directory that contains `.git`. */
+export function resolveGitRepoRoot(start: string): string {
+  let dir = resolve(start);
+  while (!existsSync(join(dir, ".git"))) {
+    const parent = dirname(dir);
+    if (parent === dir) return resolve(start);
+    dir = parent;
+  }
+  return dir;
+}
+
 /**
  * Run `ld-find-code-refs` at the checkout's current SHA (dry run — nothing is
  * pushed to LaunchDarkly from the pipeline; the app repo's own on-merge scan
@@ -111,16 +122,21 @@ export function runFindCodeRefs(opts: {
     };
   }
   const outDir = mkdtempSync(join(tmpdir(), "af-coderefs-"));
+  const repoRoot = resolveGitRepoRoot(opts.sandboxRoot);
+  const branch = process.env.PR_BRANCH?.trim();
   try {
+    const args = [
+      "--dir", repoRoot,
+      "--projKey", opts.projectKey,
+      "--repoName", opts.repoName ?? "pr-checkout",
+      "--repoType", "github",
+      "--dryRun",
+      "--outDir", outDir,
+    ];
+    if (branch) args.push("--branch", branch);
     const run = spawnSync(
       "ld-find-code-refs",
-      [
-        "--dir", opts.sandboxRoot,
-        "--projKey", opts.projectKey,
-        "--repoName", opts.repoName ?? "pr-checkout",
-        "--dryRun",
-        "--outDir", outDir,
-      ],
+      args,
       { encoding: "utf8", timeout: 120_000, env: { ...process.env, LD_ACCESS_TOKEN: opts.apiKey } },
     );
     if (run.error || run.status !== 0) {

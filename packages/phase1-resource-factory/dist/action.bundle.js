@@ -26733,10 +26733,10 @@ async function setupSkills(ctx) {
     try {
       const versionId = await resolveSkillVersion(client, skill.skill_id, skill.version);
       const version = await client.beta.skills.versions.retrieve(versionId, { skill_id: skill.skill_id });
-      let dirname6 = path3.basename(version.name.trim());
-      if (dirname6 === "" || dirname6 === "." || dirname6 === "..")
-        dirname6 = skill.skill_id;
-      const dest = path3.resolve(skillsRoot, dirname6);
+      let dirname7 = path3.basename(version.name.trim());
+      if (dirname7 === "" || dirname7 === "." || dirname7 === "..")
+        dirname7 = skill.skill_id;
+      const dest = path3.resolve(skillsRoot, dirname7);
       if (dest !== skillsRoot && !dest.startsWith(skillsRoot + path3.sep)) {
         log.warn("skill name escapes the skills dir; skipping", {
           component: "agent-tool-context",
@@ -33123,7 +33123,7 @@ var init_sdk = __esm({
 // src/action.ts
 import { execFileSync as execFileSync4 } from "node:child_process";
 import { existsSync as existsSync5, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname5, join as join6, resolve as resolve7 } from "node:path";
+import { dirname as dirname6, join as join6, resolve as resolve7 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // ../shared/dist/env.js
@@ -38033,7 +38033,7 @@ var import_yaml2 = __toESM(require_dist(), 1);
 import { execFileSync as execFileSync3, spawnSync as spawnSync2 } from "node:child_process";
 import { existsSync as existsSync3, mkdtempSync, readFileSync as readFileSync4, readdirSync as readdirSync3, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join5, resolve as resolve6 } from "node:path";
+import { join as join5, resolve as resolve6, dirname as dirname5 } from "node:path";
 var SERVICES_FILE = ".autofactory/services.yaml";
 function parseServicesRegistry(yamlText) {
   const doc = (0, import_yaml2.parse)(yamlText);
@@ -38070,6 +38070,16 @@ function changedFilesInCheckout(sandboxRoot, prBaseRef) {
   }
   return [];
 }
+function resolveGitRepoRoot(start) {
+  let dir = resolve6(start);
+  while (!existsSync3(join5(dir, ".git"))) {
+    const parent = dirname5(dir);
+    if (parent === dir)
+      return resolve6(start);
+    dir = parent;
+  }
+  return dir;
+}
 function runFindCodeRefs(opts) {
   const probe = spawnSync2("ld-find-code-refs", ["--version"], { encoding: "utf8", timeout: 15e3 });
   if (probe.error || probe.status !== 0) {
@@ -38079,18 +38089,25 @@ function runFindCodeRefs(opts) {
     };
   }
   const outDir = mkdtempSync(join5(tmpdir(), "af-coderefs-"));
+  const repoRoot = resolveGitRepoRoot(opts.sandboxRoot);
+  const branch = process.env.PR_BRANCH?.trim();
   try {
-    const run = spawnSync2("ld-find-code-refs", [
+    const args = [
       "--dir",
-      opts.sandboxRoot,
+      repoRoot,
       "--projKey",
       opts.projectKey,
       "--repoName",
       opts.repoName ?? "pr-checkout",
+      "--repoType",
+      "github",
       "--dryRun",
       "--outDir",
       outDir
-    ], { encoding: "utf8", timeout: 12e4, env: { ...process.env, LD_ACCESS_TOKEN: opts.apiKey } });
+    ];
+    if (branch)
+      args.push("--branch", branch);
+    const run = spawnSync2("ld-find-code-refs", args, { encoding: "utf8", timeout: 12e4, env: { ...process.env, LD_ACCESS_TOKEN: opts.apiKey } });
     if (run.error || run.status !== 0) {
       const detail = `${run.stderr ?? ""}${run.stdout ?? ""}`.trim().slice(0, 300);
       return { rows: [], warning: `ld-find-code-refs failed (${detail || "unknown error"}) \u2014 wrap-point edges unavailable.` };
@@ -38518,7 +38535,7 @@ function mapActionInputs() {
 }
 async function detectConfigDrift(graphKey) {
   try {
-    const repoRoot = resolve7(dirname5(fileURLToPath(import.meta.url)), "../../..");
+    const repoRoot = resolve7(dirname6(fileURLToPath(import.meta.url)), "../../..");
     const base = join6(repoRoot, "config", "agentcontrol");
     const local = computeConfigHash({
       aiConfigsDir: join6(base, "ai-configs"),
