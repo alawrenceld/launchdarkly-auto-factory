@@ -43,14 +43,16 @@ async function main(): Promise<void> {
     const aiConfigsDir = flag(args, "ai-configs") ?? "config/agentcontrol/ai-configs";
     const graphsDir = flag(args, "graphs") ?? "config/agentcontrol/graphs";
     const flagsDir = flag(args, "flags") ?? "config/agentcontrol/flags";
+    const toolsDir = flag(args, "tools") ?? "config/agentcontrol/tools";
     const dryRun = args.includes("--dry-run");
     console.log(`Provisioning into project '${ld.projectKey}'${dryRun ? " (DRY RUN — no writes)" : ""}`);
-    console.log(`  ai-configs: ${aiConfigsDir}\n  graphs:     ${graphsDir}\n  flags:      ${flagsDir}\n`);
-    const r = await provision(ld, { aiConfigsDir, graphsDir, flagsDir, dryRun });
+    console.log(`  ai-configs: ${aiConfigsDir}\n  graphs:     ${graphsDir}\n  flags:      ${flagsDir}\n  tools:      ${toolsDir}\n`);
+    const r = await provision(ld, { aiConfigsDir, graphsDir, flagsDir, toolsDir, dryRun });
     console.log(`Configs:    ${r.configsCreated.length} created, ${r.configsExisting.length} existing`);
     console.log(`Variations: ${r.variationsCreated} created, ${r.variationsExisting} existing`);
     console.log(`Graphs:     ${r.graphsCreated.length} created, ${r.graphsExisting.length} existing`);
     console.log(`Flags:      ${r.flagsCreated.length} created, ${r.flagsExisting.length} existing`);
+    console.log(`Tools:      ${r.toolsCreated.length} created, ${r.toolsExisting.length} existing`);
     if (r.toolsStripped.length) {
       console.log(`⚠ tools stripped from ${r.toolsStripped.length} variation(s) — our snapshots hold only tool/snippet references, not definitions, so re-attach them in LD if the provider needs them`);
     }
@@ -99,6 +101,7 @@ async function main(): Promise<void> {
     console.log(`Variations: ${p.variationsCreated} created, ${p.variationsExisting} existing`);
     console.log(`Graphs:     ${p.graphsCreated.length} created, ${p.graphsExisting.length} existing`);
     console.log(`Flags:      ${p.flagsCreated.length} created, ${p.flagsExisting.length} existing`);
+    console.log(`Tools:      ${p.toolsCreated.length} created, ${p.toolsExisting.length} existing`);
     if (p.toolsStripped.length) {
       console.log(`⚠ tools stripped from ${p.toolsStripped.length} variation(s) — re-attach in LD if the provider needs them`);
     }
@@ -117,15 +120,17 @@ async function main(): Promise<void> {
     const aiConfigsDir = flag(args, "ai-configs") ?? "config/agentcontrol/ai-configs";
     const graphsDir = flag(args, "graphs") ?? "config/agentcontrol/graphs";
     const flagsDir = flag(args, "flags") ?? "config/agentcontrol/flags";
+    const toolsDir = flag(args, "tools") ?? "config/agentcontrol/tools";
     const dryRun = args.includes("--dry-run");
     console.log(`Upgrading project '${ld.projectKey}' to committed definitions${dryRun ? " (DRY RUN — no writes)" : ""}`);
     console.log(`  ai-configs: ${aiConfigsDir}\n  graphs:     ${graphsDir}\n  flags:      ${flagsDir}\n`);
-    const r = await upgrade(ld, { aiConfigsDir, graphsDir, flagsDir, dryRun });
+    const r = await upgrade(ld, { aiConfigsDir, graphsDir, flagsDir, toolsDir, dryRun });
     const p = r.provision;
-    console.log(`Created:  ${p.configsCreated.length} config(s), ${p.variationsCreated} variation(s), ${p.graphsCreated.length} graph(s), ${p.flagsCreated.length} flag(s)`);
-    console.log(`Updated:  ${r.variationsUpdated.length} variation(s), ${r.graphsUpdated.length} graph(s)`);
+    console.log(`Created:  ${p.configsCreated.length} config(s), ${p.variationsCreated} variation(s), ${p.graphsCreated.length} graph(s), ${p.flagsCreated.length} flag(s), ${p.toolsCreated.length} tool(s)`);
+    console.log(`Updated:  ${r.variationsUpdated.length} variation(s), ${r.graphsUpdated.length} graph(s), ${r.toolsUpdated.length} tool definition(s)`);
     for (const v of r.variationsUpdated) console.log(`    ~ ${v}`);
     for (const g of r.graphsUpdated) console.log(`    ~ graph ${g}`);
+    for (const tl of r.toolsUpdated) console.log(`    ~ tool ${tl}`);
     if (p.toolsStripped.length) {
       console.log(`⚠ tools stripped from ${p.toolsStripped.length} created variation(s) — re-attach in LD if the provider needs them`);
     }

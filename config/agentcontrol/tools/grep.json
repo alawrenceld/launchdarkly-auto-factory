@@ -1,0 +1,21 @@
+{
+  "key": "grep",
+  "name": "grep",
+  "description": "Search the repository for a regular expression and return matching file:line snippets. Use to find existing patterns (e.g. flag-evaluation calls, endpoints).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "pattern": {
+        "type": "string",
+        "description": "JavaScript regular expression"
+      },
+      "path": {
+        "type": "string",
+        "description": "Optional repo-relative subdirectory to scope the search"
+      }
+    },
+    "required": [
+      "pattern"
+    ]
+  }
+}

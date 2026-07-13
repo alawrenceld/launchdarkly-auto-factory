@@ -139,6 +139,37 @@ export class LdClient {
     });
   }
 
+  // --- AI tools library (AgentControl) -------------------------------------
+
+  /** Get an AI tool definition; returns status 404 (not throwing) when absent. */
+  getAiTool<T = unknown>(key: string): Promise<LdResponse<T>> {
+    return this.request<T>({
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-tools/${key}`,
+      headers: BETA,
+      okStatuses: [404],
+    });
+  }
+
+  /** Create an AI tool definition ({key, name, description, schema}). */
+  createAiTool<T = unknown>(body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "POST",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-tools`,
+      headers: BETA,
+      body,
+    });
+  }
+
+  /** Partial update of an AI tool definition (description/schema sync). */
+  updateAiTool<T = unknown>(key: string, body: unknown): Promise<LdResponse<T>> {
+    return this.request<T>({
+      method: "PATCH",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-tools/${key}`,
+      headers: BETA,
+      body,
+    });
+  }
+
   /** Get an agent graph; returns status 404 (not throwing) when absent. */
   getAgentGraph<T = unknown>(key: string): Promise<LdResponse<T>> {
     return this.request<T>({

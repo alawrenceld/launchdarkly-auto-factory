@@ -1,0 +1,14 @@
+{
+  "key": "git_diff",
+  "name": "git_diff",
+  "description": "Show the pull request's changes as a unified diff (base...HEAD), including commits added by earlier agents (flag wiring, tests). Call this FIRST to see exactly what changed instead of reading files one by one.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "base": {
+        "type": "string",
+        "description": "Base ref to diff against (default: the PR base / main)"
+      }
+    }
+  }
+}

@@ -33,6 +33,9 @@ function fakeLd(liveState: {
       const f = liveState.flags?.[key];
       return f ? { status: 200, ok: true, data: f } : { status: 404, ok: true, data: {} };
     },
+    getAiTool: async () => ({ status: 404, ok: true, data: {} }),
+    createAiTool: rec("createAiTool"),
+    updateAiTool: rec("updateAiTool"),
     createAiConfig: rec("createAiConfig"),
     createAiConfigVariation: rec("createAiConfigVariation"),
     updateAiConfigVariation: rec("updateAiConfigVariation"),
@@ -46,9 +49,9 @@ function fakeLd(liveState: {
 const root = mkdtempSync(join(tmpdir(), "upgrade-test-"));
 after(() => rmSync(root, { recursive: true, force: true }));
 
-function writeDirs(name: string, files: { configs?: Record<string, unknown>; graphs?: Record<string, unknown>; flags?: Record<string, unknown> }) {
+function writeDirs(name: string, files: { configs?: Record<string, unknown>; graphs?: Record<string, unknown>; flags?: Record<string, unknown>; tools?: Record<string, unknown> }) {
   const base = join(root, name);
-  for (const [sub, entries] of [["ai-configs", files.configs], ["graphs", files.graphs], ["flags", files.flags]] as const) {
+  for (const [sub, entries] of [["ai-configs", files.configs], ["graphs", files.graphs], ["flags", files.flags], ["tools", files.tools]] as const) {
     mkdirSync(join(base, sub), { recursive: true });
     for (const [key, body] of Object.entries(entries ?? {})) {
       writeFileSync(join(base, sub, `${key}.json`), JSON.stringify(body));
@@ -58,6 +61,7 @@ function writeDirs(name: string, files: { configs?: Record<string, unknown>; gra
     aiConfigsDir: join(base, "ai-configs"),
     graphsDir: join(base, "graphs"),
     flagsDir: join(base, "flags"),
+    toolsDir: join(base, "tools"),
   };
 }
 

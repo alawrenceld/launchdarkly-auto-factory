@@ -1,0 +1,22 @@
+{
+  "key": "write_manifest",
+  "name": "write_manifest",
+  "description": "Create or update the release manifest (.release-flags/pr-<N>.json). Pass only the fields you own — they are MERGED into the existing file (agent fields: flagKey, scope, releasePlan.*). The human-editable releaseIntent block is auto-initialized on first write and PRESERVED on later writes (you cannot overwrite it). The file is validated, written as schema 1.1, and committed to the PR branch automatically — do not also edit it with write_file/edit_file.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Repo-relative manifest path, e.g. .release-flags/pr-42.json"
+      },
+      "manifest": {
+        "type": "object",
+        "description": "Fields to merge, e.g. {\"flagKey\": \"enable-x\", \"scope\": \"backend\", \"releasePlan\": {\"metricKeys\": [...], \"randomizationUnit\": \"user\"}}"
+      }
+    },
+    "required": [
+      "path",
+      "manifest"
+    ]
+  }
+}

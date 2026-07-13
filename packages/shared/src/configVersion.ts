@@ -24,6 +24,8 @@ export interface ConfigDirs {
   aiConfigsDir: string;
   graphsDir: string;
   flagsDir: string;
+  /** Tools-library definitions (ADR 0011); optional for pre-tools callers. */
+  toolsDir?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ export function computeConfigHash(dirs: ConfigDirs): string | undefined {
     ["ai-configs", dirs.aiConfigsDir],
     ["graphs", dirs.graphsDir],
     ["flags", dirs.flagsDir],
+    ...(dirs.toolsDir ? ([["tools", dirs.toolsDir]] as Array<[string, string]>) : []),
   ];
   const h = createHash("sha256");
   let files = 0;

@@ -1,0 +1,21 @@
+{
+  "key": "read_ld_docs",
+  "name": "read_ld_docs",
+  "description": "Fetch a LaunchDarkly documentation page as clean markdown (docs pages serve markdown when '.md' is appended; this tool handles that). Use it when you are UNCERTAIN about LaunchDarkly-specific semantics or SDK syntax — e.g. track() in a language this repo doesn't demonstrate, guarded-rollout mechanics, metric type rules. Your instructions list a shortlist of relevant pages; pass 'llms.txt' to get the full documentation directory if the shortlist doesn't cover your question. LaunchDarkly docs only — other URLs are rejected. A failed fetch must never block your task: fall back to the repo's existing patterns.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Docs path, e.g. 'sdk/features/events' or 'home/releases/guarded-rollouts' (a full launchdarkly.com/docs URL also works), or 'llms.txt' for the directory."
+      },
+      "filter": {
+        "type": "string",
+        "description": "For 'llms.txt' only: case-insensitive term to filter the directory's lines (it is ~200KB — ALWAYS pass a filter, e.g. 'metric' or 'python')."
+      }
+    },
+    "required": [
+      "path"
+    ]
+  }
+}

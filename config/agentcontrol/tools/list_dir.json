@@ -1,0 +1,17 @@
+{
+  "key": "list_dir",
+  "name": "list_dir",
+  "description": "List the entries of a directory (relative to the repo root). Use to explore project structure.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Repo-relative directory path; \"\" or \".\" for the root"
+      }
+    },
+    "required": [
+      "path"
+    ]
+  }
+}

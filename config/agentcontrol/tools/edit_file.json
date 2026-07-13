@@ -1,0 +1,27 @@
+{
+  "key": "edit_file",
+  "name": "edit_file",
+  "description": "Replace an exact substring in an existing repo file. Use to wire flag evaluation into code. `old_string` must appear exactly once; include enough surrounding context to make it unique.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Repo-relative file path"
+      },
+      "old_string": {
+        "type": "string",
+        "description": "Exact text to replace (must be unique in the file)"
+      },
+      "new_string": {
+        "type": "string",
+        "description": "Replacement text"
+      }
+    },
+    "required": [
+      "path",
+      "old_string",
+      "new_string"
+    ]
+  }
+}

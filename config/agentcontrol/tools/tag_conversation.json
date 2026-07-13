@@ -1,0 +1,20 @@
+{
+  "key": "tag_conversation",
+  "name": "tag_conversation",
+  "description": "Record routing tags for the AutoFactory pipeline. Call this once you've decided the outcome of your step so the chain can advance. Pass the tags your instructions specify (e.g. {\"flag_created\":\"true\"}, {\"skip_flagging\":\"true\"}, {\"needs_tests\":\"true\"}, {\"review_approved\":\"true\"}, {\"risk_level\":\"low\"}).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "tags": {
+        "type": "object",
+        "description": "Flat map of string tag keys to string values.",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "tags"
+    ]
+  }
+}

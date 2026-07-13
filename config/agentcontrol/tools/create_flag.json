@@ -1,0 +1,32 @@
+{
+  "key": "create_flag",
+  "name": "create_flag",
+  "description": "Create a boolean feature flag in LaunchDarkly (the app/data-plane project). Treatment=true (new behavior), Control=false (existing behavior, served when off). Idempotent: re-creating an existing key is a no-op. After it succeeds, the flag_created/flag_key tags are set for you.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "description": "Flag key, e.g. enable-farewell (lowercase, hyphenated)"
+      },
+      "name": {
+        "type": "string",
+        "description": "Human-readable flag name"
+      },
+      "description": {
+        "type": "string",
+        "description": "What the flag gates"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Extra tags (auto-factory tags are added automatically)"
+      }
+    },
+    "required": [
+      "key"
+    ]
+  }
+}

@@ -227,6 +227,8 @@ export async function walkGraph(
       ...(maxTurns !== undefined ? { maxTurns } : {}),
       ...(requestType ? { requestType } : {}),
       ...(capabilities ? { capabilities } : {}),
+      // Tool attachments from the LD variation (interface overrides; ADR 0011).
+      ...(cfg.tools && Object.keys(cfg.tools).length > 0 ? { ldTools: cfg.tools } : {}),
     });
 
     Object.assign(accumulatedTags, result.tags);

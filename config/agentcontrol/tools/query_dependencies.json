@@ -1,0 +1,26 @@
+{
+  "key": "query_dependencies",
+  "name": "query_dependencies",
+  "description": "Query the estate's knowledge graph (service-to-service call edges observed from LaunchDarkly telemetry, plus flag-to-code wrap points). Call it with NO arguments for the blast radius of THIS PR's changed files: which services the change belongs to, which services depend on them (consumers at risk), which services they call, and which flags already wrap the changed code. Or pass `node` (a service key, flag key, or repo-relative file path) with `direction` to walk dependents/dependencies of one node. Results include a `gaps` list — treat a listed gap as UNKNOWN coverage, never as evidence of no impact.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "node": {
+        "type": "string",
+        "description": "Optional: service key (e.g. 'togglemart-catalog'), flag key, or repo-relative file path. Omit for the PR's blast radius."
+      },
+      "direction": {
+        "type": "string",
+        "enum": [
+          "dependents",
+          "dependencies"
+        ],
+        "description": "With `node`: walk who depends on it (default) or what it depends on."
+      },
+      "max_depth": {
+        "type": "number",
+        "description": "Traversal depth cap (default 3)."
+      }
+    }
+  }
+}

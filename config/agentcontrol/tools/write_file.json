@@ -1,0 +1,22 @@
+{
+  "key": "write_file",
+  "name": "write_file",
+  "description": "Create or overwrite a repo file with the given contents (parent directories are created). Use for new files (e.g. a test file). Path is repo-relative.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Repo-relative file path"
+      },
+      "content": {
+        "type": "string",
+        "description": "Full file contents"
+      }
+    },
+    "required": [
+      "path",
+      "content"
+    ]
+  }
+}

@@ -353,6 +353,7 @@ async function detectConfigDrift(graphKey: string): Promise<string | undefined> 
       aiConfigsDir: join(base, "ai-configs"),
       graphsDir: join(base, "graphs"),
       flagsDir: join(base, "flags"),
+      toolsDir: join(base, "tools"),
     });
     if (!local) return undefined; // no repo checkout alongside the bundle — nothing to compare
     const graph = await new LdClient(targetConnection()).getAgentGraph<{ description?: string }>(graphKey);

@@ -40,6 +40,7 @@ Design history: [docs/adr/](docs/adr/).
 | `packages/beacon/` | Phase 2 release orchestrator (webhooks, discovery, trigger, monitor) |
 | `packages/config-bridge/` | CLI that provisions/syncs the agent configs and graph between LD projects |
 | `config/agentcontrol/ai-configs/` | The six agent + two judge definitions (instructions live here and in LD) |
+| `config/agentcontrol/tools/` | The agents' tool definitions (descriptions + schemas), provisioned into LaunchDarkly's tools library and attached per variation — editable in the LD UI; execution stays in code (ADR 0011) |
 | `config/agentcontrol/graphs/` | The agent graph: chain order, routing conditions, per-agent write capabilities |
 | `bootstrap/` | One-command setup, plus the drop-in front-end templates (GitHub Action workflow, Cursor automation) |
 | `examples/demo-app/` | Local sandbox the agents run against in dry-run mode |

@@ -288,6 +288,73 @@ const WRITE_MANIFEST_TOOL: AnthropicToolDef = {
   },
 };
 
+/**
+ * Every sandbox tool definition, keyed by name — the built-in DEFAULTS for the
+ * model-facing interface (description + schema), and the registry the
+ * committed copies under config/agentcontrol/tools/ are generated from
+ * (`npm run export:tools`). At run time, tool definitions ATTACHED to the
+ * node's AI Config variation in LaunchDarkly override these (see
+ * `applyLdToolOverlay`); execution always stays here in the executor.
+ */
+export const SANDBOX_TOOL_DEFS: ReadonlyMap<string, AnthropicToolDef> = new Map(
+  [
+    ...READONLY_TOOLS,
+    READ_LD_DOCS_TOOL,
+    QUERY_DEPENDENCIES_TOOL,
+    CREATE_FLAG_TOOL,
+    CREATE_METRIC_TOOL,
+    WRITE_MANIFEST_TOOL,
+    WRITE_FILE_TOOL,
+    EDIT_FILE_TOOL,
+    RUN_TESTS_TOOL,
+    COMMIT_PUSH_TOOL,
+  ].map((d) => [d.name, d]),
+);
+
+/** The LaunchDarkly-resolved tool attachments for a node (AI SDK `config.tools`). */
+export interface LdToolAttachment {
+  name?: string;
+  description?: string;
+  /** JSON schema for the tool input (the tools library's `schema` field). */
+  parameters?: Record<string, unknown>;
+}
+
+/**
+ * Apply the LaunchDarkly tool attachments to the capability-derived tool set.
+ * LD shapes the INTERFACE within the code-set ceiling; it never broadens it:
+ *  - attachments present → the offering is restricted to attached names
+ *    (∩ capability set), except `tag_conversation`, which is always offered —
+ *    the graph's routing depends on it, so a UI detach must not stall the chain;
+ *  - an attachment's description/schema overrides the built-in default;
+ *  - attached names with no local implementation are returned in `unknown`
+ *    (log them — visible drift, never a silently offered no-op tool);
+ *  - no attachments → the built-in defaults, unchanged (pre-tools projects).
+ */
+export function applyLdToolOverlay(
+  defs: AnthropicToolDef[],
+  ldTools?: Record<string, LdToolAttachment>,
+): { tools: AnthropicToolDef[]; unknown: string[] } {
+  const names = Object.keys(ldTools ?? {});
+  if (!ldTools || names.length === 0) return { tools: defs, unknown: [] };
+  const attached = new Set(names);
+  const tools = defs
+    .filter((d) => d.name === "tag_conversation" || attached.has(d.name))
+    .map((d) => {
+      const ld = ldTools[d.name];
+      if (!ld) return d;
+      const schema = ld.parameters;
+      const schemaLooksValid =
+        schema && typeof schema === "object" && ("properties" in schema || schema.type === "object");
+      return {
+        ...d,
+        ...(ld.description ? { description: ld.description } : {}),
+        ...(schemaLooksValid ? { input_schema: { type: "object" as const, ...schema } } : {}),
+      };
+    });
+  const implemented = new Set(defs.map((d) => d.name));
+  return { tools, unknown: names.filter((n) => !implemented.has(n)) };
+}
+
 /** Build the tool set offered to the model for a node, per its capabilities. */
 export function buildSandboxTools(caps: ToolCapabilities): AnthropicToolDef[] {
   const tools = [...READONLY_TOOLS];

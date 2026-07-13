@@ -23,7 +23,7 @@ import type { AgentNodeRequest, AgentNodeResult, AgentRunner, AgentStatus } from
 import { SpanKind, SpanStatusCode, aiTracer, setGenAiAttributes } from "../observability.js";
 import type { KnowledgeGraph } from "../graph/schema.js";
 import type { LdResourceWriter } from "./ldWriter.js";
-import { type GitMode, SandboxToolExecutor, type ToolCapabilities, buildSandboxTools } from "./sandboxTools.js";
+import { type GitMode, SandboxToolExecutor, type ToolCapabilities, applyLdToolOverlay, buildSandboxTools } from "./sandboxTools.js";
 
 const TAGGING_NOTE = `
 
@@ -242,7 +242,16 @@ export class AnthropicAgentRunner implements AgentRunner {
     if (caps.queryGraph && this.opts.knowledgeGraph) {
       executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
     }
-    const tools = buildSandboxTools(caps) as Anthropic.Tool[];
+    // LD variation tool attachments shape the interface within the capability
+    // ceiling (ADR 0011): restrict the offered set, override descriptions/schemas.
+    const overlay = applyLdToolOverlay(buildSandboxTools(caps), req.ldTools);
+    if (overlay.unknown.length > 0) {
+      console.warn(
+        `[node] ${req.configKey} LD variation attaches tool(s) with no local implementation: ${overlay.unknown.join(", ")} — ignored (execution lives in the runner; add the implementation or detach them)`,
+      );
+    }
+    const tools = overlay.tools as Anthropic.Tool[];
+    const toolCallsUsed = new Set<string>();
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
 
     const messages: Anthropic.MessageParam[] = [{ role: "user", content: req.prompt }];
@@ -276,6 +285,7 @@ export class AnthropicAgentRunner implements AgentRunner {
         const toolUses = resp.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
         const results: Anthropic.ToolResultBlockParam[] = [];
         for (const b of toolUses) {
+          toolCallsUsed.add(b.name);
           const r = await executor.execute(b.name, (b.input ?? {}) as Record<string, unknown>);
           results.push({
             type: "tool_result",
@@ -332,6 +342,14 @@ export class AnthropicAgentRunner implements AgentRunner {
       if (e instanceof Error) span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
+      // Tool-invocation telemetry (AI Config monitoring's tool dimension).
+      if (toolCallsUsed.size > 0) {
+        try {
+          req.tracker?.trackToolCalls([...toolCallsUsed]);
+        } catch {
+          /* telemetry must never fail the node */
+        }
+      }
       if (inputTokens || outputTokens) {
         req.tracker?.trackTokens({ input: inputTokens, output: outputTokens, total: inputTokens + outputTokens });
       }

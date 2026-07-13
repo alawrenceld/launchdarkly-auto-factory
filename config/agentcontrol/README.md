@@ -40,6 +40,19 @@ LaunchDarkly UI and take effect on the next run. If you change them in LD,
 re-export to these files so the repo stays canonical, and log the change in
 `CHANGELOG.md`.
 
+## tools/
+
+One JSON file per sandbox tool (`key`, `name`, `description`, `schema`) — the
+AgentControl tools-library definitions (ADR 0011). Generated from the code
+registry with `npm run export:tools` (run it after adding/renaming a tool in
+`sandboxTools.ts`); provisioned into LaunchDarkly by the bridge and attached to
+each agent variation per the variation's `tools` name array in `ai-configs/`.
+After provisioning, descriptions/schemas are editable in the LD UI (Library →
+Tools) and take effect on the next run — the same two-way convention as
+instructions: re-export edits here, or `upgrade` reverts them. Execution and
+write-gating stay in code; attachments can narrow or re-describe an agent's
+tools but never grant powers the graph's `capabilities` don't.
+
 ## graphs/
 
 `auto-factory.json` defines the chain: root config, edge order, routing

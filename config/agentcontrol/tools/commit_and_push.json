@@ -1,0 +1,17 @@
+{
+  "key": "commit_and_push",
+  "name": "commit_and_push",
+  "description": "Stage all changes, commit, and push to the PR branch. Call this once after you've made your file edits so they land on the pull request. Provide a concise commit message.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string",
+        "description": "Commit message"
+      }
+    },
+    "required": [
+      "message"
+    ]
+  }
+}

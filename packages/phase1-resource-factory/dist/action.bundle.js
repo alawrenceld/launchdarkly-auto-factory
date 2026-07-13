@@ -33274,6 +33274,33 @@ var LdClient = class {
       body
     });
   }
+  // --- AI tools library (AgentControl) -------------------------------------
+  /** Get an AI tool definition; returns status 404 (not throwing) when absent. */
+  getAiTool(key) {
+    return this.request({
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-tools/${key}`,
+      headers: BETA,
+      okStatuses: [404]
+    });
+  }
+  /** Create an AI tool definition ({key, name, description, schema}). */
+  createAiTool(body) {
+    return this.request({
+      method: "POST",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-tools`,
+      headers: BETA,
+      body
+    });
+  }
+  /** Partial update of an AI tool definition (description/schema sync). */
+  updateAiTool(key, body) {
+    return this.request({
+      method: "PATCH",
+      path: `/api/v2/projects/${this.conn.projectKey}/ai-tools/${key}`,
+      headers: BETA,
+      body
+    });
+  }
   /** Get an agent graph; returns status 404 (not throwing) when absent. */
   getAgentGraph(key) {
     return this.request({
@@ -33494,7 +33521,8 @@ function computeConfigHash(dirs) {
   const sources = [
     ["ai-configs", dirs.aiConfigsDir],
     ["graphs", dirs.graphsDir],
-    ["flags", dirs.flagsDir]
+    ["flags", dirs.flagsDir],
+    ...dirs.toolsDir ? [["tools", dirs.toolsDir]] : []
   ];
   const h = createHash("sha256");
   let files = 0;
@@ -33606,7 +33634,9 @@ async function walkGraph(graphDef, runner, context, graphTracker, onEvent, gate,
       tracker,
       ...maxTurns !== void 0 ? { maxTurns } : {},
       ...requestType ? { requestType } : {},
-      ...capabilities ? { capabilities } : {}
+      ...capabilities ? { capabilities } : {},
+      // Tool attachments from the LD variation (interface overrides; ADR 0011).
+      ...cfg.tools && Object.keys(cfg.tools).length > 0 ? { ldTools: cfg.tools } : {}
     });
     Object.assign(accumulatedTags, result.tags);
     const output = lastAssistantText(result);
@@ -36385,6 +36415,38 @@ var WRITE_MANIFEST_TOOL = {
     required: ["path", "manifest"]
   }
 };
+var SANDBOX_TOOL_DEFS = new Map([
+  ...READONLY_TOOLS,
+  READ_LD_DOCS_TOOL,
+  QUERY_DEPENDENCIES_TOOL,
+  CREATE_FLAG_TOOL,
+  CREATE_METRIC_TOOL,
+  WRITE_MANIFEST_TOOL,
+  WRITE_FILE_TOOL,
+  EDIT_FILE_TOOL,
+  RUN_TESTS_TOOL,
+  COMMIT_PUSH_TOOL
+].map((d) => [d.name, d]));
+function applyLdToolOverlay(defs, ldTools) {
+  const names = Object.keys(ldTools ?? {});
+  if (!ldTools || names.length === 0)
+    return { tools: defs, unknown: [] };
+  const attached = new Set(names);
+  const tools = defs.filter((d) => d.name === "tag_conversation" || attached.has(d.name)).map((d) => {
+    const ld = ldTools[d.name];
+    if (!ld)
+      return d;
+    const schema = ld.parameters;
+    const schemaLooksValid = schema && typeof schema === "object" && ("properties" in schema || schema.type === "object");
+    return {
+      ...d,
+      ...ld.description ? { description: ld.description } : {},
+      ...schemaLooksValid ? { input_schema: { type: "object", ...schema } } : {}
+    };
+  });
+  const implemented = new Set(defs.map((d) => d.name));
+  return { tools, unknown: names.filter((n) => !implemented.has(n)) };
+}
 function buildSandboxTools(caps) {
   const tools = [...READONLY_TOOLS];
   if (caps.readDocs)
@@ -37192,7 +37254,12 @@ var AnthropicAgentRunner = class {
     if (caps.queryGraph && this.opts.knowledgeGraph) {
       executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
     }
-    const tools = buildSandboxTools(caps);
+    const overlay = applyLdToolOverlay(buildSandboxTools(caps), req.ldTools);
+    if (overlay.unknown.length > 0) {
+      console.warn(`[node] ${req.configKey} LD variation attaches tool(s) with no local implementation: ${overlay.unknown.join(", ")} \u2014 ignored (execution lives in the runner; add the implementation or detach them)`);
+    }
+    const tools = overlay.tools;
+    const toolCallsUsed = /* @__PURE__ */ new Set();
     const maxTurns = req.maxTurns ?? DEFAULT_MAX_TURNS;
     const messages = [{ role: "user", content: req.prompt }];
     let finalText = "";
@@ -37219,6 +37286,7 @@ var AnthropicAgentRunner = class {
         const toolUses = resp.content.filter((b) => b.type === "tool_use");
         const results = [];
         for (const b of toolUses) {
+          toolCallsUsed.add(b.name);
           const r = await executor.execute(b.name, b.input ?? {});
           results.push({
             type: "tool_result",
@@ -37264,6 +37332,12 @@ var AnthropicAgentRunner = class {
         span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
+      if (toolCallsUsed.size > 0) {
+        try {
+          req.tracker?.trackToolCalls([...toolCallsUsed]);
+        } catch {
+        }
+      }
       if (inputTokens || outputTokens) {
         req.tracker?.trackTokens({ input: inputTokens, output: outputTokens, total: inputTokens + outputTokens });
       }
@@ -37352,13 +37426,14 @@ function loadCursorSdk() {
     cursorSdkPromise = import("@cursor/sdk");
   return cursorSdkPromise;
 }
-function toCursorTools(defs, executor) {
+function toCursorTools(defs, executor, used) {
   const tools = {};
   for (const d of defs) {
     tools[d.name] = {
       description: d.description,
       inputSchema: d.input_schema,
       execute: async (args) => {
+        used?.add(d.name);
         const r = await executor.execute(d.name, args ?? {});
         return { content: [{ type: "text", text: r.content }], isError: r.isError ?? false };
       }
@@ -37421,7 +37496,12 @@ var CursorAgentRunner = class {
     if (caps.queryGraph && this.opts.knowledgeGraph) {
       executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
     }
-    const customTools = toCursorTools(buildSandboxTools(caps), executor);
+    const overlay = applyLdToolOverlay(buildSandboxTools(caps), req.ldTools);
+    if (overlay.unknown.length > 0) {
+      console.warn(`[node] ${req.configKey} LD variation attaches tool(s) with no local implementation: ${overlay.unknown.join(", ")} \u2014 ignored`);
+    }
+    const toolCallsUsed = /* @__PURE__ */ new Set();
+    const customTools = toCursorTools(overlay.tools, executor, toolCallsUsed);
     const catalog = await this.loadCatalog();
     const match = mapToCursorModel(req.model, catalog, this.fallbackModel);
     const modelDef = catalog.find((m) => m.id === match.id);
@@ -37495,6 +37575,12 @@ ${req.prompt}`;
         span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
+      if (toolCallsUsed.size > 0) {
+        try {
+          req.tracker?.trackToolCalls([...toolCallsUsed]);
+        } catch {
+        }
+      }
       if (usage) {
         req.tracker?.trackTokens({ input: usage.inputTokens, output: usage.outputTokens, total: usage.totalTokens });
       }
@@ -38523,7 +38609,8 @@ async function detectConfigDrift(graphKey) {
     const local = computeConfigHash({
       aiConfigsDir: join6(base, "ai-configs"),
       graphsDir: join6(base, "graphs"),
-      flagsDir: join6(base, "flags")
+      flagsDir: join6(base, "flags"),
+      toolsDir: join6(base, "tools")
     });
     if (!local) return void 0;
     const graph = await new LdClient(targetConnection()).getAgentGraph(graphKey);

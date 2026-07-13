@@ -26,11 +26,66 @@ export interface ProvisionResult {
   variationsCreated: number;
   variationsExisting: number;
   toolsStripped: Array<{ config: string; variation: string }>;
+  /** Tools-library definitions (config/agentcontrol/tools/) created / found. */
+  toolsCreated: string[];
+  toolsExisting: string[];
   failures: Array<{ resource: string; status: number; message: unknown }>;
   graphsCreated: string[];
   graphsExisting: string[];
   flagsCreated: string[];
   flagsExisting: string[];
+}
+
+/** A tool-definition file (config/agentcontrol/tools/<key>.json), in the
+ *  shape the ai-tools API consumes. Generated from the code registry by
+ *  `scripts/export-tools.mjs`; editable in the LD UI after provisioning. */
+export interface ToolFile {
+  key: string;
+  name?: string;
+  description?: string;
+  schema?: Record<string, unknown>;
+}
+
+/**
+ * Ensure every committed tool definition exists in the project's tools
+ * library. Create-only (existing definitions are never touched here — the LD
+ * copy is the editable one; `upgrade` owns syncing drift). Returns key →
+ * live version, which variation attachment needs (`tools: [{key, version}]`).
+ */
+export async function provisionTools(
+  ld: LdClient,
+  toolsDir: string,
+  result: ProvisionResult,
+  dryRun: boolean,
+): Promise<Map<string, number>> {
+  const versions = new Map<string, number>();
+  for (const file of listJson(toolsDir)) {
+    const tool = JSON.parse(readFileSync(file, "utf8")) as ToolFile;
+    try {
+      const existing = await ld.getAiTool<{ version?: number }>(tool.key);
+      if (existing.status === 200) {
+        result.toolsExisting.push(tool.key);
+        versions.set(tool.key, existing.data.version ?? 1);
+        continue;
+      }
+      if (!dryRun) {
+        const created = await ld.createAiTool<{ version?: number }>({
+          key: tool.key,
+          name: tool.name ?? tool.key,
+          description: tool.description ?? "",
+          ...(tool.schema ? { schema: tool.schema } : {}),
+        });
+        versions.set(tool.key, created.data.version ?? 1);
+      } else {
+        versions.set(tool.key, 1);
+      }
+      result.toolsCreated.push(tool.key);
+    } catch (e) {
+      const err = e as LdApiError;
+      result.failures.push({ resource: `ai-tool ${tool.key}`, status: err.status ?? 0, message: err.responseBody ?? String(e) });
+    }
+  }
+  return versions;
 }
 
 interface AiVariation {
@@ -78,10 +133,25 @@ function mapVariation(
   v: AiVariation,
   configKey: string,
   result: ProvisionResult,
+  toolVersions?: Map<string, number>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const f of VAR_FIELDS) if (v[f] !== undefined) out[f] = v[f];
-  if (v.tools !== undefined || v.toolKeys !== undefined) {
+  // Committed variations declare tools as a NAME array; resolve to the
+  // {key, version} refs the API wants (ADR 0011). Anything else (e.g. raw
+  // refs pulled from a source project by seed) is stripped as before —
+  // those reference a DIFFERENT project's tool library.
+  const named = Array.isArray(v.tools) && v.tools.every((t) => typeof t === "string") ? (v.tools as string[]) : undefined;
+  if (named && toolVersions) {
+    const refs = named
+      .filter((n) => {
+        if (toolVersions.has(n)) return true;
+        result.failures.push({ resource: `${configKey}/${v.key} tool '${n}'`, status: 0, message: "no such tool in config/agentcontrol/tools/ — attachment skipped" });
+        return false;
+      })
+      .map((n) => ({ key: n, version: toolVersions.get(n) as number }));
+    if (refs.length > 0) out.tools = refs;
+  } else if (v.tools !== undefined || v.toolKeys !== undefined) {
     result.toolsStripped.push({ config: configKey, variation: v.key });
   }
   return out;
@@ -109,11 +179,32 @@ async function attachJudges(
   }
 }
 
+/** Mirror of attachJudges for tool attachments: the inline defaultVariation
+ *  may drop `tools` the same way it drops judgeConfiguration, so newly created
+ *  variations get their tool refs via a follow-up PATCH. Create-path only. */
+async function attachTools(
+  ld: LdClient,
+  configKey: string,
+  varKey: string,
+  refs: unknown,
+  result: ProvisionResult,
+  dryRun: boolean,
+): Promise<void> {
+  if (!Array.isArray(refs) || refs.length === 0) return;
+  try {
+    if (!dryRun) await ld.updateAiConfigVariation(configKey, varKey, { tools: refs });
+  } catch (e) {
+    const err = e as LdApiError;
+    result.failures.push({ resource: `${configKey}/${varKey} tools`, status: err.status ?? 0, message: err.responseBody ?? String(e) });
+  }
+}
+
 async function provisionAiConfig(
   ld: LdClient,
   cfg: AiConfigFile,
   result: ProvisionResult,
   dryRun: boolean,
+  toolVersions?: Map<string, number>,
 ): Promise<void> {
   const variations = cfg.variations ?? [];
   const existing = await ld.getAiConfig<{ variations?: { key: string }[] }>(cfg.key);
@@ -132,7 +223,11 @@ async function provisionAiConfig(
       // Judge mode requires the evaluation metric key at creation time.
       ...(cfg.evaluationMetricKey ? { evaluationMetricKey: cfg.evaluationMetricKey } : {}),
     };
-    if (variations[0]) body.defaultVariation = mapVariation(variations[0], cfg.key, result);
+    let defaultMapped: Record<string, unknown> | undefined;
+    if (variations[0]) {
+      defaultMapped = mapVariation(variations[0], cfg.key, result, toolVersions);
+      body.defaultVariation = defaultMapped;
+    }
     try {
       if (!dryRun) await ld.createAiConfig(body);
       result.configsCreated.push(cfg.key);
@@ -141,6 +236,7 @@ async function provisionAiConfig(
         existingVarKeys.add(variations[0].key);
         // The inline defaultVariation drops judgeConfiguration — re-attach.
         await attachJudges(ld, cfg.key, variations[0], result, dryRun);
+        await attachTools(ld, cfg.key, variations[0].key, defaultMapped?.tools, result, dryRun);
       }
     } catch (e) {
       const err = e as LdApiError;
@@ -155,10 +251,11 @@ async function provisionAiConfig(
       continue;
     }
     try {
-      const mapped = mapVariation(v, cfg.key, result);
+      const mapped = mapVariation(v, cfg.key, result, toolVersions);
       if (!dryRun) await ld.createAiConfigVariation(cfg.key, mapped);
       result.variationsCreated += 1;
       await attachJudges(ld, cfg.key, v, result, dryRun);
+      await attachTools(ld, cfg.key, v.key, mapped.tools, result, dryRun);
     } catch (e) {
       const err = e as LdApiError;
       result.failures.push({ resource: `${cfg.key}/${v.key}`, status: err.status ?? 0, message: err.responseBody ?? String(e) });
@@ -230,6 +327,12 @@ export interface ProvisionOptions {
    * pulled from a source project), so the seed path provisions them too.
    */
   flagsDir?: string;
+  /**
+   * Directory of tool-definition JSON files (the AgentControl tools library,
+   * ADR 0011). Default `config/agentcontrol/tools`. Repo-owned defaults, like
+   * the flags — provisioned for both `provision` and `seed`.
+   */
+  toolsDir?: string;
   /** When true, perform reads only — report what would be created without writing. */
   dryRun?: boolean;
 }
@@ -237,23 +340,30 @@ export interface ProvisionOptions {
 export async function provision(ld: LdClient, opts: ProvisionOptions): Promise<ProvisionResult> {
   const result: ProvisionResult = {
     configsCreated: [], configsExisting: [], variationsCreated: 0, variationsExisting: 0,
-    toolsStripped: [], failures: [], graphsCreated: [], graphsExisting: [], flagsCreated: [], flagsExisting: [],
+    toolsStripped: [], toolsCreated: [], toolsExisting: [],
+    failures: [], graphsCreated: [], graphsExisting: [], flagsCreated: [], flagsExisting: [],
   };
   const dryRun = opts.dryRun ?? false;
+  const toolsDir = opts.toolsDir ?? "config/agentcontrol/tools";
 
-  // Judge-mode configs first: agent variations may carry a `judgeConfiguration`
+  // Tools first: variations reference them as {key, version}, so the library
+  // must exist before any variation create.
+  const toolVersions = await provisionTools(ld, toolsDir, result, dryRun);
+
+  // Judge-mode configs next: agent variations may carry a `judgeConfiguration`
   // that references a judge by key, so the judges must exist before the agents.
   const aiConfigs = listJson(opts.aiConfigsDir)
     .map((file) => JSON.parse(readFileSync(file, "utf8")) as AiConfigFile)
     .sort((a, b) => Number(b.mode === "judge") - Number(a.mode === "judge"));
   for (const cfg of aiConfigs) {
-    await provisionAiConfig(ld, cfg, result, dryRun);
+    await provisionAiConfig(ld, cfg, result, dryRun, toolVersions);
   }
   // Graphs after configs — they reference config keys.
   const configHash = computeConfigHash({
     aiConfigsDir: opts.aiConfigsDir,
     graphsDir: opts.graphsDir,
     flagsDir: opts.flagsDir ?? "config/agentcontrol/flags",
+    toolsDir,
   });
   for (const file of listJson(opts.graphsDir)) {
     const g = JSON.parse(readFileSync(file, "utf8")) as AgentGraphFile;

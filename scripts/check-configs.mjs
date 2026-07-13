@@ -156,6 +156,36 @@ try {
 }
 
 // --- Report ---------------------------------------------------------------
+// --- Tools (ADR 0011): every variation "tools" name must have a committed
+// definition file; every definition file's key must match its filename.
+try {
+  const TOOLS_DIR = "config/agentcontrol/tools";
+  const toolFiles = readdirSync(TOOLS_DIR).filter((f) => f.endsWith(".json"));
+  const toolKeys = new Set();
+  for (const f of toolFiles) {
+    const def = JSON.parse(readFileSync(join(TOOLS_DIR, f), "utf8"));
+    if (def.key !== f.replace(/\.json$/, "")) fail(`tools: ${f} has key '${def.key}' (must match its filename).`);
+    if (!def.description) fail(`tools: ${f} has no description.`);
+    toolKeys.add(def.key);
+  }
+  for (const file of configFiles) {
+    const cfg = JSON.parse(readFileSync(file, "utf8"));
+    for (const v of cfg.variations ?? []) {
+      if (v.tools === undefined) continue;
+      if (!Array.isArray(v.tools) || !v.tools.every((x) => typeof x === "string")) {
+        fail(`${basename(file)}/${v.key}: 'tools' must be an array of tool NAMES.`);
+        continue;
+      }
+      for (const name of v.tools) {
+        if (!toolKeys.has(name)) fail(`${basename(file)}/${v.key}: references tool '${name}' with no file under ${TOOLS_DIR}.`);
+      }
+      if (!v.tools.includes("tag_conversation")) fail(`${basename(file)}/${v.key}: 'tools' must include tag_conversation (chain routing depends on it).`);
+    }
+  }
+} catch (e) {
+  fail(`tools: could not validate config/agentcontrol/tools: ${e.message}`);
+}
+
 if (configFiles.length === 0) {
   console.error(`✗ no agent configs found under ${AI_CONFIG_DIR}`);
   process.exit(1);

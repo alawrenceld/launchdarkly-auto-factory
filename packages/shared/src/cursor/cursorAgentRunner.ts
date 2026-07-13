@@ -39,6 +39,7 @@ import {
   type GitMode,
   SandboxToolExecutor,
   type ToolCapabilities,
+  applyLdToolOverlay,
   buildSandboxTools,
 } from "../anthropic/sandboxTools.js";
 import { SpanKind, SpanStatusCode, aiTracer, setGenAiAttributes } from "../observability.js";
@@ -89,13 +90,18 @@ export interface CursorAgentRunnerOptions {
 }
 
 /** Convert the shared sandbox tool defs into Cursor `customTools` backed by one executor. */
-function toCursorTools(defs: AnthropicToolDef[], executor: SandboxToolExecutor): Record<string, SDKCustomTool> {
+function toCursorTools(
+  defs: AnthropicToolDef[],
+  executor: SandboxToolExecutor,
+  used?: Set<string>,
+): Record<string, SDKCustomTool> {
   const tools: Record<string, SDKCustomTool> = {};
   for (const d of defs) {
     tools[d.name] = {
       description: d.description,
       inputSchema: d.input_schema as unknown as Record<string, SDKJsonValue>,
       execute: async (args: Record<string, SDKJsonValue>) => {
+        used?.add(d.name);
         const r = await executor.execute(d.name, (args ?? {}) as Record<string, unknown>);
         return { content: [{ type: "text" as const, text: r.content }], isError: r.isError ?? false };
       },
@@ -173,7 +179,16 @@ export class CursorAgentRunner implements AgentRunner {
     if (caps.queryGraph && this.opts.knowledgeGraph) {
       executor.provideKnowledgeGraph(this.opts.knowledgeGraph, this.opts.changedFiles ?? []);
     }
-    const customTools = toCursorTools(buildSandboxTools(caps), executor);
+    // LD variation tool attachments shape the interface within the capability
+    // ceiling (ADR 0011) — same overlay as the Anthropic runner.
+    const overlay = applyLdToolOverlay(buildSandboxTools(caps), req.ldTools);
+    if (overlay.unknown.length > 0) {
+      console.warn(
+        `[node] ${req.configKey} LD variation attaches tool(s) with no local implementation: ${overlay.unknown.join(", ")} — ignored`,
+      );
+    }
+    const toolCallsUsed = new Set<string>();
+    const customTools = toCursorTools(overlay.tools, executor, toolCallsUsed);
 
     // Resolve the Cursor model + parameters from the LaunchDarkly AI config.
     const catalog = await this.loadCatalog();
@@ -273,6 +288,14 @@ export class CursorAgentRunner implements AgentRunner {
       if (e instanceof Error) span.recordException(e);
     } finally {
       req.tracker?.trackDuration(Date.now() - started);
+      // Tool-invocation telemetry (AI Config monitoring's tool dimension).
+      if (toolCallsUsed.size > 0) {
+        try {
+          req.tracker?.trackToolCalls([...toolCallsUsed]);
+        } catch {
+          /* telemetry must never fail the node */
+        }
+      }
       if (usage) {
         req.tracker?.trackTokens({ input: usage.inputTokens, output: usage.outputTokens, total: usage.totalTokens });
       }

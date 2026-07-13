@@ -1,0 +1,17 @@
+{
+  "key": "read_file",
+  "name": "read_file",
+  "description": "Read a UTF-8 text file from the repository (relative to the repo root). Use this to inspect source files referenced in the PR or the prior step's brief.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Repo-relative file path, e.g. backend/app.py"
+      }
+    },
+    "required": [
+      "path"
+    ]
+  }
+}

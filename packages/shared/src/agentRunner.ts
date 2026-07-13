@@ -62,6 +62,15 @@ export interface AgentNodeRequest {
    */
   capabilities?: string[];
   /**
+   * Tool definitions attached to this node's AI Config variation in
+   * LaunchDarkly (the AI SDK's `config.tools` map). They shape the
+   * model-facing interface — restricting the offered set and overriding
+   * descriptions/schemas — within the ceiling set by `capabilities`; execution
+   * and write-gating always stay in the runner's sandbox. Absent = the
+   * built-in tool definitions (pre-tools projects keep working).
+   */
+  ldTools?: Record<string, { name?: string; description?: string; parameters?: Record<string, unknown> }>;
+  /**
    * Per-node AI-config tracker. The runner records generation metrics
    * (duration, tokens, success/error) so they flow to LaunchDarkly's AI Config
    * monitoring dashboards, correlated to this graph run.

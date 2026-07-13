@@ -17,6 +17,27 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-07-13
 
+### ✅ Tool definitions move into LaunchDarkly (ADR 0011)
+- **New committed dir** `config/agentcontrol/tools/` — 14 tool-library
+  definitions (key/description/schema), generated from the code registry via
+  `npm run export:tools`. Bridge `provision` creates them + attaches per the
+  new `tools` name array on every agent variation; `upgrade` syncs drifted
+  descriptions/schemas and re-points attachments at current tool versions
+  (a definition PATCH bumps the version).
+- **Runtime**: the offering is now capability set ∩ implementations,
+  restricted + re-described by the variation's LD attachments. LD can narrow
+  or rephrase, never broaden; unimplemented attachments are logged + ignored;
+  `tag_conversation` always survives (routing); no attachments = built-in
+  defaults (pre-tools projects unchanged).
+- **Telemetry**: both local runners now record per-run tool usage via
+  `trackToolCalls` — the tool dimension in AI Config monitoring.
+- **Guards**: `check:configs` validates tool files ↔ variation references
+  (+ tag_conversation presence); the `[cfg:…]` drift stamp now hashes the
+  tools dir.
+- **Why:** tool descriptions steer agents as much as instructions do; they are
+  now live LD config (editable, versioned, A/B-able per variation) instead of
+  hardcoded strings. Load lives in LD; the write ceiling stays in code.
+
 ### ✅ LLM-friendly LaunchDarkly docs for the agents (`read_ld_docs`)
 - **New capability token** `read_docs` → **new tool** `read_ld_docs`: fetches
   LaunchDarkly documentation pages as clean markdown (the docs site serves

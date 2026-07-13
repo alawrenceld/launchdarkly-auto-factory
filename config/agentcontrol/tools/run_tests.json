@@ -1,0 +1,14 @@
+{
+  "key": "run_tests",
+  "name": "run_tests",
+  "description": "Run the repository's test suite (auto-detected: pytest for Python, `npm test` for Node, `go test` for Go; dependencies are installed first) and return the output. Use this AFTER writing tests to confirm they actually pass — fix any failures and re-run before committing. Optionally scope to a subdirectory.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "dir": {
+        "type": "string",
+        "description": "Subdirectory to run tests in (e.g. backend). Defaults to repo root."
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "key": "create_metric",
+  "name": "create_metric",
+  "description": "Create a guarded-release metric in LaunchDarkly (the app/data-plane project) off a custom event. The metric measures one category of the flagged change during a guarded release. You must FIRST instrument the matching event in code (a LaunchDarkly `track(event_key, …)` call on the path the flag wraps, via edit_file) so the metric has data once live. Idempotent: re-creating an existing key is a no-op. After it succeeds the metrics_created/metric_keys tags are updated for you.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "description": "Metric key, convention <flag-key>-<category>, e.g. enable-fact-endpoint-error-rate"
+      },
+      "category": {
+        "type": "string",
+        "enum": [
+          "error",
+          "latency",
+          "business"
+        ],
+        "description": "error/latency = lower is better; business = higher is better"
+      },
+      "event_key": {
+        "type": "string",
+        "description": "The custom event name your track() call emits, e.g. fact-endpoint-error"
+      },
+      "name": {
+        "type": "string",
+        "description": "Human-readable metric name"
+      },
+      "description": {
+        "type": "string",
+        "description": "What the metric measures"
+      },
+      "randomization_unit": {
+        "type": "string",
+        "description": "Unit the metric is measured on; MUST match the flag rollout's unit. Default 'user'."
+      },
+      "unit": {
+        "type": "string",
+        "description": "Numeric unit for latency metrics (default 'ms'); ignored for error/business."
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Extra tags (auto-factory tags are added automatically)"
+      }
+    },
+    "required": [
+      "key",
+      "category",
+      "event_key"
+    ]
+  }
+}

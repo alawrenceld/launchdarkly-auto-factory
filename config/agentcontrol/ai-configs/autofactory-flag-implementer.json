@@ -20,7 +20,21 @@
             "samplingRate": 1
           }
         ]
-      }
+      },
+      "tools": [
+        "read_file",
+        "list_dir",
+        "grep",
+        "git_diff",
+        "tag_conversation",
+        "create_flag",
+        "write_manifest",
+        "write_file",
+        "edit_file",
+        "run_tests",
+        "commit_and_push",
+        "read_ld_docs"
+      ]
     }
   ]
 }
