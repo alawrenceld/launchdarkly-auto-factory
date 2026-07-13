@@ -108,10 +108,10 @@
      and runs the release using those resources. Hover a node for the mechanics.</p>
   <p class="disclaimer"><b>Note:</b> this diagram reflects the primary repo
      maintainer's current setup. The pipeline itself is modular and customizable —
-     where Phase 1 runs (GitHub Action, Cursor/VS Code extension, or native Cursor
-     automation), which agent provider(s) and models execute the chain (selected
-     per run by flag), which CD system notifies Beacon, and the agents'
-     instructions, graph, and permissions are all configuration, not code.</p>
+     where it runs, which agent provider(s) and models execute the chain, and
+     which CD system notifies Beacon are all swappable seams that can be extended
+     to other platforms and providers as needed; the agents' instructions, graph,
+     and permissions are configuration, not code.</p>
 </header>
 
 <section class="phase p1">
