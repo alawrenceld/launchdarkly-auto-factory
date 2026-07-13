@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 11   # the scanner inspects recent history for branch info
 
-      - uses: launchdarkly/find-code-refs-github-action@v2
+      - uses: launchdarkly/find-code-references@v2.14.0
         with:
           accessToken: ${{ secrets.LD_API_KEY }}
           projKey: <your-app-project-key>
