@@ -68,16 +68,22 @@ function listJson(dir: string): string[] {
   }
 }
 
+/** Deep key-sorted clone — live GETs return objects with normalized/reordered
+ *  keys, so drift comparisons must be order-insensitive. */
+function stable(v: unknown): unknown {
+  return v && typeof v === "object" && !Array.isArray(v)
+    ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([k, val]) => [k, stable(val)]))
+    : Array.isArray(v)
+      ? v.map(stable)
+      : v;
+}
+
 /** The graph fields we own; live GETs carry extra metadata (_links, ids) that
  *  must not count as drift. */
 function ownedGraphShape(g: { rootConfigKey?: string; edges?: unknown[] }): string {
   const edges = ((g.edges ?? []) as GraphFile["edges"])!
     .map((e) => ({ key: e.key, sourceConfig: e.sourceConfig, targetConfig: e.targetConfig, handoff: e.handoff ?? {} }))
     .sort((a, b) => a.key.localeCompare(b.key));
-  const stable = (v: unknown): unknown =>
-    v && typeof v === "object" && !Array.isArray(v)
-      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([k, val]) => [k, stable(val)]))
-      : Array.isArray(v) ? v.map(stable) : v;
   return JSON.stringify({ rootConfigKey: g.rootConfigKey, edges: edges.map(stable) });
 }
 
@@ -115,7 +121,7 @@ export async function upgrade(ld: LdClient, opts: UpgradeOptions): Promise<Upgra
       let version = live.data.version ?? 1;
       const drifted =
         (tool.description ?? "") !== (live.data.description ?? "") ||
-        JSON.stringify(tool.schema ?? null) !== JSON.stringify(live.data.schema ?? null);
+        JSON.stringify(stable(tool.schema ?? null)) !== JSON.stringify(stable(live.data.schema ?? null));
       if (drifted) {
         if (!dryRun) {
           await ld.updateAiTool(tool.key, {
