@@ -89,6 +89,11 @@
   .tip .k { color: var(--accent1); font-family: ui-monospace, monospace; font-size: .78rem; }
   .p2 .tip .k { color: var(--accent2); }
 
+  .disclaimer {
+    margin-top: .8rem; padding: .55rem .8rem; max-width: 60rem;
+    background: var(--panel); border: 1px solid var(--node-border); border-left: 3px solid var(--accent1);
+    border-radius: 6px; color: var(--muted); font-size: .8rem;
+  }
   .legend { max-width: 1200px; margin: 0 auto; color: var(--muted); font-size: .8rem; }
   .legend span { margin-right: 1.25rem; }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: .35rem; }
@@ -101,6 +106,12 @@
   <p>Phase 1 runs in CI on each pull request and creates the release resources
      (flag, metrics, tests, review verdict). Phase 2 receives deploy notifications
      and runs the release using those resources. Hover a node for the mechanics.</p>
+  <p class="disclaimer"><b>Note:</b> this diagram reflects the primary repo
+     maintainer's current setup. The pipeline itself is modular and customizable —
+     where Phase 1 runs (GitHub Action, Cursor/VS Code extension, or native Cursor
+     automation), which agent provider(s) and models execute the chain (selected
+     per run by flag), which CD system notifies Beacon, and the agents'
+     instructions, graph, and permissions are all configuration, not code.</p>
 </header>
 
 <section class="phase p1">
