@@ -101,6 +101,21 @@ export function resolveGitRepoRoot(start: string): string {
   return dir;
 }
 
+/** ld-find-code-refs may nest CSV output when branch/repo names contain slashes. */
+function findCsvInOutDir(outDir: string): string | undefined {
+  const walk = (dir: string): string | undefined => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const found = walk(p);
+        if (found) return found;
+      } else if (entry.name.endsWith(".csv")) return p;
+    }
+    return undefined;
+  };
+  return walk(outDir);
+}
+
 /**
  * Run `ld-find-code-refs` at the checkout's current SHA (dry run — nothing is
  * pushed to LaunchDarkly from the pipeline; the app repo's own on-merge scan
@@ -123,7 +138,8 @@ export function runFindCodeRefs(opts: {
   }
   const outDir = mkdtempSync(join(tmpdir(), "af-coderefs-"));
   const repoRoot = resolveGitRepoRoot(opts.sandboxRoot);
-  const branch = process.env.PR_BRANCH?.trim();
+  // Branch names like chore/foo break ld-find-code-refs CSV paths (slash → subdir).
+  const branch = process.env.PR_BRANCH?.trim().replace(/\//g, "-");
   try {
     const args = [
       "--dir", repoRoot,
@@ -143,9 +159,9 @@ export function runFindCodeRefs(opts: {
       const detail = `${run.stderr ?? ""}${run.stdout ?? ""}`.trim().slice(0, 300);
       return { rows: [], warning: `ld-find-code-refs failed (${detail || "unknown error"}) — wrap-point edges unavailable.` };
     }
-    const csvFile = readdirSync(outDir).find((f) => f.endsWith(".csv"));
-    if (!csvFile) return { rows: [], warning: "ld-find-code-refs produced no CSV — wrap-point edges unavailable." };
-    const csvText = readFileSync(join(outDir, csvFile), "utf8");
+    const csvPath = findCsvInOutDir(outDir);
+    if (!csvPath) return { rows: [], warning: "ld-find-code-refs produced no CSV — wrap-point edges unavailable." };
+    const csvText = readFileSync(csvPath, "utf8");
     const rows = parseCodeRefsCsv(csvText);
     return rows.length
       ? { rows, csvText }

@@ -38080,6 +38080,21 @@ function resolveGitRepoRoot(start) {
   }
   return dir;
 }
+function findCsvInOutDir(outDir) {
+  const walk2 = (dir) => {
+    for (const entry of readdirSync3(dir, { withFileTypes: true })) {
+      const p = join5(dir, entry.name);
+      if (entry.isDirectory()) {
+        const found = walk2(p);
+        if (found)
+          return found;
+      } else if (entry.name.endsWith(".csv"))
+        return p;
+    }
+    return void 0;
+  };
+  return walk2(outDir);
+}
 function runFindCodeRefs(opts) {
   const probe = spawnSync2("ld-find-code-refs", ["--version"], { encoding: "utf8", timeout: 15e3 });
   if (probe.error || probe.status !== 0) {
@@ -38090,7 +38105,7 @@ function runFindCodeRefs(opts) {
   }
   const outDir = mkdtempSync(join5(tmpdir(), "af-coderefs-"));
   const repoRoot = resolveGitRepoRoot(opts.sandboxRoot);
-  const branch = process.env.PR_BRANCH?.trim();
+  const branch = process.env.PR_BRANCH?.trim().replace(/\//g, "-");
   try {
     const args = [
       "--dir",
@@ -38112,10 +38127,10 @@ function runFindCodeRefs(opts) {
       const detail = `${run.stderr ?? ""}${run.stdout ?? ""}`.trim().slice(0, 300);
       return { rows: [], warning: `ld-find-code-refs failed (${detail || "unknown error"}) \u2014 wrap-point edges unavailable.` };
     }
-    const csvFile = readdirSync3(outDir).find((f) => f.endsWith(".csv"));
-    if (!csvFile)
+    const csvPath = findCsvInOutDir(outDir);
+    if (!csvPath)
       return { rows: [], warning: "ld-find-code-refs produced no CSV \u2014 wrap-point edges unavailable." };
-    const csvText = readFileSync4(join5(outDir, csvFile), "utf8");
+    const csvText = readFileSync4(csvPath, "utf8");
     const rows = parseCodeRefsCsv(csvText);
     return rows.length ? { rows, csvText } : { rows, csvText, warning: "ld-find-code-refs found no flag references in this checkout." };
   } finally {
