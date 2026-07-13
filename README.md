@@ -84,9 +84,10 @@ Bootstrap runs preflight checks, then creates, in your factory project from the 
 definitions in `config/agentcontrol/`: the six agent AI configs, the two **judge**
 configs (attached to the flag-implementer and metrics-author, so evidence-based quality
 scoring works out of the box), the `gha-auto-factory` agent graph, and the operational
-flags (`auto-factory-ai-provider` plus the approval trio: `auto-factory-approval-mode`,
-`auto-factory-risk-threshold`, `auto-factory-approval-gates`) — approvals default to
-`yolo`, so they're visible and ready to toggle in your LD UI without changing behavior.
+flags (`auto-factory-ai-provider`, the approval trio: `auto-factory-approval-mode`,
+`auto-factory-risk-threshold`, `auto-factory-approval-gates`, and
+`auto-factory-knowledge-graph`) — approvals default to `yolo` and the knowledge graph to
+off, so they're visible and ready to toggle in your LD UI without changing behavior.
 It is idempotent: existing
 resources are left untouched (your targeting is never overwritten). After provisioning, the
 agent instructions are editable in the LaunchDarkly UI; the pipeline reads them at run time,
@@ -126,6 +127,18 @@ repo. Then set, in the app repo:
 `GITHUB_TOKEN` is provided by Actions automatically. The workflow needs
 `contents: write`, `pull-requests: write`, and `checks: write` (the last for the
 approval-gate check run; all already set in the template).
+
+**Optional — knowledge-graph enrichment** (`auto-factory-knowledge-graph` flag, off by
+default): when enabled, each run composes an impact graph from LaunchDarkly-native sources —
+service dependencies derived from your **observability** traces, and flag→code wrap points
+from **code references** — and gives the research planner a `query_dependencies` tool for
+blast-radius analysis. To light up all sources: commit an `.autofactory/services.yaml`
+service registry to your app repo (see the demo app for the shape), instrument your services
+with the LaunchDarkly observability SDKs, keep the `ld-find-code-refs` install step from the
+workflow template, and drop `bootstrap/github-action-template/find-code-refs.yml` into your
+app repo for the standard on-merge code-references scan (no LaunchDarkly-side setup — the
+scanner registers the repository itself). Missing sources degrade to warnings, never
+failures.
 
 To run on the **Cursor** provider instead, copy `bootstrap/github-action-template/auto-factory-cursor.yml`
 (it checks the tool out and `npm ci`s it, because the Cursor SDK can't run via the bare

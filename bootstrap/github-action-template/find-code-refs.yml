@@ -1,0 +1,34 @@
+# Drop this into your app repo at .github/workflows/find-code-refs.yml
+#
+# Pushes LaunchDarkly code references on every merge to main, so each flag's
+# page in LaunchDarkly shows exactly where it lives in your code — and so flag
+# cleanup (Phase 3) stays mechanical. This is the standard LaunchDarkly
+# find-code-refs action doing its normal job; the AutoFactory pipeline
+# SEPARATELY runs the same scanner in dry-run mode at each PR's SHA to feed
+# its knowledge graph, and never pushes references itself.
+#
+# No LaunchDarkly-side setup is required: the scanner creates and updates the
+# repository record automatically on first push. Optional scanner config
+# (aliases, context lines) lives in .launchdarkly/coderefs.yaml in your repo.
+#
+# Uses the same LD_API_KEY secret the AutoFactory workflow already needs.
+# Replace <your-app-project-key> with your LaunchDarkly app project key.
+
+name: LaunchDarkly code references
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  coderefs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 11   # the scanner inspects recent history for branch info
+
+      - uses: launchdarkly/find-code-refs-github-action@v2
+        with:
+          accessToken: ${{ secrets.LD_API_KEY }}
+          projKey: <your-app-project-key>

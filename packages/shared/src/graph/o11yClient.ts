@@ -93,10 +93,9 @@ async function mcpPost(
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
-      // Auth scheme for the hosted MCP gateway. Default is Bearer; the gateway
-      // is OAuth-first today, so headless runs may need LD_O11Y_AUTH once the
-      // observability team provides an API-key scheme (that ask is open —
-      // failures here degrade to a warning, never a blocked run).
+      // Bearer + a regular LD api- key works headlessly (verified live from
+      // CI). LD_O11Y_AUTH overrides the full header value if the gateway's
+      // scheme ever changes; failures degrade to a warning, never a blocked run.
       Authorization: process.env.LD_O11Y_AUTH ?? `Bearer ${apiKey}`,
       ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}),
     },

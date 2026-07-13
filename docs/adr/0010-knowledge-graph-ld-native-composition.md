@@ -31,12 +31,12 @@ LaunchDarkly already owns most of those edges.
    - **service → service edges, derived from observability traces.** The o11y SDKs' spans
      carry service names, parent links, and outbound-call targets; grouping client spans by
      source service → target host yields the service map. The query surface is the hosted
-     observability MCP endpoint (verified live: the span data has everything the derivation
-     needs). Caveat discovered during implementation: that endpoint is OAuth-interactive —
-     API-key auth is rejected — so **headless pipeline fetches degrade to a warning today**.
-     That is the concrete ask to the observability team (an API-key read path or a
-     first-party service-map API); the auth scheme is env-configurable (`LD_O11Y_AUTH`) so
-     the fix is configuration, not code.
+     observability MCP endpoint, authenticated headlessly with `Authorization: Bearer
+     <LD API key>` — verified live from CI: the first enriched run derived real service
+     edges from the estate's traffic. Any fetch failure still degrades to a warning rather
+     than a failed run, and the auth scheme is env-overridable (`LD_O11Y_AUTH`). A
+     first-party service-map read API remains the ask to the observability team — it would
+     replace this client-side aggregation with the product's own.
    - **flag → code edges (wrap points), from `ld-find-code-refs` run in-pipeline at the PR's
      SHA** with file output. Running at the PR SHA is deliberate: refs attached to the flag
      in LaunchDarkly reflect the last default-branch scan and cannot include the flag wiring
