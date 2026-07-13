@@ -1,10 +1,10 @@
 # LaunchDarkly AutoFactory — Cursor/VS Code extension
 
 Phase 1 of AutoFactory, run from the editor instead of (or alongside) the
-GitHub Action. On your current changes it runs the same five-agent chain:
-research and classify, create a feature flag (off), wire the code, create
-guarded-release metrics and instrument their events, and write flag-on/flag-off
-tests, then surface the reviewer's verdict.
+GitHub Action. On your current changes it runs the same six-agent chain:
+research and classify, normalize any human release intent, create a feature
+flag (off), wire the code, create guarded-release metrics and instrument their
+events, and write flag-on/flag-off tests, then surface the reviewer's verdict.
 
 The agents' edits land in your **working tree, uncommitted** — you review them
 in the editor's SCM panel and commit yourself. Nothing is pushed.

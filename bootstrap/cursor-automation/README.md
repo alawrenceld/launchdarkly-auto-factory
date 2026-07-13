@@ -19,7 +19,7 @@ config), not compiled code.
 ## How it works
 
 A bootstrap rule (`rules/autofactory.mdc`) owns the sequencing, the LaunchDarkly
-conventions, and a tool-translation table. The five agents' detailed
+conventions, and a tool-translation table. The six agents' detailed
 instructions stay in LaunchDarkly (the source of truth); the rule has the agent
 **fetch each phase's instructions at run time** via the LaunchDarkly MCP
 `get-ai-config` tool, then carry them out with Cursor's native tools.
@@ -110,7 +110,7 @@ re-fire the "pull request opened" trigger.
   (the edits are already in your tree). Hook-based gating is a later option.
 - **Fetch-and-obey reliability** is exactly what this prototype tests: whether an
   agent reliably pulls each phase's instructions from LaunchDarkly and follows
-  them. If it proves flaky, the fallback is to bake the five prompt bodies into
+  them. If it proves flaky, the fallback is to bake the prompt bodies into
   `.cursor/rules/` (synced from `config/agentcontrol/ai-configs/`).
 - **No LaunchDarkly agent-generation metrics.** Cursor's runtime does not emit
   the per-agent token/duration tracking the Node runtimes do.

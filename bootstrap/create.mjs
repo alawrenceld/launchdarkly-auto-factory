@@ -62,7 +62,8 @@ if (issues.length) {
 //    - If LD_SOURCE_* is configured: SEED (pull the live graph + the configs it
 //      references from the source project, provision straight into the target).
 //    - Otherwise: provision from the committed local copies in config/agentcontrol/.
-//    Either way the operational flags (provider selector, approval gates) are
+//    Either way the operational flags (provider selector, approval gates,
+//    knowledge graph) are
 //    created from config/agentcontrol/flags/ — off by default, so behavior is
 //    unchanged until a maintainer flips them.
 const hasSource =

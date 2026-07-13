@@ -139,7 +139,7 @@
           <li>The agent graph and each agent's instructions are resolved from LaunchDarkly AI Configs at run time. Prompts are config, not code.</li>
           <li>The <span class="k">auto-factory-ai-provider</span> flag selects the backend per run: <span class="k">anthropic</span>, <span class="k">vega</span>, or <span class="k">cursor</span> (Cursor agents). Each agent's model is resolved from its AI Config and mapped to the provider's catalog.</li>
           <li>The targeting context is a multi-context (<span class="k">service</span> static + <span class="k">run</span> = fresh UUID), so coding agents can A/B their model (Composer vs Sonnet) independently per run.</li>
-          <li>Per-agent write permissions (<span class="k">create_flag</span>, <span class="k">create_metric</span>, <span class="k">edit_files</span>, <span class="k">write_manifest</span>) are declared on the graph's edges.</li>
+          <li>Per-agent tool capabilities (<span class="k">create_flag</span>, <span class="k">create_metric</span>, <span class="k">edit_files</span>, <span class="k">write_manifest</span>, and read-only grants like <span class="k">read_docs</span> — LaunchDarkly docs as markdown — and <span class="k">query_graph</span>) are declared on the graph's edges.</li>
           <li>Approval policy: the <span class="k">auto-factory-approval-mode</span> / <span class="k">-risk-threshold</span> / <span class="k">-approval-gates</span> flags compile into pre-execution gates. A gated step halts the chain BEFORE it runs; adding the PR label <span class="k">af-approve:&lt;step&gt;</span> resumes it. Yolo (the default) means no gates.</li>
           <li>Knowledge graph (<span class="k">auto-factory-knowledge-graph</span> flag, off by default): the run composes an impact graph from LaunchDarkly-native sources — service→service edges derived from <b>observability traces</b>, flag→code wrap points from an <b>ld-find-code-refs</b> dry-run at the PR SHA, and changed-file→service mapping from the repo's <span class="k">.autofactory/services.yaml</span>. Every source is fail-soft: missing telemetry or a missing scanner binary becomes a warning + a <span class="k">gaps</span> entry, never a failed run.</li>
         </ul></div>
@@ -151,7 +151,7 @@
       <div class="title">Research &amp; Planner</div>
       <div class="hint">read-only analysis</div>
       <div class="model reason">Sonnet — reasoning</div>
-      <div class="tip">Tools: <span class="k">git_diff</span>, file reads, grep. No write access.
+      <div class="tip">Tools: <span class="k">git_diff</span>, file reads, grep; its only write is the release manifest (<span class="k">write_manifest</span>). No code edits.
         <ul>
           <li>Classifies <span class="k">pr_type</span>, <span class="k">risk_level</span>, <span class="k">change_scope</span>, <span class="k">change_patterns</span>, user-facing impact.</li>
           <li>Records the repo's existing flag, test, and telemetry patterns; downstream agents match them.</li>

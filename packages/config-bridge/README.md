@@ -10,8 +10,9 @@ Flat `src/`:
 
 | File | Purpose |
 |------|---------|
-| `src/cli.ts` | Command dispatch: `provision` / `sync` / `seed` |
-| `src/provision.ts` | Idempotent create-what's-missing into a **target** project (from a local dir) |
+| `src/cli.ts` | Command dispatch: `provision` / `upgrade` / `sync` / `seed` |
+| `src/provision.ts` | Idempotent create-what's-missing into a **target** project (from a local dir): agent + judge configs, graphs (stamped `[cfg:…]` for drift detection), and the operational flags from `config/agentcontrol/flags/` |
+| `src/upgrade.ts` | `provision` + an update pass (ADR 0009): sync existing variation instructions to the committed copies, attach missing judge configurations, PATCH graphs whose root/edges drifted. Never touches flag targeting, live model choices, or live-only variations — that drift is reported, not overwritten |
 | `src/sync.ts` | Pull AI configs (tag- or key-filtered) + named graphs from a **source** project into a dir |
 | `src/seed.ts` | `sync` from source → gitignored staging → `provision` into target, in one step |
 
@@ -24,6 +25,11 @@ package). Connections come entirely from env — `LD_*` for the target,
 ```bash
 # Provision local copies into the target project (LD_*).
 bridge provision [--ai-configs <dir>] [--graphs <dir>] [--dry-run]
+
+# Bring an already-bootstrapped project up to date with this repo version:
+# create what's missing + sync instructions / judge attachments / graph edges
+# to the committed copies. Preview with --dry-run first.
+bridge upgrade [--ai-configs <dir>] [--graphs <dir>] [--flags <dir>] [--dry-run]
 
 # Pull from the source project (LD_SOURCE_*) into <dir> for inspection.
 bridge sync --out <dir> [--tags a,b] [--graphs key1,key2]

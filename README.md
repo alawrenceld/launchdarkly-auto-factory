@@ -9,10 +9,11 @@ end-to-end against a live demo repo. Not a product.
 
 ## How it works
 
-- **Phase 1 (per change):** resolve an agent graph and five agent configs from LaunchDarkly
-  and walk the chain: research and classify the change, create a feature flag (targeting
-  off), wire the new behavior behind it, create guarded-release metrics and instrument their
-  events, write flag-on/flag-off tests, and produce a review verdict. A release manifest
+- **Phase 1 (per change):** resolve an agent graph and six agent configs from LaunchDarkly
+  and walk the chain: research and classify the change, normalize any human-stated release
+  intent, create a feature flag (targeting off), wire the new behavior behind it, create
+  guarded-release metrics and instrument their events, write flag-on/flag-off tests, and
+  produce a review verdict. A release manifest
   (`.release-flags/…json`) records the flag, metrics, and rollout parameters. LaunchDarkly
   **judges** attached to the coding agents score each output 0..1 against the agent's actual
   git diff — a sampled, non-blocking evaluation layer (the reviewer remains the gate; see
@@ -38,7 +39,7 @@ Design history: [docs/adr/](docs/adr/).
 | `bootstrap/cursor-automation/` | Phase 1 front end #3 (native Cursor automation): a drop-in `.cursor/` rule + command + MCP config; runs in Cursor's own agent (local prototype) |
 | `packages/beacon/` | Phase 2 release orchestrator (webhooks, discovery, trigger, monitor) |
 | `packages/config-bridge/` | CLI that provisions/syncs the agent configs and graph between LD projects |
-| `config/agentcontrol/ai-configs/` | The five agent definitions (instructions live here and in LD) |
+| `config/agentcontrol/ai-configs/` | The six agent + two judge definitions (instructions live here and in LD) |
 | `config/agentcontrol/graphs/` | The agent graph: chain order, routing conditions, per-agent write capabilities |
 | `bootstrap/` | One-command setup, plus the drop-in front-end templates (GitHub Action workflow, Cursor automation) |
 | `examples/demo-app/` | Local sandbox the agents run against in dry-run mode |
@@ -46,7 +47,7 @@ Design history: [docs/adr/](docs/adr/).
 
 ## Phase 1 front ends
 
-The same five-agent chain (one shared core in `packages/shared`) runs from three entry points;
+The same six-agent chain (one shared core in `packages/shared`) runs from three entry points;
 pick whichever fits where you work. All three create the same flag/metrics/tests and write the
 same release manifest — they differ only in trigger, output, and which models run the agents.
 
