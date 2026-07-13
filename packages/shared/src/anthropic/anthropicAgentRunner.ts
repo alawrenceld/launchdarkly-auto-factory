@@ -219,11 +219,13 @@ export class AnthropicAgentRunner implements AgentRunner {
       stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
       // Read-only; globally enabled by the presence of a composed graph (KG flag).
       queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== undefined,
+      // Read-only; no global gate (fetch failures degrade inside the tool).
+      readDocs: grant.readDocs === true,
     };
     // Per-node diagnostic: makes a renamed/added agent that silently lost its
     // grant (source "none", read-only) visible in the run logs.
     console.log(
-      `[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} → effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`,
+      `[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} readDocs=${grant.readDocs === true} queryGraph=${grant.queryGraph === true} → effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles} readDocs=${caps.readDocs === true} queryGraph=${caps.queryGraph === true}`,
     );
     const writer = caps.createFlag || caps.createMetric ? this.opts.writer : undefined;
 

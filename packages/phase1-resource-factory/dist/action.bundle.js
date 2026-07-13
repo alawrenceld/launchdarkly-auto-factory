@@ -37263,9 +37263,11 @@ var AnthropicAgentRunner = class {
       writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
       stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
       // Read-only; globally enabled by the presence of a composed graph (KG flag).
-      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== void 0
+      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== void 0,
+      // Read-only; no global gate (fetch failures degrade inside the tool).
+      readDocs: grant.readDocs === true
     };
-    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
+    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} readDocs=${grant.readDocs === true} queryGraph=${grant.queryGraph === true} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles} readDocs=${caps.readDocs === true} queryGraph=${caps.queryGraph === true}`);
     const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
     const system = (req.instructions ?? "") + modeNote(caps);
     const model = anthropicModelId(req.model);
@@ -37507,9 +37509,11 @@ var CursorAgentRunner = class {
       writeManifest: grant.writeManifest === true && this.opts.codeChangesEnabled === true,
       stewardManifest: grant.stewardManifest === true && this.opts.codeChangesEnabled === true,
       // Read-only; globally enabled by the presence of a composed graph (KG flag).
-      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== void 0
+      queryGraph: grant.queryGraph === true && this.opts.knowledgeGraph !== void 0,
+      // Read-only; no global gate (fetch failures degrade inside the tool).
+      readDocs: grant.readDocs === true
     };
-    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles}`);
+    console.log(`[node] ${req.configKey} grant(${source}): createFlag=${grant.createFlag} createMetric=${grant.createMetric} editFiles=${grant.editFiles} readDocs=${grant.readDocs === true} queryGraph=${grant.queryGraph === true} \u2192 effective createFlag=${caps.createFlag} createMetric=${caps.createMetric} editFiles=${caps.editFiles} readDocs=${caps.readDocs === true} queryGraph=${caps.queryGraph === true}`);
     const writer = caps.createFlag || caps.createMetric ? this.opts.writer : void 0;
     const executor = new SandboxToolExecutor(this.opts.sandboxRoot, writer, caps.editFiles, this.opts.prBranch, this.opts.prBaseRef, this.opts.gitMode ?? "push", caps.writeManifest === true && this.opts.codeChangesEnabled === true, caps.stewardManifest === true && this.opts.codeChangesEnabled === true);
     if (caps.queryGraph && this.opts.knowledgeGraph) {
