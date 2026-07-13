@@ -17,6 +17,24 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ## 2026-07-13
 
+### ✅ Trace-backed guarded-release metrics: `create_metric` gains `trace_query`
+- **Corrected finding:** trace-metric creation is NOT UI-only — the regular
+  metrics POST accepts `kind: "trace"` + `traceQuery` (span filter) +
+  `dataSource: {key: "launchdarkly-hosted"}` (+ `traceValueLocation` for
+  numeric) under the beta API version. Verified live with create+delete probes
+  (Tom supplied the UI's payload shape).
+- **Tool** `create_metric`: `event_key` now optional — pass `trace_query`
+  instead for a trace-backed metric (latency category measures span duration;
+  `trace_value_location` overrides). Event path unchanged (no beta header).
+- **Instructions** (metrics author): Metric Backing decision order #2 upgraded
+  from "record trace_metric_candidates, creation is UI-only" to actually
+  creating trace-backed metrics when the flag-evaluated-in-span pattern holds;
+  events remain the default and the only backing without the o11y SDK.
+- **Why:** closes the loop from the 2026-07-10 trace-metrics design — services
+  instrumented once (app PR #5) now get guardrails with ZERO per-PR
+  instrumentation when the pattern allows.
+- **Live sync:** with this build (`bridge upgrade`).
+
 ### ✅ Tool definitions move into LaunchDarkly (ADR 0011)
 - **New committed dir** `config/agentcontrol/tools/` — 14 tool-library
   definitions (key/description/schema), generated from the code registry via

@@ -33338,9 +33338,11 @@ var LdClient = class {
   }
   /** Create a metric. Returns status 409 (not throwing) when it exists. */
   createMetric(body) {
+    const isTrace = typeof body === "object" && body !== null && body.kind === "trace";
     return this.request({
       method: "POST",
       path: `/api/v2/metrics/${this.conn.projectKey}`,
+      ...isTrace ? { headers: BETA } : {},
       body,
       okStatuses: [409]
     });
@@ -36273,20 +36275,22 @@ var CREATE_FLAG_TOOL = {
 };
 var CREATE_METRIC_TOOL = {
   name: "create_metric",
-  description: "Create a guarded-release metric in LaunchDarkly (the app/data-plane project) off a custom event. The metric measures one category of the flagged change during a guarded release. You must FIRST instrument the matching event in code (a LaunchDarkly `track(event_key, \u2026)` call on the path the flag wraps, via edit_file) so the metric has data once live. Idempotent: re-creating an existing key is a no-op. After it succeeds the metrics_created/metric_keys tags are updated for you.",
+  description: "Create a guarded-release metric in LaunchDarkly (the app/data-plane project). TWO backings: (1) EVENT-backed (default) \u2014 pass event_key; you must FIRST instrument the matching event in code (a LaunchDarkly `track(event_key, \u2026)` call on the path the flag wraps, via edit_file) so the metric has data once live. (2) TRACE-backed \u2014 pass trace_query (an observability span filter, e.g. service_name=x AND span_name=\"GET /api/y\") INSTEAD of event_key; valid ONLY when the flag is evaluated inside the matched trace (the observability SDK's afterEvaluation hook enriches the span \u2014 see your Metric Backing rules), and requires the service to already emit spans. Latency-category trace metrics measure the span's duration (override with trace_value_location). Idempotent: re-creating an existing key is a no-op. After it succeeds the metrics_created/metric_keys tags are updated for you.",
   input_schema: {
     type: "object",
     properties: {
       key: { type: "string", description: "Metric key, convention <flag-key>-<category>, e.g. enable-fact-endpoint-error-rate" },
       category: { type: "string", enum: ["error", "latency", "business"], description: "error/latency = lower is better; business = higher is better" },
-      event_key: { type: "string", description: "The custom event name your track() call emits, e.g. fact-endpoint-error" },
+      event_key: { type: "string", description: "EVENT-backed: the custom event name your track() call emits, e.g. fact-endpoint-error. Omit when trace_query is set." },
+      trace_query: { type: "string", description: "TRACE-backed: span filter selecting the spans to measure. The flag MUST be evaluated within the matched traces or the metric cannot attribute." },
+      trace_value_location: { type: "string", description: "TRACE-backed latency only: span field/attribute holding the numeric value (default 'duration')." },
       name: { type: "string", description: "Human-readable metric name" },
       description: { type: "string", description: "What the metric measures" },
       randomization_unit: { type: "string", description: "Unit the metric is measured on; MUST match the flag rollout's unit. Default 'user'." },
       unit: { type: "string", description: "Numeric unit for latency metrics (default 'ms'); ignored for error/business." },
       tags: { type: "array", items: { type: "string" }, description: "Extra tags (auto-factory tags are added automatically)" }
     },
-    required: ["key", "category", "event_key"]
+    required: ["key", "category"]
   }
 };
 var WRITE_FILE_TOOL = {
@@ -36727,14 +36731,19 @@ ${body}` };
     if (category !== "error" && category !== "latency" && category !== "business") {
       return { content: "create_metric: category must be one of error | latency | business", isError: true };
     }
+    if (!input.event_key && !input.trace_query) {
+      return { content: "create_metric: provide event_key (event-backed) or trace_query (trace-backed)", isError: true };
+    }
     const result = await this.writer.createMetric({
       key: String(input.key ?? ""),
-      eventKey: String(input.event_key ?? ""),
+      ...input.event_key ? { eventKey: String(input.event_key) } : {},
       category,
       ...input.name ? { name: String(input.name) } : {},
       ...input.description ? { description: String(input.description) } : {},
       ...input.randomization_unit ? { randomizationUnit: String(input.randomization_unit) } : {},
       ...input.unit ? { unit: String(input.unit) } : {},
+      ...input.trace_query ? { traceQuery: String(input.trace_query) } : {},
+      ...input.trace_value_location ? { traceValueLocation: String(input.trace_value_location) } : {},
       ...Array.isArray(input.tags) ? { tags: input.tags.map(String) } : {}
     });
     this.tags.metrics_created = "true";
@@ -37053,8 +37062,9 @@ var LdResourceWriter = class {
   async createMetric(args) {
     if (!args.key)
       throw new Error("metric key is required");
-    if (!args.eventKey)
-      throw new Error("metric eventKey is required");
+    const trace2 = Boolean(args.traceQuery);
+    if (!trace2 && !args.eventKey)
+      throw new Error("metric eventKey is required (or pass traceQuery for a trace-backed metric)");
     const numeric = args.category === "latency";
     const successCriteria = args.category === "business" ? "HigherThanBaseline" : "LowerThanBaseline";
     const unit = args.randomizationUnit || "user";
@@ -37062,14 +37072,23 @@ var LdResourceWriter = class {
       key: args.key,
       name: args.name || args.key,
       ...args.description ? { description: args.description } : {},
-      kind: "custom",
-      eventKey: args.eventKey,
       isNumeric: numeric,
       successCriteria,
       randomizationUnits: [unit],
       tags: dedupe(["auto-factory", "auto-generated", ...args.tags ?? []]),
       // Numeric (latency) metrics need a unit + an aggregation; occurrence metrics don't.
-      ...numeric ? { unit: args.unit || "ms", unitAggregationType: "average" } : {}
+      ...numeric ? { unit: args.unit || "ms", unitAggregationType: "average" } : {},
+      ...trace2 ? {
+        // Trace-backed (verified against the live API, 2026-07-13): the
+        // regular metrics POST with kind=trace + a span filter; numeric
+        // metrics read their value from traceValueLocation.
+        kind: "trace",
+        traceQuery: args.traceQuery,
+        dataSource: { key: "launchdarkly-hosted" },
+        analysisType: "mean",
+        eventDefault: { disabled: false, value: 0 },
+        ...numeric ? { traceValueLocation: args.traceValueLocation || "duration" } : { unitAggregationType: "sum" }
+      } : { kind: "custom", eventKey: args.eventKey }
     };
     const res = await this.ld.createMetric(body);
     const alreadyExists = res.status === 409;
@@ -37077,7 +37096,7 @@ var LdResourceWriter = class {
       created: !alreadyExists,
       alreadyExists,
       key: args.key,
-      detail: alreadyExists ? `Metric '${args.key}' already exists in project '${this.ld.projectKey}' (no change).` : `Created ${args.category} metric '${args.key}' (event '${args.eventKey}') in project '${this.ld.projectKey}'.`
+      detail: alreadyExists ? `Metric '${args.key}' already exists in project '${this.ld.projectKey}' (no change).` : trace2 ? `Created ${args.category} TRACE metric '${args.key}' (traceQuery: ${args.traceQuery}) in project '${this.ld.projectKey}'.` : `Created ${args.category} metric '${args.key}' (event '${args.eventKey}') in project '${this.ld.projectKey}'.`
     };
   }
 };
@@ -37154,7 +37173,7 @@ function modeNote(caps) {
     lines.push("You have `create_flag` \u2014 creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.");
   }
   if (caps.createMetric) {
-    lines.push("You have `create_metric` \u2014 creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). To make a metric measurable you must FIRST instrument its event in code: add a LaunchDarkly `track(event_key, \u2026)` call on the path the flag wraps (via `edit_file`), then call `create_metric` with the matching `event_key`. Creating the metric before signals flow is expected.");
+    lines.push("You have `create_metric` \u2014 creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). Event-backed (default): FIRST instrument the event in code (a LaunchDarkly `track(event_key, \u2026)` call on the path the flag wraps, via `edit_file`), then call `create_metric` with the matching `event_key`. Trace-backed: pass `trace_query` instead when your Metric Backing rules allow it (flag evaluated inside the matched spans) \u2014 no instrumentation needed. Creating the metric before signals flow is expected.");
   }
   if (caps.writeManifest || caps.stewardManifest) {
     lines.push(caps.stewardManifest ? "You have `write_manifest` (STEWARD grade): you may create/update the release manifest INCLUDING an existing `releaseIntent` \u2014 you are the only agent allowed to touch a human's intent, and only to normalize/structure it, never to broaden it (e.g. never flip hold\u2192auto)." : "You have `write_manifest` \u2014 create/update the release manifest (.release-flags/pr-<N>.json) by passing only the fields you own (flagKey, scope, releasePlan.*). It merges, auto-initializes the human-editable `releaseIntent` skeleton, PRESERVES any existing intent, and commits automatically. Never write manifests with other tools.");

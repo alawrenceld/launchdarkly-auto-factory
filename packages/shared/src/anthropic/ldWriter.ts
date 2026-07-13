@@ -31,8 +31,9 @@ export type MetricCategory = "error" | "latency" | "business";
 export interface CreateMetricArgs {
   /** Metric key, e.g. "enable-fact-endpoint-error-rate". */
   key: string;
-  /** Custom event name the app emits via `track()` — what the metric measures. */
-  eventKey: string;
+  /** Custom event name the app emits via `track()` — what the metric measures.
+   *  Required for event-backed metrics; ignored when `traceQuery` is set. */
+  eventKey?: string;
   category: MetricCategory;
   /** Human-readable name. Defaults to the key. */
   name?: string;
@@ -41,6 +42,17 @@ export interface CreateMetricArgs {
   randomizationUnit?: string;
   /** Numeric unit (latency only). Default "ms". */
   unit?: string;
+  /**
+   * TRACE-BACKED metric (ADR 0010): an observability span filter, e.g.
+   * "service_name=togglemart-gateway AND span_name=\"GET /api/storefront\"".
+   * Only valid when the flag is evaluated INSIDE the matched trace (the o11y
+   * SDK's afterEvaluation hook enriches the span) — otherwise the metric
+   * cannot attribute. When set, the metric is created as kind=trace with no
+   * eventKey; latency-category trace metrics measure `traceValueLocation`.
+   */
+  traceQuery?: string;
+  /** Numeric value source for latency trace metrics. Default "duration". */
+  traceValueLocation?: string;
   /** Extra tags, merged with the standard auto-factory tags. */
   tags?: string[];
 }
@@ -101,7 +113,8 @@ export class LdResourceWriter {
    */
   async createMetric(args: CreateMetricArgs): Promise<LdWriteResult> {
     if (!args.key) throw new Error("metric key is required");
-    if (!args.eventKey) throw new Error("metric eventKey is required");
+    const trace = Boolean(args.traceQuery);
+    if (!trace && !args.eventKey) throw new Error("metric eventKey is required (or pass traceQuery for a trace-backed metric)");
     const numeric = args.category === "latency";
     const successCriteria = args.category === "business" ? "HigherThanBaseline" : "LowerThanBaseline";
     const unit = args.randomizationUnit || "user";
@@ -109,14 +122,25 @@ export class LdResourceWriter {
       key: args.key,
       name: args.name || args.key,
       ...(args.description ? { description: args.description } : {}),
-      kind: "custom",
-      eventKey: args.eventKey,
       isNumeric: numeric,
       successCriteria,
       randomizationUnits: [unit],
       tags: dedupe(["auto-factory", "auto-generated", ...(args.tags ?? [])]),
       // Numeric (latency) metrics need a unit + an aggregation; occurrence metrics don't.
       ...(numeric ? { unit: args.unit || "ms", unitAggregationType: "average" } : {}),
+      ...(trace
+        ? {
+            // Trace-backed (verified against the live API, 2026-07-13): the
+            // regular metrics POST with kind=trace + a span filter; numeric
+            // metrics read their value from traceValueLocation.
+            kind: "trace",
+            traceQuery: args.traceQuery,
+            dataSource: { key: "launchdarkly-hosted" },
+            analysisType: "mean",
+            eventDefault: { disabled: false, value: 0 },
+            ...(numeric ? { traceValueLocation: args.traceValueLocation || "duration" } : { unitAggregationType: "sum" }),
+          }
+        : { kind: "custom", eventKey: args.eventKey }),
     };
     const res = await this.ld.createMetric(body);
     const alreadyExists = res.status === 409;
@@ -126,7 +150,9 @@ export class LdResourceWriter {
       key: args.key,
       detail: alreadyExists
         ? `Metric '${args.key}' already exists in project '${this.ld.projectKey}' (no change).`
-        : `Created ${args.category} metric '${args.key}' (event '${args.eventKey}') in project '${this.ld.projectKey}'.`,
+        : trace
+          ? `Created ${args.category} TRACE metric '${args.key}' (traceQuery: ${args.traceQuery}) in project '${this.ld.projectKey}'.`
+          : `Created ${args.category} metric '${args.key}' (event '${args.eventKey}') in project '${this.ld.projectKey}'.`,
     };
   }
 }

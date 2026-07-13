@@ -107,20 +107,22 @@ const CREATE_FLAG_TOOL: AnthropicToolDef = {
 const CREATE_METRIC_TOOL: AnthropicToolDef = {
   name: "create_metric",
   description:
-    "Create a guarded-release metric in LaunchDarkly (the app/data-plane project) off a custom event. The metric measures one category of the flagged change during a guarded release. You must FIRST instrument the matching event in code (a LaunchDarkly `track(event_key, …)` call on the path the flag wraps, via edit_file) so the metric has data once live. Idempotent: re-creating an existing key is a no-op. After it succeeds the metrics_created/metric_keys tags are updated for you.",
+    "Create a guarded-release metric in LaunchDarkly (the app/data-plane project). TWO backings: (1) EVENT-backed (default) — pass event_key; you must FIRST instrument the matching event in code (a LaunchDarkly `track(event_key, …)` call on the path the flag wraps, via edit_file) so the metric has data once live. (2) TRACE-backed — pass trace_query (an observability span filter, e.g. service_name=x AND span_name=\"GET /api/y\") INSTEAD of event_key; valid ONLY when the flag is evaluated inside the matched trace (the observability SDK's afterEvaluation hook enriches the span — see your Metric Backing rules), and requires the service to already emit spans. Latency-category trace metrics measure the span's duration (override with trace_value_location). Idempotent: re-creating an existing key is a no-op. After it succeeds the metrics_created/metric_keys tags are updated for you.",
   input_schema: {
     type: "object",
     properties: {
       key: { type: "string", description: "Metric key, convention <flag-key>-<category>, e.g. enable-fact-endpoint-error-rate" },
       category: { type: "string", enum: ["error", "latency", "business"], description: "error/latency = lower is better; business = higher is better" },
-      event_key: { type: "string", description: "The custom event name your track() call emits, e.g. fact-endpoint-error" },
+      event_key: { type: "string", description: "EVENT-backed: the custom event name your track() call emits, e.g. fact-endpoint-error. Omit when trace_query is set." },
+      trace_query: { type: "string", description: "TRACE-backed: span filter selecting the spans to measure. The flag MUST be evaluated within the matched traces or the metric cannot attribute." },
+      trace_value_location: { type: "string", description: "TRACE-backed latency only: span field/attribute holding the numeric value (default 'duration')." },
       name: { type: "string", description: "Human-readable metric name" },
       description: { type: "string", description: "What the metric measures" },
       randomization_unit: { type: "string", description: "Unit the metric is measured on; MUST match the flag rollout's unit. Default 'user'." },
       unit: { type: "string", description: "Numeric unit for latency metrics (default 'ms'); ignored for error/business." },
       tags: { type: "array", items: { type: "string" }, description: "Extra tags (auto-factory tags are added automatically)" },
     },
-    required: ["key", "category", "event_key"],
+    required: ["key", "category"],
   },
 };
 
@@ -676,14 +678,19 @@ export class SandboxToolExecutor {
     if (category !== "error" && category !== "latency" && category !== "business") {
       return { content: "create_metric: category must be one of error | latency | business", isError: true };
     }
+    if (!input.event_key && !input.trace_query) {
+      return { content: "create_metric: provide event_key (event-backed) or trace_query (trace-backed)", isError: true };
+    }
     const result = await this.writer.createMetric({
       key: String(input.key ?? ""),
-      eventKey: String(input.event_key ?? ""),
+      ...(input.event_key ? { eventKey: String(input.event_key) } : {}),
       category: category as MetricCategory,
       ...(input.name ? { name: String(input.name) } : {}),
       ...(input.description ? { description: String(input.description) } : {}),
       ...(input.randomization_unit ? { randomizationUnit: String(input.randomization_unit) } : {}),
       ...(input.unit ? { unit: String(input.unit) } : {}),
+      ...(input.trace_query ? { traceQuery: String(input.trace_query) } : {}),
+      ...(input.trace_value_location ? { traceValueLocation: String(input.trace_value_location) } : {}),
       ...(Array.isArray(input.tags) ? { tags: input.tags.map(String) } : {}),
     });
     // Accumulate routing tags so the chain reflects real metric creation even if

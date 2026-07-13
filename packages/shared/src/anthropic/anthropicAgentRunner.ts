@@ -60,7 +60,7 @@ export function modeNote(caps: ToolCapabilities): string {
   }
   if (caps.createMetric) {
     lines.push(
-      "You have `create_metric` — creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). To make a metric measurable you must FIRST instrument its event in code: add a LaunchDarkly `track(event_key, …)` call on the path the flag wraps (via `edit_file`), then call `create_metric` with the matching `event_key`. Creating the metric before signals flow is expected.",
+      "You have `create_metric` — creates a REAL guarded-release metric in the LaunchDarkly app project (idempotent). Event-backed (default): FIRST instrument the event in code (a LaunchDarkly `track(event_key, …)` call on the path the flag wraps, via `edit_file`), then call `create_metric` with the matching `event_key`. Trace-backed: pass `trace_query` instead when your Metric Backing rules allow it (flag evaluated inside the matched spans) — no instrumentation needed. Creating the metric before signals flow is expected.",
     );
   }
   if (caps.writeManifest || caps.stewardManifest) {

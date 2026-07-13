@@ -83,10 +83,11 @@ LaunchDarkly already owns most of those edges.
 - The graph's quality now depends on telemetry coverage, which is exactly the loop item 3
   closes — and a coverage gap is visible in the artifact rather than silently wrong.
 - Trace metrics are Early Access: guarded rollouts only (no experiments), account enablement
-  required, and creation is confirmed UI-only today (probed the metrics REST API: the
-  `dataSource` field must reference a registered data-source key and inline trace
-  definitions are rejected; no public registration endpoint exists) — so the agent records
-  trace-metric candidates rather than creating them, and guardrails stay event-backed until
-  an API path ships.
+  required. Creation IS API-possible (corrected 2026-07-13): the regular metrics POST with
+  `kind: "trace"`, a `traceQuery` span filter, `dataSource: {key: "launchdarkly-hosted"}`,
+  and — for numeric metrics — `traceValueLocation` (the beta API version header is
+  required). `create_metric` supports this via `trace_query`, so the metrics author creates
+  trace-backed guardrails directly when the flag-evaluated-in-span pattern holds, and falls
+  back to `track()` events otherwise.
 - If service-level granularity proves insufficient, the fallback is known and measured: the
   spike-winning static extractor's artifact can be merged in as an additional source.

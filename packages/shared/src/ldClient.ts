@@ -212,9 +212,14 @@ export class LdClient {
 
   /** Create a metric. Returns status 409 (not throwing) when it exists. */
   createMetric<T = unknown>(body: unknown): Promise<LdResponse<T>> {
+    // Trace-backed metrics (kind=trace, traceQuery) require the beta API
+    // version; event metrics don't. Send it only when needed so the proven
+    // event path is untouched.
+    const isTrace = typeof body === "object" && body !== null && (body as { kind?: string }).kind === "trace";
     return this.request<T>({
       method: "POST",
       path: `/api/v2/metrics/${this.conn.projectKey}`,
+      ...(isTrace ? { headers: BETA } : {}),
       body,
       okStatuses: [409],
     });
