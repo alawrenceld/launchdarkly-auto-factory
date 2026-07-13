@@ -15,6 +15,30 @@ Status legend: ✅ done · 🔜 planned/in progress
 
 ---
 
+## 2026-07-13
+
+### ✅ LLM-friendly LaunchDarkly docs for the agents (`read_ld_docs`)
+- **New capability token** `read_docs` → **new tool** `read_ld_docs`: fetches
+  LaunchDarkly documentation pages as clean markdown (the docs site serves
+  `.md` for any page; validated that expand/accordion content is fully inlined
+  — e.g. all 27 per-SDK "Expand … code sample" sections on
+  `sdk/features/all-flags` survive). Allowlisted to launchdarkly.com/docs
+  only, 25KB size cap, 8 fetches per node run, 10s timeout, fail-soft (a
+  failed fetch tells the agent to proceed from repo evidence).
+- **Granted to** flag-implementer, metrics-author (graph edges +
+  fallback map) and code-reviewer (new edge capability + fallback entry).
+  Research planner / steward / testing stay without — keep the chain lean.
+- **Instructions** gained per-agent shortlists + `llms.txt` as the fallback
+  directory: metrics-author (sdk/features/events, guarded-rollouts,
+  custom-metrics, choose, create-trace-metrics), implementer
+  (sdk/features/evaluating, all-flags), reviewer (evaluating, events,
+  guarded-rollouts). Framing everywhere: consult when UNCERTAIN, never guess
+  SDK syntax for an undemonstrated language, docs are an aid not a gate.
+- **Why:** agents previously reasoned about LD semantics from baked-in
+  instructions + repo patterns only; live docs close the gap for unfamiliar
+  languages and rollout mechanics without fossilizing content in prompts.
+- **Live sync:** requires `bridge upgrade` (instructions + graph edges).
+
 ## 2026-07-10
 
 ### ✅ Knowledge graph: `auto-factory-knowledge-graph` flag + `query_graph` capability (ADR 0010)

@@ -48,6 +48,11 @@ export function modeNote(caps: ToolCapabilities): string {
       "You have `query_dependencies` — the estate's knowledge graph (service call edges observed from LaunchDarkly telemetry + flag→code wrap points). Call it with NO arguments EARLY to get this PR's blast radius (changed services, dependent services at risk, upstream contracts, flags already on the changed code) and let it inform your classification and risk_score. Treat any entry in its `gaps` list as UNKNOWN coverage — a thin graph is never evidence of low impact.",
     );
   }
+  if (caps.readDocs) {
+    lines.push(
+      "You have `read_ld_docs` — LaunchDarkly documentation pages as markdown. Consult it when UNCERTAIN about LaunchDarkly semantics or SDK syntax (never guess `track()`/evaluation syntax for a language the repo doesn't demonstrate); your instructions list the relevant pages, and 'llms.txt' is the full directory. Budget your fetches; a failed fetch must never block the task — fall back to the repo's existing patterns.",
+    );
+  }
   if (caps.createFlag) {
     lines.push(
       "You have `create_flag` — creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.",
@@ -96,11 +101,14 @@ const NODE_CAPABILITIES: Record<string, ToolCapabilities> = {
   // The steward normalizes the human-edited releaseIntent — the only node that
   // may UPDATE an existing intent block.
   "autofactory-manifest-steward": { createFlag: false, createMetric: false, editFiles: false, stewardManifest: true },
-  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true, writeManifest: true },
+  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true, writeManifest: true, readDocs: true },
   "autofactory-flag-testing": { createFlag: false, createMetric: false, editFiles: true },
   // The metrics author creates LD metrics and instruments the event (track()) that
   // feeds them — so it needs create_metric AND edit_files (+ manifest updates).
-  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true, writeManifest: true },
+  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true, writeManifest: true, readDocs: true },
+  // The reviewer is read-only but verifies LaunchDarkly semantics — docs access
+  // lets it check claims against the source instead of trusting the chain.
+  "autofactory-code-reviewer": { createFlag: false, createMetric: false, editFiles: false, readDocs: true },
 };
 
 /**
@@ -133,6 +141,7 @@ export const CAP_EDIT_FILES = "edit_files";
 export const CAP_WRITE_MANIFEST = "write_manifest";
 export const CAP_STEWARD_MANIFEST = "steward_manifest";
 export const CAP_QUERY_GRAPH = "query_graph";
+export const CAP_READ_DOCS = "read_docs";
 
 /**
  * Resolve a node's requested capability grant: from the edge `capabilities` list
@@ -152,6 +161,7 @@ export function resolveGrant(
         writeManifest: capabilities.includes(CAP_WRITE_MANIFEST),
         stewardManifest: capabilities.includes(CAP_STEWARD_MANIFEST),
         queryGraph: capabilities.includes(CAP_QUERY_GRAPH),
+        readDocs: capabilities.includes(CAP_READ_DOCS),
       },
       source: "edge",
     };

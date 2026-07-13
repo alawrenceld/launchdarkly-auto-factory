@@ -36301,6 +36301,56 @@ var COMMIT_PUSH_TOOL = {
     required: ["message"]
   }
 };
+var READ_LD_DOCS_TOOL = {
+  name: "read_ld_docs",
+  description: "Fetch a LaunchDarkly documentation page as clean markdown (docs pages serve markdown when '.md' is appended; this tool handles that). Use it when you are UNCERTAIN about LaunchDarkly-specific semantics or SDK syntax \u2014 e.g. track() in a language this repo doesn't demonstrate, guarded-rollout mechanics, metric type rules. Your instructions list a shortlist of relevant pages; pass 'llms.txt' to get the full documentation directory if the shortlist doesn't cover your question. LaunchDarkly docs only \u2014 other URLs are rejected. A failed fetch must never block your task: fall back to the repo's existing patterns.",
+  input_schema: {
+    type: "object",
+    properties: {
+      path: {
+        type: "string",
+        description: "Docs path, e.g. 'sdk/features/events' or 'home/releases/guarded-rollouts' (a full launchdarkly.com/docs URL also works), or 'llms.txt' for the directory."
+      },
+      filter: {
+        type: "string",
+        description: "For 'llms.txt' only: case-insensitive term to filter the directory's lines (it is ~200KB \u2014 ALWAYS pass a filter, e.g. 'metric' or 'python')."
+      }
+    },
+    required: ["path"]
+  }
+};
+var DOCS_HOST = "launchdarkly.com";
+var DOCS_MAX_BYTES = 25e3;
+var DOCS_MAX_FETCHES_PER_RUN = 8;
+var DOCS_TIMEOUT_MS = 1e4;
+function normalizeLdDocsUrl(raw) {
+  let path5 = raw.trim();
+  if (!path5)
+    return { error: "read_ld_docs: empty path" };
+  if (/^https?:\/\//i.test(path5)) {
+    let parsed;
+    try {
+      parsed = new URL(path5);
+    } catch {
+      return { error: `read_ld_docs: unparseable URL '${raw}'` };
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (host !== DOCS_HOST && !host.endsWith(`.${DOCS_HOST}`)) {
+      return { error: `read_ld_docs: only ${DOCS_HOST} docs are fetchable (got '${parsed.hostname}')` };
+    }
+    path5 = parsed.pathname;
+  }
+  path5 = path5.replace(/^\/+/, "").replace(/^docs\/+/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
+  if (!path5)
+    return { error: "read_ld_docs: empty docs path" };
+  if (path5.includes(".."))
+    return { error: "read_ld_docs: invalid path" };
+  if (!/^[A-Za-z0-9._\/-]+$/.test(path5))
+    return { error: `read_ld_docs: invalid characters in path '${raw}'` };
+  if (!path5.endsWith(".md") && !path5.endsWith(".txt"))
+    path5 += ".md";
+  return { url: `https://${DOCS_HOST}/docs/${path5}` };
+}
 var QUERY_DEPENDENCIES_TOOL = {
   name: "query_dependencies",
   description: "Query the estate's knowledge graph (service-to-service call edges observed from LaunchDarkly telemetry, plus flag-to-code wrap points). Call it with NO arguments for the blast radius of THIS PR's changed files: which services the change belongs to, which services depend on them (consumers at risk), which services they call, and which flags already wrap the changed code. Or pass `node` (a service key, flag key, or repo-relative file path) with `direction` to walk dependents/dependencies of one node. Results include a `gaps` list \u2014 treat a listed gap as UNKNOWN coverage, never as evidence of no impact.",
@@ -36337,6 +36387,8 @@ var WRITE_MANIFEST_TOOL = {
 };
 function buildSandboxTools(caps) {
   const tools = [...READONLY_TOOLS];
+  if (caps.readDocs)
+    tools.push(READ_LD_DOCS_TOOL);
   if (caps.queryGraph)
     tools.push(QUERY_DEPENDENCIES_TOOL);
   if (caps.createFlag)
@@ -36370,6 +36422,7 @@ var SandboxToolExecutor = class {
   tags = {};
   knowledgeGraph;
   changedFiles = [];
+  docsFetches = 0;
   /**
    * Supply the composed knowledge graph (ADR 0010) + the PR's changed files.
    * Only meaningful for nodes granted `queryGraph`; set after construction so
@@ -36419,6 +36472,8 @@ var SandboxToolExecutor = class {
           return this.writeManifestTool(String(input.path ?? ""), input.manifest);
         case "query_dependencies":
           return this.queryDependencies(input);
+        case "read_ld_docs":
+          return await this.readLdDocs(String(input.path ?? ""), input.filter ? String(input.filter) : void 0);
         case "write_file":
           return this.writeFile(String(input.path ?? ""), String(input.content ?? ""));
         case "edit_file":
@@ -36470,6 +36525,57 @@ var SandboxToolExecutor = class {
       via: `${h.via.kind} (${h.via.provenance}${h.via.evidence ? `: ${h.via.evidence}` : ""})`
     }));
     return { content: JSON.stringify({ node: nodeId, direction, hits, gaps: graph.gaps }, null, 1) };
+  }
+  /**
+   * `read_ld_docs`: fetch an allowlisted LaunchDarkly docs page as markdown.
+   * Bounded (size cap, timeout, per-run fetch budget) and never load-bearing —
+   * every failure returns an isError result telling the agent to proceed from
+   * repo evidence. Note: the docs CDN serves brotli; Node's fetch decompresses
+   * transparently (don't replace this with a raw-socket client).
+   */
+  async readLdDocs(rawPath, filter) {
+    if (this.docsFetches >= DOCS_MAX_FETCHES_PER_RUN) {
+      return {
+        content: `read_ld_docs: fetch budget (${DOCS_MAX_FETCHES_PER_RUN}/run) exhausted \u2014 proceed with what you have`,
+        isError: true
+      };
+    }
+    const normalized = normalizeLdDocsUrl(rawPath);
+    if ("error" in normalized)
+      return { content: normalized.error, isError: true };
+    this.docsFetches += 1;
+    try {
+      const res = await fetch(normalized.url, {
+        signal: AbortSignal.timeout(DOCS_TIMEOUT_MS),
+        headers: { Accept: "text/markdown, text/plain" }
+      });
+      if (!res.ok) {
+        return {
+          content: `read_ld_docs: ${res.status} for ${normalized.url} \u2014 check the path (or fetch 'llms.txt' with a filter for the directory); proceed from repo evidence if unsure`,
+          isError: true
+        };
+      }
+      let text = await res.text();
+      if (/^#\s*Page Not Found/im.test(text.slice(0, 200))) {
+        return { content: `read_ld_docs: no page at ${normalized.url}. ${text.slice(0, 1500)}`, isError: true };
+      }
+      if (normalized.url.endsWith("llms.txt") && filter) {
+        const needle = filter.toLowerCase();
+        const lines = text.split("\n").filter((l) => l.toLowerCase().includes(needle));
+        text = lines.length ? `[${lines.length} directory entries matching '${filter}']
+${lines.join("\n")}` : `no directory entries match '${filter}' \u2014 try a broader term`;
+      }
+      const body = text.length > DOCS_MAX_BYTES ? `${text.slice(0, DOCS_MAX_BYTES)}
+\u2026[truncated at ${DOCS_MAX_BYTES} chars${normalized.url.endsWith("llms.txt") ? " \u2014 pass a (narrower) 'filter' to search the directory" : " \u2014 the page continues"}]` : text;
+      return { content: `[source: ${normalized.url}]
+
+${body}` };
+    } catch (e) {
+      return {
+        content: `read_ld_docs: fetch failed (${e instanceof Error ? e.message : String(e)}) \u2014 proceed from the repo's existing patterns`,
+        isError: true
+      };
+    }
   }
   readFile(rel) {
     const abs = this.safeResolve(rel);
@@ -36979,6 +37085,9 @@ function modeNote(caps) {
   if (caps.queryGraph) {
     lines.push("You have `query_dependencies` \u2014 the estate's knowledge graph (service call edges observed from LaunchDarkly telemetry + flag\u2192code wrap points). Call it with NO arguments EARLY to get this PR's blast radius (changed services, dependent services at risk, upstream contracts, flags already on the changed code) and let it inform your classification and risk_score. Treat any entry in its `gaps` list as UNKNOWN coverage \u2014 a thin graph is never evidence of low impact.");
   }
+  if (caps.readDocs) {
+    lines.push("You have `read_ld_docs` \u2014 LaunchDarkly documentation pages as markdown. Consult it when UNCERTAIN about LaunchDarkly semantics or SDK syntax (never guess `track()`/evaluation syntax for a language the repo doesn't demonstrate); your instructions list the relevant pages, and 'llms.txt' is the full directory. Budget your fetches; a failed fetch must never block the task \u2014 fall back to the repo's existing patterns.");
+  }
   if (caps.createFlag) {
     lines.push("You have `create_flag` \u2014 creates a REAL boolean flag in the LaunchDarkly app project (idempotent; safe on PR re-runs). When your rules say a flag is needed, CALL it.");
   }
@@ -37008,11 +37117,14 @@ var NODE_CAPABILITIES = {
   // The steward normalizes the human-edited releaseIntent — the only node that
   // may UPDATE an existing intent block.
   "autofactory-manifest-steward": { createFlag: false, createMetric: false, editFiles: false, stewardManifest: true },
-  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true, writeManifest: true },
+  "autofactory-flag-implementer": { createFlag: true, createMetric: false, editFiles: true, writeManifest: true, readDocs: true },
   "autofactory-flag-testing": { createFlag: false, createMetric: false, editFiles: true },
   // The metrics author creates LD metrics and instruments the event (track()) that
   // feeds them — so it needs create_metric AND edit_files (+ manifest updates).
-  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true, writeManifest: true }
+  "autofactory-metrics-author": { createFlag: false, createMetric: true, editFiles: true, writeManifest: true, readDocs: true },
+  // The reviewer is read-only but verifies LaunchDarkly semantics — docs access
+  // lets it check claims against the source instead of trusting the chain.
+  "autofactory-code-reviewer": { createFlag: false, createMetric: false, editFiles: false, readDocs: true }
 };
 var NODE_REQUIRED_TAGS = {
   // Always decides flag-worthiness AND a numeric risk score — risk-threshold
@@ -37032,6 +37144,7 @@ var CAP_EDIT_FILES = "edit_files";
 var CAP_WRITE_MANIFEST = "write_manifest";
 var CAP_STEWARD_MANIFEST = "steward_manifest";
 var CAP_QUERY_GRAPH = "query_graph";
+var CAP_READ_DOCS = "read_docs";
 function resolveGrant(configKey, capabilities) {
   if (capabilities) {
     return {
@@ -37041,7 +37154,8 @@ function resolveGrant(configKey, capabilities) {
         editFiles: capabilities.includes(CAP_EDIT_FILES),
         writeManifest: capabilities.includes(CAP_WRITE_MANIFEST),
         stewardManifest: capabilities.includes(CAP_STEWARD_MANIFEST),
-        queryGraph: capabilities.includes(CAP_QUERY_GRAPH)
+        queryGraph: capabilities.includes(CAP_QUERY_GRAPH),
+        readDocs: capabilities.includes(CAP_READ_DOCS)
       },
       source: "edge"
     };
@@ -37841,10 +37955,9 @@ async function mcpPost(url, apiKey, sessionId, body) {
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
-      // Auth scheme for the hosted MCP gateway. Default is Bearer; the gateway
-      // is OAuth-first today, so headless runs may need LD_O11Y_AUTH once the
-      // observability team provides an API-key scheme (that ask is open —
-      // failures here degrade to a warning, never a blocked run).
+      // Bearer + a regular LD api- key works headlessly (verified live from
+      // CI). LD_O11Y_AUTH overrides the full header value if the gateway's
+      // scheme ever changes; failures degrade to a warning, never a blocked run.
       Authorization: process.env.LD_O11Y_AUTH ?? `Bearer ${apiKey}`,
       ...sessionId ? { "Mcp-Session-Id": sessionId } : {}
     },

@@ -29,7 +29,8 @@
         "capabilities": [
           "create_flag",
           "edit_files",
-          "write_manifest"
+          "write_manifest",
+          "read_docs"
         ]
       }
     },
@@ -39,7 +40,10 @@
       "targetConfig": "autofactory-code-reviewer",
       "handoff": {
         "max_turns": 30,
-        "request_type": "Fix"
+        "request_type": "Fix",
+        "capabilities": [
+          "read_docs"
+        ]
       }
     },
     {
@@ -67,7 +71,8 @@
         "capabilities": [
           "create_metric",
           "edit_files",
-          "write_manifest"
+          "write_manifest",
+          "read_docs"
         ],
         "require_tags": {
           "flag_created": "true"

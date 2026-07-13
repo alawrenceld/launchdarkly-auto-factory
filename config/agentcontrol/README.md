@@ -94,14 +94,20 @@ Anthropic provider:
   dependency queries over the per-run knowledge graph. Read-only; only offered
   when the `auto-factory-knowledge-graph` flag enabled graph composition for
   the run, so a grant on a flag-off run is inert.
+- `"read_docs"`: the `read_ld_docs` tool — LaunchDarkly docs pages fetched as
+  markdown (the docs site serves `.md` for any page; `llms.txt` is the
+  directory). Allowlisted to launchdarkly.com/docs, size-capped, budgeted at 8
+  fetches per node run, and fail-soft. Each granted agent's instructions carry
+  a curated page shortlist.
 
 Put grants here so "which agent can write" is config, not code. When an edge
 omits `capabilities`, the runner falls back to a built-in per-config-key map
 (`autofactory-research-planner`: write_manifest+query_graph — the ROOT node has
 no inbound edge, so this is its only grant path; `autofactory-manifest-steward`:
 steward_manifest; `autofactory-flag-implementer`: create_flag+edit_files+
-write_manifest; `autofactory-flag-testing`: edit_files;
-`autofactory-metrics-author`: create_metric+edit_files+write_manifest);
+write_manifest+read_docs; `autofactory-flag-testing`: edit_files;
+`autofactory-metrics-author`: create_metric+edit_files+write_manifest+read_docs;
+`autofactory-code-reviewer`: read_docs);
 everything else is read-only. Grants are always intersected with the global
 `ENABLE_FLAG_CREATION` / `ENABLE_CODE_CHANGES` toggles.
 
